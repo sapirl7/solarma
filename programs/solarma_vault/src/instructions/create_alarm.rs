@@ -7,13 +7,15 @@ use crate::error::SolarmaError;
 use crate::constants::MIN_DEPOSIT_LAMPORTS;
 
 #[derive(Accounts)]
-#[instruction(alarm_time: i64, deadline: i64, deposit_amount: u64)]
+#[instruction(alarm_id: u64, alarm_time: i64, deadline: i64, deposit_amount: u64)]
 pub struct CreateAlarm<'info> {
     #[account(
         init,
         payer = owner,
         space = Alarm::SIZE,
-        seeds = [b"alarm", owner.key().as_ref(), &alarm_time.to_le_bytes()],
+        // Seeds include alarm_id to avoid collisions when same user
+        // creates multiple alarms at similar times
+        seeds = [b"alarm", owner.key().as_ref(), &alarm_id.to_le_bytes()],
         bump
     )]
     pub alarm: Account<'info, Alarm>,
@@ -36,6 +38,7 @@ pub struct CreateAlarm<'info> {
 
 pub fn handler(
     ctx: Context<CreateAlarm>,
+    alarm_id: u64,
     alarm_time: i64,
     deadline: i64,
     deposit_amount: u64,
@@ -105,7 +108,7 @@ pub fn handler(
     alarm.bump = ctx.bumps.alarm;
     alarm.vault_bump = ctx.bumps.vault;
     
-    msg!("Alarm created: time={}, deadline={}, deposit={}", 
-         alarm_time, deadline, deposit_amount);
+    msg!("Alarm {} created: time={}, deadline={}, deposit={}", 
+         alarm_id, alarm_time, deadline, deposit_amount);
     Ok(())
 }

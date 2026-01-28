@@ -30,6 +30,7 @@ pub mod solarma_vault {
     /// Create a new alarm with optional deposit
     pub fn create_alarm(
         ctx: Context<CreateAlarm>,
+        alarm_id: u64,
         alarm_time: i64,
         deadline: i64,
         deposit_amount: u64,
@@ -38,6 +39,7 @@ pub mod solarma_vault {
     ) -> Result<()> {
         instructions::create_alarm::handler(
             ctx, 
+            alarm_id,
             alarm_time, 
             deadline, 
             deposit_amount,
@@ -59,5 +61,10 @@ pub mod solarma_vault {
     /// Slash the deposit after deadline (permissionless)
     pub fn slash(ctx: Context<Slash>) -> Result<()> {
         instructions::slash::handler(ctx)
+    }
+
+    /// Emergency refund - owner can cancel before alarm time
+    pub fn emergency_refund(ctx: Context<EmergencyRefund>) -> Result<()> {
+        instructions::emergency_refund::handler(ctx)
     }
 }

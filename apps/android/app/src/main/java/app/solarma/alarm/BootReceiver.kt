@@ -7,7 +7,7 @@ import android.util.Log
 
 /**
  * Receives BOOT_COMPLETED broadcast to restore alarms after device reboot.
- * Critical for alarm reliability.
+ * Uses WorkManager for reliable execution (P1 improvement).
  */
 class BootReceiver : BroadcastReceiver() {
     
@@ -16,15 +16,15 @@ class BootReceiver : BroadcastReceiver() {
     }
     
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.i(TAG, "Device booted, restoring alarms...")
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == "android.intent.action.QUICKBOOT_POWERON" ||
+            intent.action == "com.htc.intent.action.QUICKBOOT_POWERON") {
             
-            // Launch foreground service to restore alarms
-            val serviceIntent = Intent(context, AlarmService::class.java).apply {
-                action = AlarmService.ACTION_RESTORE_ALARMS
-            }
+            Log.i(TAG, "Boot completed, scheduling alarm restoration")
             
-            context.startForegroundService(serviceIntent)
+            // Use WorkManager for reliable execution
+            // This is better than starting a foreground service directly
+            RestoreAlarmsWorker.enqueue(context)
         }
     }
 }

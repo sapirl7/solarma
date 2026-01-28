@@ -14,8 +14,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Step counter for Wake Proof challenge.
- * Uses TYPE_STEP_DETECTOR for immediate step detection.
+ * Step counter for wake proof challenge.
+ * Uses TYPE_STEP_COUNTER (preferred) with TYPE_STEP_DETECTOR fallback.
  */
 @Singleton
 class StepCounter @Inject constructor(
@@ -29,41 +29,75 @@ class StepCounter @Inject constructor(
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
     
-    /**
-     * Check if step counter sensor is available.
-     */
-    fun isAvailable(): Boolean {
-        return sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR) != null
+    // Prefer TYPE_STEP_COUNTER (cumulative), fallback to TYPE_STEP_DETECTOR (events)
+    private val stepCounterSensor: Sensor? by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    }
+    
+    private val stepDetectorSensor: Sensor? by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
     }
     
     /**
-     * Start counting steps. Emits step count updates.
-     * @param targetSteps Number of steps required to complete challenge
+     * Check if step counting is available.
+     */
+    fun isAvailable(): Boolean {
+        val available = stepCounterSensor != null || stepDetectorSensor != null
+        Log.d(TAG, "Step sensor available: $available (counter=${stepCounterSensor != null}, detector=${stepDetectorSensor != null})")
+        return available
+    }
+    
+    /**
+     * Count steps until target reached.
+     * Uses TYPE_STEP_COUNTER if available (more accurate), else TYPE_STEP_DETECTOR.
      */
     fun countSteps(targetSteps: Int): Flow<StepProgress> = callbackFlow {
-        var stepCount = 0
+        var baselineSteps: Float? = null
+        var currentSteps = 0
         
-        val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+        val useCounter = stepCounterSensor != null
+        val sensor = if (useCounter) stepCounterSensor else stepDetectorSensor
         
-        if (stepSensor == null) {
-            Log.e(TAG, "Step detector sensor not available")
-            trySend(StepProgress(0, targetSteps, false, "Sensor unavailable"))
+        if (sensor == null) {
+            Log.e(TAG, "No step sensor available")
+            trySend(StepProgress(0, targetSteps, 0f, false, error = "No step sensor"))
             close()
             return@callbackFlow
         }
         
+        Log.i(TAG, "Starting step count with ${if (useCounter) "STEP_COUNTER" else "STEP_DETECTOR"}")
+        
         val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                if (event?.sensor?.type == Sensor.TYPE_STEP_DETECTOR) {
-                    stepCount++
-                    Log.d(TAG, "Step detected: $stepCount / $targetSteps")
+            override fun onSensorChanged(event: SensorEvent) {
+                if (useCounter) {
+                    // TYPE_STEP_COUNTER: values[0] is cumulative step count since boot
+                    val totalSteps = event.values[0]
                     
-                    val complete = stepCount >= targetSteps
-                    trySend(StepProgress(stepCount, targetSteps, complete, null))
-                    
-                    if (complete) {
-                        Log.i(TAG, "Step challenge complete!")
+                    if (baselineSteps == null) {
+                        baselineSteps = totalSteps
+                        Log.d(TAG, "Baseline set: $baselineSteps")
                     }
+                    
+                    currentSteps = (totalSteps - baselineSteps!!).toInt()
+                } else {
+                    // TYPE_STEP_DETECTOR: each event is a single step
+                    currentSteps++
+                }
+                
+                val progress = currentSteps.toFloat() / targetSteps
+                val isComplete = currentSteps >= targetSteps
+                
+                Log.d(TAG, "Step: $currentSteps / $targetSteps (complete=$isComplete)")
+                
+                trySend(StepProgress(
+                    currentSteps = currentSteps,
+                    targetSteps = targetSteps,
+                    progress = progress.coerceAtMost(1f),
+                    isComplete = isComplete
+                ))
+                
+                if (isComplete) {
+                    Log.i(TAG, "Step challenge complete!")
                 }
             }
             
@@ -72,31 +106,35 @@ class StepCounter @Inject constructor(
             }
         }
         
-        sensorManager.registerListener(
+        // Register with fastest rate for responsive counting
+        val registered = sensorManager.registerListener(
             listener,
-            stepSensor,
+            sensor,
             SensorManager.SENSOR_DELAY_FASTEST
         )
         
-        // Emit initial state
-        trySend(StepProgress(0, targetSteps, false, null))
+        if (!registered) {
+            Log.e(TAG, "Failed to register sensor listener")
+            trySend(StepProgress(0, targetSteps, 0f, false, error = "Sensor registration failed"))
+        } else {
+            // Send initial state
+            trySend(StepProgress(0, targetSteps, 0f, false))
+        }
         
         awaitClose {
+            Log.d(TAG, "Unregistering step sensor")
             sensorManager.unregisterListener(listener)
-            Log.d(TAG, "Step counter stopped")
         }
     }
 }
 
 /**
- * Progress of step counting challenge.
+ * Progress state for step counting.
  */
 data class StepProgress(
     val currentSteps: Int,
     val targetSteps: Int,
+    val progress: Float,
     val isComplete: Boolean,
-    val error: String?
-) {
-    val progress: Float
-        get() = (currentSteps.toFloat() / targetSteps).coerceIn(0f, 1f)
-}
+    val error: String? = null
+)
