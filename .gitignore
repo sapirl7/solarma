@@ -1,0 +1,90 @@
+# Solarma .gitignore
+
+# ===================
+# IDE / Editor
+# ===================
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===================
+# Environment / Secrets
+# ===================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keypair*.json
+id.json
+
+# ===================
+# Build outputs
+# ===================
+build/
+dist/
+out/
+target/
+*.apk
+*.aab
+*.so
+
+# ===================
+# Dependencies
+# ===================
+node_modules/
+.pnpm-store/
+
+# ===================
+# Android
+# ===================
+apps/android/.gradle/
+apps/android/app/build/
+apps/android/local.properties
+apps/android/*.keystore
+apps/android/captures/
+apps/android/.externalNativeBuild/
+apps/android/.cxx/
+
+# ===================
+# Rust / Anchor
+# ===================
+programs/solarma_vault/target/
+programs/solarma_vault/.anchor/
+programs/solarma_vault/test-ledger/
+
+# ===================
+# Logs
+# ===================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===================
+# Temporary
+# ===================
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ===================
+# AI / Agent specific
+# ===================
+.gemini/brain/
+.cursor/
+.aider/
+.copilot/
+
+# ===================
+# Test outputs
+# ===================
+coverage/
+.nyc_output/
+test-results/

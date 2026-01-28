@@ -1,0 +1,19 @@
+# Solarma LLM Context
+
+## Project
+Android alarm app with Solana commitment vault. User sets alarm + deposit, completes wake proof challenge to claim deposit back.
+
+## Key Files
+- AGENTS.md — Entry point with architecture and commands
+- .ai/memory-bank/ — Persistent agent context
+- apps/android/ — Kotlin/Compose mobile app
+- programs/solarma_vault/ — Anchor/Rust Solana program
+
+## Commands
+- make init — Setup toolchain
+- make test — Run all tests
+- make build — Build all artifacts
+- make lint — Lint all code
+
+## Current Focus
+See .ai/memory-bank/activeContext.md
