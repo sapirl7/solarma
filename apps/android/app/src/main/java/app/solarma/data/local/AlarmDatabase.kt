@@ -85,11 +85,12 @@ interface AlarmDao {
  * Room database for Solarma.
  */
 @Database(
-    entities = [AlarmEntity::class, PendingTransaction::class],
-    version = 2,
+    entities = [AlarmEntity::class, PendingTransaction::class, StatsEntity::class],
+    version = 3,
     exportSchema = true
 )
 abstract class SolarmaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
     abstract fun pendingTransactionDao(): PendingTransactionDao
+    abstract fun statsDao(): StatsDao
 }
