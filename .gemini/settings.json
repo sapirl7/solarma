@@ -1,0 +1,11 @@
+{
+    "agent": {
+        "entryPoint": "AGENTS.md",
+        "contextFiles": [
+            "AGENTS.md",
+            "docs/ARCHITECTURE.md",
+            "README.md",
+            ".ai/memory-bank/activeContext.md"
+        ]
+    }
+}
