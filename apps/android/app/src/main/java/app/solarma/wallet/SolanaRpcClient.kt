@@ -53,25 +53,21 @@ class SolanaRpcClient @Inject constructor() {
     
     /**
      * Get latest blockhash for transaction.
+     * Throws on error for use in TransactionBuilder.
      */
-    suspend fun getLatestBlockhash(): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val response = makeRpcCall(
-                method = "getLatestBlockhash",
-                params = ""
-            )
-            // Parse blockhash from response
-            val blockhash = response
-                .substringAfter("\"blockhash\":\"")
-                .substringBefore("\"")
-            if (blockhash.isNotEmpty() && blockhash.length == 44) {
-                Result.success(blockhash)
-            } else {
-                Result.failure(Exception("Invalid blockhash"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "getLatestBlockhash failed", e)
-            Result.failure(e)
+    suspend fun getLatestBlockhash(): String = withContext(Dispatchers.IO) {
+        val response = makeRpcCall(
+            method = "getLatestBlockhash",
+            params = ""
+        )
+        // Parse blockhash from response
+        val blockhash = response
+            .substringAfter("\"blockhash\":\"")
+            .substringBefore("\"")
+        if (blockhash.isNotEmpty() && blockhash.length == 44) {
+            blockhash
+        } else {
+            throw Exception("Invalid blockhash response")
         }
     }
     
@@ -105,6 +101,32 @@ class SolanaRpcClient @Inject constructor() {
             Result.success(confirmed)
         } catch (e: Exception) {
             Log.e(TAG, "confirmTransaction failed", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send signed transaction to network.
+     */
+    suspend fun sendTransaction(signedTx: ByteArray): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val base64Tx = android.util.Base64.encodeToString(signedTx, android.util.Base64.NO_WRAP)
+            val response = makeRpcCall(
+                method = "sendTransaction",
+                params = """["$base64Tx", {"encoding": "base64"}]"""
+            )
+            // Parse signature from response
+            val signature = response
+                .substringAfter("\"result\":\"")
+                .substringBefore("\"")
+            if (signature.isNotEmpty() && signature.length >= 64) {
+                Log.i(TAG, "Transaction sent: $signature")
+                Result.success(signature)
+            } else {
+                Result.failure(Exception("Invalid signature in response: $response"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "sendTransaction failed", e)
             Result.failure(e)
         }
     }
