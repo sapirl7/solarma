@@ -5,49 +5,89 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
-// Solarma brand colors - warm sunrise palette
-private val SunriseOrange = Color(0xFFFF8C00)
-private val SunriseYellow = Color(0xFFFFD700)
-private val MorningBlue = Color(0xFF4A90D9)
-private val NightPurple = Color(0xFF6B5B95)
+// ═══════════════════════════════════════════════════════════════
+// SOLARMA PREMIUM THEME
+// Dark-first design for alarm apps (used at night)
+// ═══════════════════════════════════════════════════════════════
 
 private val DarkColorScheme = darkColorScheme(
     primary = SunriseOrange,
-    secondary = SunriseYellow,
-    tertiary = MorningBlue,
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
-    onPrimary = Color.Black,
+    onPrimary = Color.White,
+    primaryContainer = SunriseOrangeDark,
+    onPrimaryContainer = Color.White,
+    
+    secondary = GoldenHour,
     onSecondary = Color.Black,
+    secondaryContainer = GoldenHourDark,
+    onSecondaryContainer = Color.White,
+    
+    tertiary = DawnPurple,
     onTertiary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
+    tertiaryContainer = DawnPurpleDark,
+    onTertiaryContainer = Color.White,
+    
+    error = AlertRed,
+    onError = Color.White,
+    errorContainer = AlertRedLight,
+    onErrorContainer = Color.White,
+    
+    background = NightSky,
+    onBackground = TextPrimary,
+    
+    surface = NightSkyLight,
+    onSurface = TextPrimary,
+    
+    surfaceVariant = NightSkyCard,
+    onSurfaceVariant = TextSecondary,
+    
+    outline = Color(0x33FFFFFF),
+    outlineVariant = Color(0x1AFFFFFF),
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = SunriseOrange,
-    secondary = SunriseYellow,
-    tertiary = MorningBlue,
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,
+    primaryContainer = SunriseOrangeLight,
+    onPrimaryContainer = Color.Black,
+    
+    secondary = GoldenHour,
     onSecondary = Color.Black,
+    secondaryContainer = GoldenHourLight,
+    onSecondaryContainer = Color.Black,
+    
+    tertiary = DawnPurple,
     onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
+    tertiaryContainer = DawnPurpleLight,
+    onTertiaryContainer = Color.Black,
+    
+    error = AlertRed,
+    onError = Color.White,
+    
+    background = DaySky,
+    onBackground = TextOnLight,
+    
+    surface = DaySkySurface,
+    onSurface = TextOnLight,
+    
+    surfaceVariant = DaySkyCard,
+    onSurfaceVariant = TextOnLightSecondary,
+    
+    outline = Color(0x33000000),
+    outlineVariant = Color(0x1A000000),
 )
 
 @Composable
 fun SolarmaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Disable dynamic colors to ensure brand consistency
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
+        // Only use dynamic colors if explicitly enabled
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
+            val context = androidx.compose.ui.platform.LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
@@ -56,7 +96,8 @@ fun SolarmaTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = SolarmaTypography,
+        shapes = SolarmaShapes,
         content = content
     )
 }
