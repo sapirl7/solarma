@@ -1,5 +1,6 @@
 package app.solarma.ui.create
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -11,24 +12,47 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /**
  * Screen for creating a new alarm.
+ * Uses CreateAlarmViewModel to actually save alarms.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateAlarmScreen(
-    onBack: () -> Unit = {},
-    onSave: (CreateAlarmState) -> Unit = {}
+    viewModel: CreateAlarmViewModel = hiltViewModel(),
+    onBack: () -> Unit = {}
 ) {
     var state by remember { mutableStateOf(CreateAlarmState()) }
     var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    
+    // Observe save state
+    val saveState by viewModel.saveState.collectAsState()
+    
+    // Handle save result
+    LaunchedEffect(saveState) {
+        when (saveState) {
+            is SaveState.Success -> {
+                Toast.makeText(context, "Alarm created! ⏰", Toast.LENGTH_SHORT).show()
+                viewModel.resetState()
+                onBack()
+            }
+            is SaveState.Error -> {
+                Toast.makeText(context, (saveState as SaveState.Error).message, Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -134,7 +158,7 @@ fun CreateAlarmScreen(
             }
             
             // Deposit option
-            Divider()
+            HorizontalDivider()
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -169,20 +193,28 @@ fun CreateAlarmScreen(
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Save button
+            // Save button - NOW USES VIEWMODEL
             Button(
-                onClick = { onSave(state) },
+                onClick = { viewModel.save(state) },
+                enabled = saveState !is SaveState.Saving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text(
-                    text = if (state.hasDeposit) 
-                        "Create Alarm (${state.depositAmount} SOL)" 
-                    else 
-                        "Create Alarm",
-                    fontSize = 18.sp
-                )
+                if (saveState is SaveState.Saving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text(
+                        text = if (state.hasDeposit) 
+                            "Create Alarm (${state.depositAmount} SOL)" 
+                        else 
+                            "Create Alarm",
+                        fontSize = 18.sp
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))

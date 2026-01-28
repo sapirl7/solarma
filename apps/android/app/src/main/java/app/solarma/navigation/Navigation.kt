@@ -33,11 +33,7 @@ fun SolarmaNavHost(
         
         composable(Screen.CreateAlarm.route) {
             CreateAlarmScreen(
-                onBack = { navController.popBackStack() },
-                onSave = { state ->
-                    // TODO: Save alarm via ViewModel
-                    navController.popBackStack()
-                }
+                onBack = { navController.popBackStack() }
             )
         }
         

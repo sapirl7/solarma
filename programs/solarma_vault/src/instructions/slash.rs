@@ -1,7 +1,7 @@
 //! Slash instruction - transfer deposit after deadline (permissionless)
 
 use anchor_lang::prelude::*;
-use crate::state::{Alarm, AlarmStatus, PenaltyRoute};
+use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use crate::error::SolarmaError;
 use crate::constants::BURN_SINK;
 
@@ -13,13 +13,14 @@ pub struct Slash<'info> {
     )]
     pub alarm: Account<'info, Alarm>,
     
-    /// Vault PDA holding the deposit
+    /// Vault PDA holding the deposit - closed and funds transferred to penalty_recipient
     #[account(
         mut,
         seeds = [b"vault", alarm.key().as_ref()],
-        bump = alarm.vault_bump
+        bump = alarm.vault_bump,
+        close = penalty_recipient
     )]
-    pub vault: SystemAccount<'info>,
+    pub vault: Account<'info, Vault>,
     
     /// Penalty destination - varies based on route
     /// CHECK: Validated against alarm.penalty_destination or BURN_SINK
@@ -65,14 +66,10 @@ pub fn handler(ctx: Context<Slash>) -> Result<()> {
         },
     }
     
-    // Transfer remaining deposit to penalty recipient
-    let transfer_amount = alarm.remaining_amount;
-    if transfer_amount > 0 {
-        **ctx.accounts.vault.try_borrow_mut_lamports()? -= transfer_amount;
-        **ctx.accounts.penalty_recipient.try_borrow_mut_lamports()? += transfer_amount;
-        
-        msg!("Slashed {} lamports to {:?}", transfer_amount, route);
-    }
+    // The `close = penalty_recipient` constraint automatically transfers
+    // all lamports (rent + remaining deposit) to penalty_recipient
+    
+    msg!("Slashed {} lamports to {:?}", alarm.remaining_amount, route);
     
     // Mark as slashed (terminal state)
     alarm.status = AlarmStatus::Slashed;

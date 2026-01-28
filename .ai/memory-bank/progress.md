@@ -1,28 +1,32 @@
 # Solarma — Progress
 
 ## Phase 1: Bootstrapping ✅
-Completed 2026-01-28 | 59 files
 
-## Phase 2: Vault Contract (MVP) ✅
-Completed 2026-01-28 | Full deposit/claim/snooze/slash
+## Phase 2: Vault Contract ✅ (P0 Fixed)
+- [x] Instructions: initialize, create_alarm, claim, snooze, slash
+- [x] Vault PDA properly initialized
+- [x] TooEarly checks in claim/snooze
+- [x] close constraints for vault cleanup
 
-## Phase 3: Android Alarm Engine (MVP) ✅
-Completed 2026-01-28 | AlarmManager, ForegroundService, Wake Proofs
+## Phase 3: Android Alarm Engine ✅ (P0 Fixed)
+- [x] AlarmScheduler, AlarmService, AlarmReceiver
+- [x] **CreateAlarmViewModel** — saves to Room + schedules
+- [x] **AlarmRepository** — full implementation
+- [x] **WakeProofEngine** — enforces completion
+- [x] **AlarmActivity** — no bypass, requires proof
+- [x] **Notification** — "Stop" removed
 
-## Phase 4: Wallet Integration ✅
-Completed 2026-01-28 | WalletManager (MWA), TransactionQueue
+## Phase 4: Wallet Integration ⚠️ PARTIAL
+- [x] WalletManager, TransactionQueue, RpcClient stubs
+- [ ] Tx builder for create_alarm/claim/snooze
 
-## Phase 5: Seeker Polish ✅
-| Task | Status |
-|------|--------|
-| StatsEntity (streaks) | ✅ |
-| HomeScreen + ViewModel | ✅ |
-| CreateAlarmScreen | ✅ |
-| Navigation setup | ✅ |
-| Database v3 | ✅ |
-
-**Completed**: 2026-01-28
+## Phase 5: UI ✅
+- [x] HomeScreen, CreateAlarmScreen with ViewModel
 
 ---
 
-🎉 **All 5 phases complete!**
+## Remaining P1 Items
+- Boot restore via WorkManager
+- StepCounter TYPE_STEP_COUNTER
+- emergency_refund instruction
+- alarm_id in seeds
