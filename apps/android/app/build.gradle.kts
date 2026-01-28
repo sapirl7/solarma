@@ -82,6 +82,9 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     
+    // Solana Mobile Wallet Adapter
+    implementation(libs.mwa.clientlib)
+    
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext)
