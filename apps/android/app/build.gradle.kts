@@ -85,6 +85,14 @@ dependencies {
     // Solana Mobile Wallet Adapter
     implementation(libs.mwa.clientlib)
     
+    // Solana primitives (for tx building)
+    implementation("org.sol4k:sol4k:0.4.2")
+    
+    // WorkManager (for boot restore)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
+    
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext)

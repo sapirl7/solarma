@@ -5,28 +5,30 @@
 ## Phase 2: Vault Contract ✅
 - [x] initialize, create_alarm, claim, snooze, slash, emergency_refund
 - [x] Vault PDA properly initialized
-- [x] TooEarly checks in claim/snooze
-- [x] close constraints for vault cleanup
-- [x] alarm_id in seeds (P1)
+- [x] TooEarly checks
+- [x] close constraints
+- [x] alarm_id in seeds
 
 ## Phase 3: Android Alarm Engine ✅
 - [x] AlarmScheduler, AlarmService, AlarmReceiver
-- [x] CreateAlarmViewModel → saves to Room + schedules
-- [x] AlarmRepository — full implementation
-- [x] WakeProofEngine — enforces completion
-- [x] AlarmActivity — no bypass, requires proof
-- [x] Notification — "Stop" removed
-- [x] RestoreAlarmsWorker + WorkManager (P1)
-- [x] StepCounter with TYPE_STEP_COUNTER (P1)
+- [x] CreateAlarmViewModel
+- [x] AlarmRepository
+- [x] WakeProofEngine
+- [x] RestoreAlarmsWorker + WorkManager
+- [x] StepCounter with TYPE_STEP_COUNTER
 
-## Phase 4: Wallet Integration ⚠️ PARTIAL
-- [x] WalletManager, TransactionQueue, RpcClient stubs
-- [ ] Tx builder for create_alarm/claim/snooze
+## Phase 4: Wallet Integration ✅
+- [x] WalletManager (MWA)
+- [x] SolarmaInstructionBuilder (Anchor serialization)
+- [x] TransactionBuilder (blockhash + assembly)
+- [x] OnchainAlarmService (complete flow)
+- [x] SolanaRpcClient (sendTransaction)
+- [x] TransactionQueue + Processor
 
 ## Phase 5: UI ✅
 - [x] HomeScreen, CreateAlarmScreen with ViewModel
 
 ---
 
-## Fully Complete 🎉
-All P0 and P1 items done. Remaining work is tx builder integration.
+## 🎉 MVP Complete
+All phases implemented. Ready for testing and grant submission.
