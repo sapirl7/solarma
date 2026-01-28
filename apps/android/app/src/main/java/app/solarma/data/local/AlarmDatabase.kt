@@ -1,6 +1,8 @@
 package app.solarma.data.local
 
 import androidx.room.*
+import app.solarma.wallet.PendingTransaction
+import app.solarma.wallet.PendingTransactionDao
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -83,10 +85,11 @@ interface AlarmDao {
  * Room database for Solarma.
  */
 @Database(
-    entities = [AlarmEntity::class],
-    version = 1,
+    entities = [AlarmEntity::class, PendingTransaction::class],
+    version = 2,
     exportSchema = true
 )
 abstract class SolarmaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+    abstract fun pendingTransactionDao(): PendingTransactionDao
 }

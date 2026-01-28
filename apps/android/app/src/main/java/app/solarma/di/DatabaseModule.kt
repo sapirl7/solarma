@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.SolarmaDatabase
+import app.solarma.wallet.PendingTransactionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,5 +37,11 @@ object DatabaseModule {
     @Singleton
     fun provideAlarmDao(database: SolarmaDatabase): AlarmDao {
         return database.alarmDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun providePendingTransactionDao(database: SolarmaDatabase): PendingTransactionDao {
+        return database.pendingTransactionDao()
     }
 }
