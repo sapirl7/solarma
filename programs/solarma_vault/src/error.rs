@@ -45,4 +45,7 @@ pub enum SolarmaError {
 
     #[msg("Penalty destination not set for this route")]
     PenaltyDestinationNotSet,
+
+    #[msg("Cannot perform operation before alarm time")]
+    TooEarly,
 }

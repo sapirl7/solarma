@@ -97,3 +97,18 @@ impl Alarm {
         + 1   // vault_bump
         + 32; // padding for future fields
 }
+
+/// Vault PDA - holds deposited SOL for an alarm
+#[account]
+pub struct Vault {
+    /// Associated alarm pubkey
+    pub alarm: Pubkey,
+    /// Bump seed for PDA derivation
+    pub bump: u8,
+}
+
+impl Vault {
+    pub const SIZE: usize = 8   // discriminator
+        + 32  // alarm
+        + 1;  // bump
+}

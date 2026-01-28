@@ -250,11 +250,11 @@ class AlarmService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Solarma Alarm")
-            .setContentText("Time to wake up! Complete your challenge.")
+            .setContentText("Complete your wake proof challenge!")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
+            // NOTE: "Stop" button removed - must complete wake proof to dismiss
             .addAction(android.R.drawable.ic_popup_sync, "Snooze", snoozePendingIntent)
             .setOngoing(true)
             .build()

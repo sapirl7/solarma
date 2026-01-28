@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,15 +24,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
+import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.theme.SolarmaTheme
+import app.solarma.wakeproof.WakeProofEngine
+import app.solarma.wakeproof.WakeProgress
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /**
  * Full-screen alarm activity shown over lock screen.
- * Displays wake proof challenge options and handles dismissal.
+ * ENFORCES wake proof completion before allowing dismissal.
  */
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
@@ -41,9 +47,13 @@ class AlarmActivity : ComponentActivity() {
     }
     
     @Inject
-    lateinit var alarmScheduler: AlarmScheduler
+    lateinit var alarmRepository: AlarmRepository
+    
+    @Inject
+    lateinit var wakeProofEngine: WakeProofEngine
     
     private var alarmId: Long = -1
+    private var currentAlarm: AlarmEntity? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,13 +63,36 @@ class AlarmActivity : ComponentActivity() {
         // Show over lock screen
         setupLockScreenFlags()
         
+        // Load alarm and start wake proof
+        lifecycleScope.launch {
+            currentAlarm = alarmRepository.getAlarm(alarmId)
+            currentAlarm?.let { alarm ->
+                wakeProofEngine.start(alarm)
+            }
+        }
+        
+        // Observe wake proof completion
+        lifecycleScope.launch {
+            wakeProofEngine.isComplete.collect { isComplete ->
+                if (isComplete) {
+                    Log.i(TAG, "Wake proof completed, dismissing alarm")
+                    alarmRepository.markCompleted(alarmId, success = true)
+                    dismissAlarm()
+                }
+            }
+        }
+        
         setContent {
+            val progress by wakeProofEngine.progress.collectAsState()
+            val isComplete by wakeProofEngine.isComplete.collectAsState()
+            
             SolarmaTheme {
                 AlarmScreen(
-                    onDismiss = { dismissAlarm() },
+                    progress = progress,
+                    isComplete = isComplete,
+                    alarm = currentAlarm,
                     onSnooze = { snoozeAlarm() },
-                    onStartStepChallenge = { startStepChallenge() },
-                    onStartNfcChallenge = { startNfcChallenge() }
+                    onConfirmAwake = { wakeProofEngine.confirmAwake() }
                 )
             }
         }
@@ -85,7 +118,12 @@ class AlarmActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
     
+    /**
+     * Dismiss alarm - ONLY called when wake proof is complete.
+     */
     private fun dismissAlarm() {
+        wakeProofEngine.stop()
+        
         // Stop the alarm service
         val intent = Intent(this, AlarmService::class.java).apply {
             action = AlarmService.ACTION_STOP_ALARM
@@ -95,6 +133,11 @@ class AlarmActivity : ComponentActivity() {
     }
     
     private fun snoozeAlarm() {
+        lifecycleScope.launch {
+            alarmRepository.snooze(alarmId)
+        }
+        wakeProofEngine.stop()
+        
         val intent = Intent(this, AlarmService::class.java).apply {
             action = AlarmService.ACTION_SNOOZE
         }
@@ -102,24 +145,19 @@ class AlarmActivity : ComponentActivity() {
         finish()
     }
     
-    private fun startStepChallenge() {
-        // TODO: Launch step counter challenge
-        // For now, dismiss after mock challenge
-        dismissAlarm()
-    }
-    
-    private fun startNfcChallenge() {
-        // TODO: Launch NFC tag scan challenge
-        dismissAlarm()
+    override fun onDestroy() {
+        wakeProofEngine.stop()
+        super.onDestroy()
     }
 }
 
 @Composable
 fun AlarmScreen(
-    onDismiss: () -> Unit,
+    progress: WakeProgress,
+    isComplete: Boolean,
+    alarm: AlarmEntity?,
     onSnooze: () -> Unit,
-    onStartStepChallenge: () -> Unit,
-    onStartNfcChallenge: () -> Unit
+    onConfirmAwake: () -> Unit
 ) {
     val currentTime = remember { LocalTime.now() }
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -163,7 +201,7 @@ fun AlarmScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "☀️",
+                    text = if (isComplete) "✅" else "☀️",
                     fontSize = 80.sp,
                     modifier = Modifier.scale(scale)
                 )
@@ -178,58 +216,62 @@ fun AlarmScreen(
                 )
                 
                 Text(
-                    text = "Wake up!",
+                    text = if (isComplete) "Good morning!" else "Wake up!",
                     fontSize = 24.sp,
-                    color = Color(0xFFFFD700)
+                    color = if (isComplete) Color(0xFF4CAF50) else Color(0xFFFFD700)
                 )
             }
             
-            // Challenge buttons
+            // Challenge progress
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = "Complete a challenge to stop the alarm",
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-                
-                // Step challenge button
-                Button(
-                    onClick = onStartStepChallenge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF8C00)
+                // Progress indicator
+                if (!isComplete) {
+                    when (progress.type) {
+                        WakeProofEngine.TYPE_STEPS -> {
+                            StepsProgressView(progress)
+                        }
+                        WakeProofEngine.TYPE_NFC -> {
+                            NfcProgressView(progress)
+                        }
+                        WakeProofEngine.TYPE_NONE -> {
+                            NoProofView(onConfirmAwake)
+                        }
+                        else -> {
+                            Text(
+                                text = progress.message,
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    // Completed state
+                    Text(
+                        text = "Challenge complete! 🎉",
+                        fontSize = 20.sp,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Bold
                     )
-                ) {
-                    Text("🚶 Walk 20 Steps", fontSize = 18.sp)
                 }
                 
-                // NFC challenge button
-                OutlinedButton(
-                    onClick = onStartNfcChallenge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
+                // Error display
+                progress.error?.let { error ->
+                    Text(
+                        text = error,
+                        color = Color(0xFFFF6B6B),
+                        fontSize = 14.sp
                     )
-                ) {
-                    Text("📱 Scan NFC Tag", fontSize = 18.sp)
                 }
             }
             
-            // Bottom buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            // Snooze button (always available)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Snooze button
                 TextButton(
                     onClick = onSnooze,
                     colors = ButtonDefaults.textButtonColors(
@@ -239,18 +281,100 @@ fun AlarmScreen(
                     Text("😴 Snooze (5 min)", fontSize = 14.sp)
                 }
                 
-                // Skip button (only for free alarms)
-                TextButton(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color.White.copy(alpha = 0.5f)
+                // Deposit warning
+                if (alarm?.hasDeposit == true) {
+                    Text(
+                        text = "⚠️ Snooze costs SOL",
+                        color = Color(0xFFFF9800),
+                        fontSize = 12.sp
                     )
-                ) {
-                    Text("Skip (no deposit)", fontSize = 14.sp)
                 }
             }
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun StepsProgressView(progress: WakeProgress) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "🚶 Walk to dismiss",
+            fontSize = 16.sp,
+            color = Color.White.copy(alpha = 0.7f)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Progress bar
+        LinearProgressIndicator(
+            progress = { progress.progressPercent },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp),
+            color = Color(0xFFFF8C00),
+            trackColor = Color.White.copy(alpha = 0.2f)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "${progress.currentValue} / ${progress.targetValue} steps",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun NfcProgressView(progress: WakeProgress) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "📱",
+            fontSize = 64.sp
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = progress.message,
+            fontSize = 18.sp,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun NoProofView(onConfirm: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Confirm you're awake",
+            fontSize = 16.sp,
+            color = Color.White.copy(alpha = 0.7f)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onConfirm,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF8C00)
+            )
+        ) {
+            Text("I'm Awake! ☀️", fontSize = 18.sp)
         }
     }
 }

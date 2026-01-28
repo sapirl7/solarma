@@ -2,7 +2,7 @@
 
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
-use crate::state::{Alarm, AlarmStatus, PenaltyRoute};
+use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use crate::error::SolarmaError;
 use crate::constants::MIN_DEPOSIT_LAMPORTS;
 
@@ -18,13 +18,15 @@ pub struct CreateAlarm<'info> {
     )]
     pub alarm: Account<'info, Alarm>,
     
-    /// Vault PDA that holds the deposit
+    /// Vault PDA that holds the deposit - INITIALIZED here
     #[account(
-        mut,
+        init,
+        payer = owner,
+        space = Vault::SIZE,
         seeds = [b"vault", alarm.key().as_ref()],
         bump
     )]
-    pub vault: SystemAccount<'info>,
+    pub vault: Account<'info, Vault>,
     
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -82,6 +84,11 @@ pub fn handler(
             deposit_amount,
         )?;
     }
+    
+    // Initialize vault
+    let vault = &mut ctx.accounts.vault;
+    vault.alarm = ctx.accounts.alarm.key();
+    vault.bump = ctx.bumps.vault;
     
     // Initialize alarm
     let alarm = &mut ctx.accounts.alarm;

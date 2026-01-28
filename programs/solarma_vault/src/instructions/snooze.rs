@@ -1,7 +1,7 @@
 //! Snooze instruction - reduce deposit for extra time
 
 use anchor_lang::prelude::*;
-use crate::state::{Alarm, AlarmStatus};
+use crate::state::{Alarm, AlarmStatus, Vault};
 use crate::error::SolarmaError;
 use crate::constants::{DEFAULT_SNOOZE_PERCENT, MAX_SNOOZE_COUNT, BURN_SINK};
 
@@ -20,7 +20,7 @@ pub struct Snooze<'info> {
         seeds = [b"vault", alarm.key().as_ref()],
         bump = alarm.vault_bump
     )]
-    pub vault: SystemAccount<'info>,
+    pub vault: Account<'info, Vault>,
     
     /// Sink account receives snooze penalties
     /// CHECK: This is validated against the BURN_SINK constant
@@ -39,6 +39,12 @@ pub struct Snooze<'info> {
 pub fn handler(ctx: Context<Snooze>) -> Result<()> {
     let alarm = &mut ctx.accounts.alarm;
     let clock = Clock::get()?;
+    
+    // CRITICAL: Cannot snooze BEFORE alarm time
+    require!(
+        clock.unix_timestamp >= alarm.alarm_time,
+        SolarmaError::TooEarly
+    );
     
     // Check deadline not passed
     require!(
@@ -67,9 +73,10 @@ pub fn handler(ctx: Context<Snooze>) -> Result<()> {
     
     require!(cost > 0, SolarmaError::InsufficientDeposit);
     
-    // Transfer penalty to sink
+    // Transfer penalty from vault to sink
+    // We need to manually transfer lamports from vault
     if cost > 0 {
-        **ctx.accounts.vault.try_borrow_mut_lamports()? -= cost;
+        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= cost;
         **ctx.accounts.sink.try_borrow_mut_lamports()? += cost;
     }
     
