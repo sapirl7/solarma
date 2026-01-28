@@ -3,21 +3,16 @@
 use anchor_lang::prelude::*;
 
 /// Status of an alarm
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum AlarmStatus {
+    #[default]
     Created,
     Claimed,
     Slashed,
 }
 
-impl Default for AlarmStatus {
-    fn default() -> Self {
-        AlarmStatus::Created
-    }
-}
-
 /// Penalty route for failed alarms
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PenaltyRoute {
     Burn,   // Send to sink address
     Donate, // Send to charity
@@ -50,7 +45,10 @@ pub struct UserProfile {
 }
 
 impl UserProfile {
-    pub const SIZE: usize = 8 + 32 + 1 + 32 + 1;
+    pub const SIZE: usize = 8  // discriminator
+        + 32  // owner
+        + 1 + 32  // Option<[u8; 32]>
+        + 1;  // bump
 }
 
 /// Alarm PDA
@@ -69,18 +67,33 @@ pub struct Alarm {
     pub initial_amount: u64,
     /// Remaining deposit amount
     pub remaining_amount: u64,
-    /// Penalty route
+    /// Penalty route (0=Burn, 1=Donate, 2=Buddy)
     pub penalty_route: u8,
-    /// Penalty destination address
+    /// Penalty destination address (for Donate/Buddy)
     pub penalty_destination: Option<Pubkey>,
     /// Number of snoozes used
     pub snooze_count: u8,
     /// Current status
     pub status: AlarmStatus,
-    /// Bump seed for PDA
+    /// Bump seed for alarm PDA
     pub bump: u8,
+    /// Bump seed for vault PDA
+    pub vault_bump: u8,
 }
 
 impl Alarm {
-    pub const SIZE: usize = 8 + 32 + 8 + 8 + 1 + 32 + 8 + 8 + 1 + 1 + 32 + 1 + 1 + 1 + 16; // padding
+    pub const SIZE: usize = 8  // discriminator
+        + 32  // owner
+        + 8   // alarm_time
+        + 8   // deadline
+        + 1 + 32  // Option<Pubkey> deposit_mint
+        + 8   // initial_amount
+        + 8   // remaining_amount
+        + 1   // penalty_route
+        + 1 + 32  // Option<Pubkey> penalty_destination
+        + 1   // snooze_count
+        + 1   // status
+        + 1   // bump
+        + 1   // vault_bump
+        + 32; // padding for future fields
 }

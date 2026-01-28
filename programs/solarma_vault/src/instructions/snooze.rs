@@ -3,6 +3,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{Alarm, AlarmStatus};
 use crate::error::SolarmaError;
+use crate::constants::{DEFAULT_SNOOZE_PERCENT, MAX_SNOOZE_COUNT, BURN_SINK};
 
 #[derive(Accounts)]
 pub struct Snooze<'info> {
@@ -13,8 +14,26 @@ pub struct Snooze<'info> {
     )]
     pub alarm: Account<'info, Alarm>,
     
+    /// Vault PDA holding the deposit
+    #[account(
+        mut,
+        seeds = [b"vault", alarm.key().as_ref()],
+        bump = alarm.vault_bump
+    )]
+    pub vault: SystemAccount<'info>,
+    
+    /// Sink account receives snooze penalties
+    /// CHECK: This is validated against the BURN_SINK constant
+    #[account(
+        mut,
+        constraint = sink.key() == BURN_SINK @ SolarmaError::InvalidSinkAddress
+    )]
+    pub sink: UncheckedAccount<'info>,
+    
     #[account(mut)]
     pub owner: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<Snooze>) -> Result<()> {
@@ -27,15 +46,34 @@ pub fn handler(ctx: Context<Snooze>) -> Result<()> {
         SolarmaError::DeadlinePassed
     );
     
-    // Calculate snooze cost (10% of remaining, minimum 1 if any balance)
-    let cost = alarm.remaining_amount / 10;
-    
+    // Check snooze limit
     require!(
-        alarm.remaining_amount >= cost,
-        SolarmaError::InsufficientDeposit
+        alarm.snooze_count < MAX_SNOOZE_COUNT,
+        SolarmaError::MaxSnoozesReached
     );
     
-    // Deduct cost
+    // Calculate snooze cost (exponential: 10% * 2^snooze_count)
+    let base_cost = alarm.remaining_amount
+        .checked_mul(DEFAULT_SNOOZE_PERCENT)
+        .ok_or(SolarmaError::Overflow)?
+        .checked_div(100)
+        .ok_or(SolarmaError::Overflow)?;
+    
+    let multiplier = 1u64 << alarm.snooze_count; // 2^snooze_count
+    let cost = base_cost
+        .checked_mul(multiplier)
+        .ok_or(SolarmaError::Overflow)?
+        .min(alarm.remaining_amount); // Cap at remaining
+    
+    require!(cost > 0, SolarmaError::InsufficientDeposit);
+    
+    // Transfer penalty to sink
+    if cost > 0 {
+        **ctx.accounts.vault.try_borrow_mut_lamports()? -= cost;
+        **ctx.accounts.sink.try_borrow_mut_lamports()? += cost;
+    }
+    
+    // Update alarm state
     alarm.remaining_amount = alarm.remaining_amount
         .checked_sub(cost)
         .ok_or(SolarmaError::Overflow)?;
@@ -44,6 +82,7 @@ pub fn handler(ctx: Context<Snooze>) -> Result<()> {
         .checked_add(1)
         .ok_or(SolarmaError::Overflow)?;
     
-    msg!("Snooze #{} used, remaining: {}", alarm.snooze_count, alarm.remaining_amount);
+    msg!("Snooze #{}: cost={}, remaining={}", 
+         alarm.snooze_count, cost, alarm.remaining_amount);
     Ok(())
 }
