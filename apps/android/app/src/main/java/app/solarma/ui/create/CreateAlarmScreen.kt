@@ -1,29 +1,43 @@
 package app.solarma.ui.create
 
 import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.solarma.ui.components.*
+import app.solarma.ui.theme.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /**
- * Screen for creating a new alarm.
- * Uses CreateAlarmViewModel to actually save alarms.
+ * Premium create alarm screen with polished UI.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,10 +49,8 @@ fun CreateAlarmScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
     
-    // Observe save state
     val saveState by viewModel.saveState.collectAsState()
     
-    // Handle save result
     LaunchedEffect(saveState) {
         when (saveState) {
             is SaveState.Success -> {
@@ -54,170 +66,100 @@ fun CreateAlarmScreen(
         }
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("New Alarm") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Time selector
-            Card(
-                onClick = { showTimePicker = true },
-                modifier = Modifier.fillMaxWidth()
+    SolarmaBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            "New Alarm",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextPrimary
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.Rounded.ArrowBack, 
+                                contentDescription = "Back",
+                                tint = TextPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.time.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Tap to change time",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-            }
-            
-            // Label
-            OutlinedTextField(
-                value = state.label,
-                onValueChange = { state = state.copy(label = it) },
-                label = { Text("Label (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            
-            // Wake Proof selection
-            Text(
-                text = "Wake Proof Challenge",
-                style = MaterialTheme.typography.titleMedium
-            )
-            
-            Column(Modifier.selectableGroup()) {
-                WakeProofOption(
-                    emoji = "🚶",
-                    title = "Walk Steps",
-                    description = "Walk ${state.targetSteps} steps to dismiss",
-                    selected = state.wakeProofType == 1,
-                    onClick = { state = state.copy(wakeProofType = 1) }
+                // TIME PICKER CARD
+                TimeCard(
+                    time = state.time,
+                    onClick = { showTimePicker = true }
                 )
-                WakeProofOption(
-                    emoji = "📱",
-                    title = "NFC Tag",
-                    description = "Scan registered NFC tag",
-                    selected = state.wakeProofType == 2,
-                    onClick = { state = state.copy(wakeProofType = 2) }
-                )
-                WakeProofOption(
-                    emoji = "📷",
-                    title = "QR Code",
-                    description = "Scan registered QR code",
-                    selected = state.wakeProofType == 3,
-                    onClick = { state = state.copy(wakeProofType = 3) }
-                )
-                WakeProofOption(
-                    emoji = "❌",
-                    title = "None",
-                    description = "Simple dismiss button",
-                    selected = state.wakeProofType == 0,
-                    onClick = { state = state.copy(wakeProofType = 0) }
-                )
-            }
-            
-            // Steps count slider (if steps selected)
-            if (state.wakeProofType == 1) {
-                Column {
-                    Text("Target Steps: ${state.targetSteps}")
-                    Slider(
-                        value = state.targetSteps.toFloat(),
-                        onValueChange = { state = state.copy(targetSteps = it.toInt()) },
-                        valueRange = 10f..100f,
-                        steps = 8
+                
+                // LABEL INPUT
+                OutlinedTextField(
+                    value = state.label,
+                    onValueChange = { state = state.copy(label = it) },
+                    label = { Text("Label (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = ButtonShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                        focusedBorderColor = SunriseOrange,
+                        unfocusedContainerColor = NightSkyCard,
+                        focusedContainerColor = NightSkyCard
                     )
-                }
-            }
-            
-            // Deposit option
-            HorizontalDivider()
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "💰 Add SOL Deposit",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Stake SOL to boost accountability",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Switch(
-                    checked = state.hasDeposit,
-                    onCheckedChange = { state = state.copy(hasDeposit = it) }
                 )
-            }
-            
-            if (state.hasDeposit) {
-                DepositOptions(
+                
+                // WAKE PROOF SECTION
+                SectionHeader(title = "WAKE PROOF CHALLENGE")
+                
+                WakeProofSelector(
+                    selectedType = state.wakeProofType,
+                    targetSteps = state.targetSteps,
+                    onTypeChange = { state = state.copy(wakeProofType = it) },
+                    onStepsChange = { state = state.copy(targetSteps = it) }
+                )
+                
+                // DEPOSIT SECTION
+                Spacer(modifier = Modifier.height(8.dp))
+                DepositSection(
+                    hasDeposit = state.hasDeposit,
                     amount = state.depositAmount,
-                    onAmountChange = { state = state.copy(depositAmount = it) },
                     penaltyRoute = state.penaltyRoute,
+                    onToggle = { state = state.copy(hasDeposit = it) },
+                    onAmountChange = { state = state.copy(depositAmount = it) },
                     onRouteChange = { state = state.copy(penaltyRoute = it) }
                 )
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // CREATE BUTTON
+                GradientButton(
+                    text = if (state.hasDeposit) 
+                        "Create Alarm (${state.depositAmount} SOL)" 
+                    else 
+                        "Create Alarm",
+                    onClick = { viewModel.save(state) },
+                    enabled = saveState !is SaveState.Saving,
+                    isLoading = saveState is SaveState.Saving,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
             }
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Save button - NOW USES VIEWMODEL
-            Button(
-                onClick = { viewModel.save(state) },
-                enabled = saveState !is SaveState.Saving,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                if (saveState is SaveState.Saving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text(
-                        text = if (state.hasDeposit) 
-                            "Create Alarm (${state.depositAmount} SOL)" 
-                        else 
-                            "Create Alarm",
-                        fontSize = 18.sp
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
     
@@ -234,123 +176,368 @@ fun CreateAlarmScreen(
 }
 
 @Composable
-fun WakeProofOption(
-    emoji: String,
-    title: String,
-    description: String,
-    selected: Boolean,
+fun TimeCard(
+    time: LocalTime,
     onClick: () -> Unit
 ) {
-    Row(
+    Card(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.RadioButton
-            )
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .shadow(
+                elevation = 12.dp,
+                shape = TimePickerShape,
+                ambientColor = SunriseOrange.copy(alpha = 0.3f)
+            ),
+        shape = TimePickerShape,
+        colors = CardDefaults.cardColors(containerColor = NightSkyCard)
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = null
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(emoji, fontSize = 24.sp)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-        }
-    }
-}
-
-@Composable
-fun DepositOptions(
-    amount: Double,
-    onAmountChange: (Double) -> Unit,
-    penaltyRoute: Int,
-    onRouteChange: (Int) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Amount buttons
-        Text("Deposit Amount")
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            SunriseOrange.copy(alpha = 0.1f),
+                            Color.Transparent
+                        )
+                    )
+                )
         ) {
-            listOf(0.01, 0.05, 0.1, 0.5).forEach { sol ->
-                FilterChip(
-                    selected = amount == sol,
-                    onClick = { onAmountChange(sol) },
-                    label = { Text("$sol SOL") },
-                    modifier = Modifier.weight(1f)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = time.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Tap to change time",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
                 )
             }
         }
+    }
+}
+
+@Composable
+fun WakeProofSelector(
+    selectedType: Int,
+    targetSteps: Int,
+    onTypeChange: (Int) -> Unit,
+    onStepsChange: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WakeProofChip(
+                emoji = "🚶",
+                label = "Steps",
+                selected = selectedType == 1,
+                onClick = { onTypeChange(1) },
+                modifier = Modifier.weight(1f)
+            )
+            WakeProofChip(
+                emoji = "📱",
+                label = "NFC",
+                selected = selectedType == 2,
+                onClick = { onTypeChange(2) },
+                modifier = Modifier.weight(1f)
+            )
+            WakeProofChip(
+                emoji = "📷",
+                label = "QR",
+                selected = selectedType == 3,
+                onClick = { onTypeChange(3) },
+                modifier = Modifier.weight(1f)
+            )
+            WakeProofChip(
+                emoji = "✅",
+                label = "None",
+                selected = selectedType == 0,
+                onClick = { onTypeChange(0) },
+                modifier = Modifier.weight(1f)
+            )
+        }
         
-        // Penalty route
-        Text("If You Fail")
-        Column(Modifier.selectableGroup()) {
-            PenaltyOption(
-                emoji = "🔥",
-                title = "Burn",
-                description = "SOL is permanently burned",
-                selected = penaltyRoute == 0,
-                onClick = { onRouteChange(0) }
-            )
-            PenaltyOption(
-                emoji = "🎁",
-                title = "Donate",
-                description = "SOL goes to charity",
-                selected = penaltyRoute == 1,
-                onClick = { onRouteChange(1) }
-            )
-            PenaltyOption(
-                emoji = "👋",
-                title = "Buddy",
-                description = "SOL goes to a friend",
-                selected = penaltyRoute == 2,
-                onClick = { onRouteChange(2) }
+        // Steps slider
+        AnimatedVisibility(
+            visible = selectedType == 1,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = AlarmCardShape,
+                colors = CardDefaults.cardColors(containerColor = NightSkyCard)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Target Steps",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "$targetSteps",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = DawnPurple
+                        )
+                    }
+                    Slider(
+                        value = targetSteps.toFloat(),
+                        onValueChange = { onStepsChange(it.toInt()) },
+                        valueRange = 10f..100f,
+                        steps = 8,
+                        colors = SliderDefaults.colors(
+                            thumbColor = DawnPurple,
+                            activeTrackColor = DawnPurple,
+                            inactiveTrackColor = NightSkyLight
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WakeProofChip(
+    emoji: String,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.05f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "chip_scale"
+    )
+    
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .scale(scale)
+            .height(80.dp),
+        shape = AlarmCardShape,
+        color = if (selected) DawnPurple.copy(alpha = 0.2f) else NightSkyCard,
+        border = if (selected) 
+            androidx.compose.foundation.BorderStroke(2.dp, DawnPurple) 
+        else 
+            null
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emoji, fontSize = 24.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) DawnPurple else TextSecondary
             )
         }
     }
 }
 
 @Composable
-fun PenaltyOption(
-    emoji: String,
-    title: String,
-    description: String,
-    selected: Boolean,
-    onClick: () -> Unit
+fun DepositSection(
+    hasDeposit: Boolean,
+    amount: Double,
+    penaltyRoute: Int,
+    onToggle: (Boolean) -> Unit,
+    onAmountChange: (Double) -> Unit,
+    onRouteChange: (Int) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.RadioButton
-            )
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AlarmCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasDeposit) GoldenHour.copy(alpha = 0.1f) else NightSkyCard
+        )
     ) {
-        RadioButton(selected = selected, onClick = null)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(emoji, fontSize = 20.sp)
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("💰", fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Add SOL Deposit",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Boost your accountability",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+                Switch(
+                    checked = hasDeposit,
+                    onCheckedChange = onToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = GoldenHour,
+                        checkedTrackColor = GoldenHour.copy(alpha = 0.3f),
+                        uncheckedThumbColor = TextMuted,
+                        uncheckedTrackColor = NightSkyLight
+                    )
+                )
+            }
+            
+            AnimatedVisibility(
+                visible = hasDeposit,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Amount chips
+                    Text(
+                        text = "DEPOSIT AMOUNT",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(0.01, 0.05, 0.1, 0.5).forEach { sol ->
+                            AmountChip(
+                                amount = sol,
+                                selected = amount == sol,
+                                onClick = { onAmountChange(sol) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    
+                    // Penalty route
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "IF YOU FAIL",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PenaltyChip(
+                            emoji = "🔥",
+                            label = "Burn",
+                            selected = penaltyRoute == 0,
+                            onClick = { onRouteChange(0) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PenaltyChip(
+                            emoji = "🎁",
+                            label = "Donate",
+                            selected = penaltyRoute == 1,
+                            onClick = { onRouteChange(1) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PenaltyChip(
+                            emoji = "👋",
+                            label = "Buddy",
+                            selected = penaltyRoute == 2,
+                            onClick = { onRouteChange(2) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AmountChip(
+    amount: Double,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = ChipShape,
+        color = if (selected) GoldenHour else NightSkyLight,
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                text = "${amount}◎",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) Color.Black else TextPrimary
+            )
+        }
+    }
+}
+
+@Composable
+fun PenaltyChip(
+    emoji: String,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(64.dp),
+        shape = ChipShape,
+        color = if (selected) AlertRed.copy(alpha = 0.15f) else NightSkyLight,
+        border = if (selected) 
+            androidx.compose.foundation.BorderStroke(2.dp, AlertRed) 
+        else 
+            androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emoji, fontSize = 20.sp)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) AlertRed else TextSecondary
             )
         }
     }
@@ -376,17 +563,26 @@ fun TimePickerDialog(
                     onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
                 }
             ) {
-                Text("OK")
+                Text("OK", color = SunriseOrange)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = TextSecondary)
             }
         },
         text = {
-            TimePicker(state = timePickerState)
-        }
+            TimePicker(
+                state = timePickerState,
+                colors = TimePickerDefaults.colors(
+                    selectorColor = SunriseOrange,
+                    timeSelectorSelectedContainerColor = SunriseOrange.copy(alpha = 0.2f),
+                    timeSelectorSelectedContentColor = SunriseOrange
+                )
+            )
+        },
+        containerColor = NightSkyCard,
+        shape = AlarmCardShape
     )
 }
 
