@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=375, height=812, initial-scale=1.0">
+    <title>Solarma Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0A0E21 0%, #1A1F38 50%, #252B4A 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            margin: 20px auto;
+            background: linear-gradient(180deg, #0A0E21 0%, #1A1F38 100%);
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .screen {
+            display: none;
+            height: 100%;
+            padding: 60px 20px 40px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title .emoji {
+            font-size: 28px;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .settings-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Stats Card */
+        .stats-card {
+            background: linear-gradient(135deg, rgba(124,92,191,0.3) 0%, rgba(124,92,191,0.1) 100%);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-item .emoji {
+            font-size: 32px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .stat-item .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #FFB347;
+        }
+
+        .stat-item .label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 4px;
+        }
+
+        /* Wallet Card */
+        .wallet-card {
+            background: rgba(76,175,80,0.15);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .wallet-dot {
+            width: 12px;
+            height: 12px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .wallet-info h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4CAF50;
+        }
+
+        .wallet-info span {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        /* Section Header */
+        .section-header {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        /* Alarm Card */
+        .alarm-card {
+            background: #1E2342;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .alarm-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 32px rgba(255,107,53,0.2);
+        }
+
+        .alarm-time {
+            font-size: 44px;
+            font-weight: 700;
+        }
+
+        .alarm-label {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 4px;
+        }
+
+        .alarm-badges {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            background: rgba(124,92,191,0.2);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .badge.sol {
+            background: rgba(255,179,71,0.2);
+            color: #FFB347;
+        }
+
+        .toggle {
+            width: 52px;
+            height: 32px;
+            background: rgba(255,107,53,0.3);
+            border-radius: 16px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .toggle.on::after {
+            content: '';
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background: #FF6B35;
+            border-radius: 50%;
+            top: 2px;
+            right: 2px;
+            transition: 0.3s;
+        }
+
+        /* FAB */
+        .fab {
+            position: absolute;
+            bottom: 40px;
+            right: 20px;
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #FF6B35 0%, #FFB347 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 8px 32px rgba(255,107,53,0.5);
+            transition: transform 0.2s;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+        }
+
+        /* Create Screen */
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .time-card {
+            background: linear-gradient(180deg, rgba(255,107,53,0.15) 0%, transparent 100%);
+            background-color: #1E2342;
+            border-radius: 28px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 24px;
+            box-shadow: 0 12px 48px rgba(255,107,53,0.2);
+        }
+
+        .time-display {
+            font-size: 80px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .time-hint {
+            font-size: 14px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            background: #1E2342;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+
+        .input-field::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* Chips */
+        .chip-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .chip {
+            flex: 1;
+            background: #1E2342;
+            border: 2px solid transparent;
+            border-radius: 16px;
+            padding: 16px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip.selected {
+            background: rgba(124,92,191,0.2);
+            border-color: #7C5CBF;
+        }
+
+        .chip .emoji {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .chip .label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .chip.selected .label {
+            color: #7C5CBF;
+        }
+
+        /* Deposit Section */
+        .deposit-card {
+            background: rgba(255,179,71,0.1);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .deposit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .deposit-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .deposit-title .emoji {
+            font-size: 24px;
+        }
+
+        .deposit-title h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .deposit-title span {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .amount-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .amount-chip {
+            flex: 1;
+            background: #1A1F38;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .amount-chip.selected {
+            background: #FFB347;
+            color: black;
+            font-weight: 600;
+        }
+
+        .penalty-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .penalty-chip {
+            flex: 1;
+            background: #1A1F38;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .penalty-chip.selected {
+            background: rgba(229,57,53,0.15);
+            border-color: #E53935;
+        }
+
+        .penalty-chip .emoji {
+            font-size: 20px;
+        }
+
+        .penalty-chip .label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 4px;
+        }
+
+        .penalty-chip.selected .label {
+            color: #E53935;
+        }
+
+        /* Create Button */
+        .create-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #FF6B35 0%, #FFB347 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 18px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: auto;
+            transition: transform 0.2s;
+        }
+
+        .create-btn:hover {
+            transform: scale(1.02);
+        }
+
+        /* Alarm Screen */
+        .alarm-screen {
+            background: linear-gradient(180deg, #0A0E21 0%, #1A1F38 100%);
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .alarm-ringing {
+            font-size: 120px;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        .alarm-big-time {
+            font-size: 96px;
+            font-weight: 700;
+            margin: 24px 0;
+        }
+
+        .alarm-date {
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 48px;
+        }
+
+        .challenge-card {
+            background: rgba(124,92,191,0.2);
+            border: 2px solid #7C5CBF;
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .challenge-title {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 16px;
+        }
+
+        .challenge-progress {
+            font-size: 48px;
+            font-weight: 700;
+            color: #7C5CBF;
+        }
+
+        .challenge-target {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-top: 16px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7C5CBF, #FF6B35);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        /* Success Screen */
+        .success-screen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .success-emoji {
+            font-size: 100px;
+            margin-bottom: 24px;
+        }
+
+        .success-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 32px;
+        }
+
+        .sol-claimed {
+            background: rgba(76,175,80,0.2);
+            border: 2px solid #4CAF50;
+            border-radius: 16px;
+            padding: 24px 48px;
+            margin-bottom: 48px;
+        }
+
+        .sol-claimed .amount {
+            font-size: 36px;
+            font-weight: 700;
+            color: #4CAF50;
+        }
+
+        .sol-claimed .label {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .done-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 18px 48px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-frame">
+        <!-- HOME SCREEN -->
+        <div class="screen active" id="home-screen">
+            <div class="header">
+                <div class="header-title">
+                    <span class="emoji">🌅</span>
+                    <h1>Solarma</h1>
+                </div>
+                <button class="settings-btn">⚙️</button>
+            </div>
+
+            <div class="stats-card">
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="emoji">🔥</span>
+                        <div class="value" id="streak">7</div>
+                        <div class="label">Day Streak</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="emoji">⏰</span>
+                        <div class="value">23</div>
+                        <div class="label">Total Wakes</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="emoji">💰</span>
+                        <div class="value">1.25</div>
+                        <div class="label">SOL Saved</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wallet-card">
+                <div class="wallet-dot"></div>
+                <div class="wallet-info">
+                    <h3>Wallet Connected</h3>
+                    <span>2.4521 SOL</span>
+                </div>
+            </div>
+
+            <div class="section-header">UPCOMING ALARMS</div>
+
+            <div class="alarm-card" onclick="showScreen('alarm-screen')">
+                <div>
+                    <div class="alarm-time">07:00</div>
+                    <div class="alarm-label">Mon, 28 Jan</div>
+                </div>
+                <div class="alarm-badges">
+                    <div class="badge">🚶</div>
+                    <div class="badge sol">◎</div>
+                    <div class="toggle on"></div>
+                </div>
+            </div>
+
+            <div class="alarm-card">
+                <div>
+                    <div class="alarm-time">08:30</div>
+                    <div class="alarm-label">Tue, 29 Jan</div>
+                </div>
+                <div class="alarm-badges">
+                    <div class="badge">📱</div>
+                    <div class="toggle on"></div>
+                </div>
+            </div>
+
+            <div class="fab" onclick="showScreen('create-screen')">+</div>
+        </div>
+
+        <!-- CREATE SCREEN -->
+        <div class="screen" id="create-screen">
+            <div class="header">
+                <button class="back-btn" onclick="showScreen('home-screen')">←</button>
+                <h1 style="flex: 1; text-align: center;">New Alarm</h1>
+                <div style="width: 40px;"></div>
+            </div>
+
+            <div class="time-card">
+                <div class="time-display">07:00</div>
+                <div class="time-hint">Tap to change time</div>
+            </div>
+
+            <input class="input-field" placeholder="Label (optional)">
+
+            <div class="section-header">WAKE PROOF CHALLENGE</div>
+            <div class="chip-row">
+                <div class="chip selected" id="chip-steps">
+                    <span class="emoji">🚶</span>
+                    <span class="label">Steps</span>
+                </div>
+                <div class="chip" id="chip-nfc">
+                    <span class="emoji">📱</span>
+                    <span class="label">NFC</span>
+                </div>
+                <div class="chip" id="chip-qr">
+                    <span class="emoji">📷</span>
+                    <span class="label">QR</span>
+                </div>
+                <div class="chip" id="chip-none">
+                    <span class="emoji">✅</span>
+                    <span class="label">None</span>
+                </div>
+            </div>
+
+            <div class="deposit-card">
+                <div class="deposit-header">
+                    <div class="deposit-title">
+                        <span class="emoji">💰</span>
+                        <div>
+                            <h3>Add SOL Deposit</h3>
+                            <span>Boost your accountability</span>
+                        </div>
+                    </div>
+                    <div class="toggle on"></div>
+                </div>
+
+                <div class="section-header" style="margin-top: 16px;">DEPOSIT AMOUNT</div>
+                <div class="amount-row">
+                    <div class="amount-chip">0.01◎</div>
+                    <div class="amount-chip selected">0.05◎</div>
+                    <div class="amount-chip">0.1◎</div>
+                    <div class="amount-chip">0.5◎</div>
+                </div>
+
+                <div class="section-header">IF YOU FAIL</div>
+                <div class="penalty-row">
+                    <div class="penalty-chip selected">
+                        <div class="emoji">🔥</div>
+                        <div class="label">Burn</div>
+                    </div>
+                    <div class="penalty-chip">
+                        <div class="emoji">🎁</div>
+                        <div class="label">Donate</div>
+                    </div>
+                    <div class="penalty-chip">
+                        <div class="emoji">👋</div>
+                        <div class="label">Buddy</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="create-btn" onclick="showScreen('home-screen')">Create Alarm (0.05 SOL)</button>
+        </div>
+
+        <!-- ALARM RINGING SCREEN -->
+        <div class="screen alarm-screen" id="alarm-screen">
+            <div class="alarm-ringing">⏰</div>
+            <div class="alarm-big-time">07:00</div>
+            <div class="alarm-date">Monday, 28 January</div>
+
+            <div class="challenge-card">
+                <div class="challenge-title">WALK TO DISMISS</div>
+                <div class="challenge-progress" id="step-count">0</div>
+                <div class="challenge-target">of 20 steps</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUCCESS SCREEN -->
+        <div class="screen success-screen" id="success-screen">
+            <div class="success-emoji">🎉</div>
+            <div class="success-title">You Did It!</div>
+            <div class="success-subtitle">Great job waking up on time</div>
+
+            <div class="sol-claimed">
+                <div class="amount">+0.05 SOL</div>
+                <div class="label">Claimed to wallet</div>
+            </div>
+
+            <button class="done-btn" onclick="showScreen('home-screen'); updateStreak();">Done</button>
+        </div>
+    </div>
+
+    <script>
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+
+            if (screenId === 'alarm-screen') {
+                startStepChallenge();
+            }
+        }
+
+        function startStepChallenge() {
+            let steps = 0;
+            const target = 20;
+            const interval = setInterval(() => {
+                steps++;
+                document.getElementById('step-count').textContent = steps;
+                document.getElementById('progress-fill').style.width = (steps / target * 100) + '%';
+                
+                if (steps >= target) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        showScreen('success-screen');
+                    }, 500);
+                }
+            }, 150);
+        }
+
+        function updateStreak() {
+            const streakEl = document.getElementById('streak');
+            streakEl.textContent = parseInt(streakEl.textContent) + 1;
+        }
+
+        // Chip selection
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+            });
+        });
+
+        // Amount selection
+        document.querySelectorAll('.amount-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.amount-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+            });
+        });
+
+        // Penalty selection
+        document.querySelectorAll('.penalty-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.penalty-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+            });
+        });
+    </script>
+</body>
+</html>
