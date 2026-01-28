@@ -1,28 +1,21 @@
 # Solarma — Progress
 
 ## Phase 1: Bootstrapping ✅
+Completed 2026-01-28 | 59 files | Pushed to GitHub
+
+## Phase 2: Vault Contract (MVP) ✅
 | Task | Status |
 |------|--------|
-| Directory structure | ✅ |
-| Memory Bank documents (7 files) | ✅ |
-| Agent roles (6 roles) | ✅ |
-| AGENTS.md entry point | ✅ |
-| .gemini/settings.json | ✅ |
-| .llms.txt | ✅ |
-| Makefile + scripts (3 scripts) | ✅ |
-| CI workflow | ✅ |
-| Documentation (ARCHITECTURE, RUNBOOK, CONFIG_REFERENCE) | ✅ |
-| Policy documents (SECURITY, PRIVACY, INTERNAL_LICENSE, CONTRIBUTING) | ✅ |
-| .gitignore + rust-toolchain.toml | ✅ |
-| Anchor program stub (5 instructions) | ✅ |
-| Android project stub (Compose + Hilt) | ✅ |
-| Git initialized | ✅ |
+| Create alarm with deposit | ✅ |
+| Claim with time verification | ✅ |
+| Snooze with penalty curve | ✅ |
+| Slash with route execution | ✅ |
+| Constants module | ✅ |
+| Extended error codes (12) | ✅ |
+| Unit tests (Rust) | ✅ |
+| Integration tests (TypeScript) | ✅ |
 
-**Files created**: 60+  
-**Bootstrap completed**: 2026-01-28
-
-## Phase 2: Vault Contract (MVP)
-Not started
+**Completed**: 2026-01-28
 
 ## Phase 3: Android Alarm Engine (MVP)
 Not started

@@ -8,9 +8,13 @@ use anchor_lang::prelude::*;
 
 declare_id!("So1armaVau1t1111111111111111111111111111111");
 
+pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
+
+#[cfg(test)]
+mod tests;
 
 use instructions::*;
 
@@ -28,9 +32,18 @@ pub mod solarma_vault {
         ctx: Context<CreateAlarm>,
         alarm_time: i64,
         deadline: i64,
+        deposit_amount: u64,
         penalty_route: u8,
+        penalty_destination: Option<Pubkey>,
     ) -> Result<()> {
-        instructions::create_alarm::handler(ctx, alarm_time, deadline, penalty_route)
+        instructions::create_alarm::handler(
+            ctx, 
+            alarm_time, 
+            deadline, 
+            deposit_amount,
+            penalty_route, 
+            penalty_destination,
+        )
     }
 
     /// Claim the remaining deposit (before deadline)
