@@ -48,4 +48,7 @@ pub enum SolarmaError {
 
     #[msg("Cannot perform operation before alarm time")]
     TooEarly,
+
+    #[msg("Cannot request refund after alarm time has passed")]
+    TooLateForRefund,
 }
