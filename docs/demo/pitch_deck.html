@@ -486,14 +486,21 @@
                         <li>SOL deposit & claim flow</li>
                         <li>Streak tracking</li>
                     </ul>
+                    <p style="margin-top: 32px; font-size: 18px; color: rgba(255,255,255,0.5);">
+                        🎬 Interactive demo: <a href="index.html" style="color: var(--golden-hour);">Open Demo</a>
+                    </p>
                 </div>
                 <div class="split-right">
-                    <div class="video-container">
-                        <img src="demo_video.webp" alt="Solarma Demo" id="demo-video">
+                    <div class="video-container" style="position: relative;">
+                        <img src="../screenshots/home.png" alt="Solarma Home" id="demo-img-1"
+                            style="position: absolute; opacity: 1; transition: opacity 0.5s;">
+                        <img src="../screenshots/create.png" alt="Solarma Create" id="demo-img-2"
+                            style="position: absolute; opacity: 0; transition: opacity 0.5s;">
                     </div>
                 </div>
             </div>
         </div>
+
 
         <!-- SLIDE 5: How It Works -->
         <div class="slide slide-gradient" id="slide-5">
@@ -765,6 +772,24 @@
             if (touchStartX - touchEndX > 50) nextSlide();
             if (touchEndX - touchStartX > 50) prevSlide();
         });
+
+        // Screenshot carousel for slide 4
+        let demoImgIndex = 1;
+        setInterval(() => {
+            const img1 = document.getElementById('demo-img-1');
+            const img2 = document.getElementById('demo-img-2');
+            if (img1 && img2) {
+                if (demoImgIndex === 1) {
+                    img1.style.opacity = '0';
+                    img2.style.opacity = '1';
+                    demoImgIndex = 2;
+                } else {
+                    img1.style.opacity = '1';
+                    img2.style.opacity = '0';
+                    demoImgIndex = 1;
+                }
+            }
+        }, 3000);
     </script>
 </body>
 
