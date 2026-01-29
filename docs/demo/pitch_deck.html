@@ -203,22 +203,17 @@
             color: rgba(255, 255, 255, 0.3);
         }
 
-        /* Video container */
+        /* Phone mockup container */
         .video-container {
-            width: 400px;
-            height: 800px;
-            border-radius: 40px;
-            overflow: hidden;
-            box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
-            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 320px;
+            height: auto;
             position: relative;
         }
 
-        .video-container video,
         .video-container img {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            height: auto;
+            object-fit: contain;
         }
 
         /* Tables */
@@ -493,10 +488,9 @@
                 </div>
                 <div class="split-right">
                     <div class="video-container">
-                        <img src="../screenshots/home.png" alt="Solarma Home" id="demo-img-1"
-                            style="width: 100%; height: 100%; object-fit: contain; transition: opacity 0.5s;">
+                        <img src="../screenshots/home.png" alt="Solarma Home" id="demo-img-1">
                         <img src="../screenshots/create.png" alt="Solarma Create" id="demo-img-2"
-                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.5s;">
+                            style="position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s;">
                     </div>
                 </div>
             </div>
