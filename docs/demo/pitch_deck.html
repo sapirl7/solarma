@@ -203,22 +203,22 @@
             color: rgba(255, 255, 255, 0.3);
         }
 
-        /* Phone mockup container - large and prominent */
+        /* Video container */
         .video-container {
-            height: 70vh;
-            max-height: 700px;
+            width: 400px;
+            height: 800px;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
+            border: 4px solid rgba(255, 255, 255, 0.1);
             position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
+        .video-container video,
         .video-container img {
+            width: 100%;
             height: 100%;
-            width: auto;
-            object-fit: contain;
-            border-radius: 32px;
-            box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
+            object-fit: cover;
         }
 
         /* Tables */
@@ -495,7 +495,7 @@
                     <div class="video-container">
                         <img src="../screenshots/home.png" alt="Solarma Home" id="demo-img-1">
                         <img src="../screenshots/create.png" alt="Solarma Create" id="demo-img-2"
-                            style="position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s;">
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s;">
                     </div>
                 </div>
             </div>
