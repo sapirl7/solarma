@@ -8,7 +8,7 @@ hilt = "2.54"
 # AndroidX
 compose-bom = "2024.12.01"
 lifecycle = "2.8.7"
-room = "2.6.1"
+room = "2.8.4"
 datastore = "1.1.1"
 navigation = "2.8.5"
 core-ktx = "1.15.0"
