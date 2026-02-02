@@ -46,7 +46,7 @@
                        │
                        ▼
                     SNOOZE?         SLASH
-                    (-10%)   ───▶   Failure
+                  (10%→20%→40%)───▶ Failure
                                     (penalty applied)
 ```
 
@@ -135,10 +135,16 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 ### Near Term
 - Community feedback and bug fixes
 - UI/UX improvements based on user testing
-- Documentation expansion
+- On-chain alarm recovery/import flow
+
+### Mainnet Ready (Criteria)
+- [ ] Security audit completed
+- [ ] Private RPC with API keys
+- [ ] Signed release APK
+- [ ] On-chain alarm recovery implemented
+- [ ] QA matrix for all wake-proof methods
 
 ### Future
-- Security audit for Mainnet deployment
 - SPL token support (Seeker ecosystem tokens)
 - Social features and challenges
 - iOS port consideration

@@ -67,11 +67,11 @@ pub fn handler(
             SolarmaError::DepositTooSmall
         );
         
-        // Buddy route requires destination
-        if route == PenaltyRoute::Buddy {
+        // Donate and Buddy routes require destination address
+        if route == PenaltyRoute::Donate || route == PenaltyRoute::Buddy {
             require!(
                 penalty_destination.is_some(),
-                SolarmaError::BuddyAddressRequired
+                SolarmaError::PenaltyDestinationRequired
             );
         }
         

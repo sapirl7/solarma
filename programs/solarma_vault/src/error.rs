@@ -34,6 +34,9 @@ pub enum SolarmaError {
     #[msg("Buddy penalty route requires destination address")]
     BuddyAddressRequired,
 
+    #[msg("Donate or Buddy route requires destination address")]
+    PenaltyDestinationRequired,
+
     #[msg("Invalid sink address for snooze penalties")]
     InvalidSinkAddress,
 

@@ -13,6 +13,7 @@
 **/.DS_Store
 AGENTS.md
 INTERNAL_LICENSE.md
+.ai/
 
 # ===================
 # Environment / Secrets
