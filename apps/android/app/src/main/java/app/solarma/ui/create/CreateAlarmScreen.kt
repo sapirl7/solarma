@@ -1,5 +1,10 @@
 package app.solarma.ui.create
 
+import android.app.AlarmManager
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -13,8 +18,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.solarma.LocalActivityResultSender
 import app.solarma.ui.components.*
 import app.solarma.ui.theme.*
 import java.time.LocalTime
@@ -48,18 +53,45 @@ fun CreateAlarmScreen(
     var state by remember { mutableStateOf(CreateAlarmState()) }
     var showTimePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val activityResultSender = LocalActivityResultSender.current
+    val alarmManager = remember {
+        context.getSystemService(AlarmManager::class.java)
+    }
+    val needsExactAlarmPermission =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            alarmManager != null &&
+            !alarmManager.canScheduleExactAlarms()
     
     val saveState by viewModel.saveState.collectAsState()
     
     LaunchedEffect(saveState) {
-        when (saveState) {
+        when (val currentState = saveState) {
             is SaveState.Success -> {
                 Toast.makeText(context, "Alarm created! ⏰", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
                 onBack()
             }
+            is SaveState.PendingConfirmation -> {
+                Toast.makeText(
+                    context,
+                    "Deposit pending confirmation. Open app to finalize.",
+                    Toast.LENGTH_LONG
+                ).show()
+                viewModel.resetState()
+                onBack()
+            }
+            is SaveState.NeedsSigning -> {
+                // Trigger MWA signing
+                Toast.makeText(context, "Signing ${currentState.depositAmount} SOL deposit...", Toast.LENGTH_SHORT).show()
+                viewModel.signDeposit(activityResultSender)
+            }
+            is SaveState.SigningFailed -> {
+                Toast.makeText(context, "Signing failed: ${currentState.message}\nAlarm saved without deposit.", Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+                onBack()
+            }
             is SaveState.Error -> {
-                Toast.makeText(context, (saveState as SaveState.Error).message, Toast.LENGTH_LONG).show()
+                Toast.makeText(context, currentState.message, Toast.LENGTH_LONG).show()
                 viewModel.resetState()
             }
             else -> {}
@@ -81,7 +113,7 @@ fun CreateAlarmScreen(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Rounded.ArrowBack, 
+                                Icons.AutoMirrored.Rounded.ArrowBack, 
                                 contentDescription = "Back",
                                 tint = TextPrimary
                             )
@@ -101,6 +133,42 @@ fun CreateAlarmScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                if (needsExactAlarmPermission) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = AlarmCardShape,
+                        colors = CardDefaults.cardColors(containerColor = NightSkyCard)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Exact alarm permission required",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Enable exact alarms so Solarma can wake you reliably.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = SunriseOrange)
+                            ) {
+                                Text("Enable exact alarms")
+                            }
+                        }
+                    }
+                }
+
                 // TIME PICKER CARD
                 TimeCard(
                     time = state.time,
@@ -138,10 +206,16 @@ fun CreateAlarmScreen(
                 DepositSection(
                     hasDeposit = state.hasDeposit,
                     amount = state.depositAmount,
+                    customAmountText = state.customAmountText,
                     penaltyRoute = state.penaltyRoute,
+                    donationAddress = state.donationAddress,
+                    buddyAddress = state.buddyAddress,
                     onToggle = { state = state.copy(hasDeposit = it) },
                     onAmountChange = { state = state.copy(depositAmount = it) },
-                    onRouteChange = { state = state.copy(penaltyRoute = it) }
+                    onCustomAmountChange = { state = state.copy(customAmountText = it) },
+                    onRouteChange = { state = state.copy(penaltyRoute = it) },
+                    onDonationAddressChange = { state = state.copy(donationAddress = it) },
+                    onBuddyAddressChange = { state = state.copy(buddyAddress = it) }
                 )
                 
                 Spacer(modifier = Modifier.weight(1f))
@@ -175,6 +249,8 @@ fun CreateAlarmScreen(
     }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeCard(
     time: LocalTime,
@@ -269,6 +345,32 @@ fun WakeProofSelector(
             )
         }
         
+        // Mode description card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = AlarmCardShape,
+            colors = CardDefaults.cardColors(containerColor = NightSkyCard.copy(alpha = 0.7f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Text("ℹ️", fontSize = 14.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = when (selectedType) {
+                        1 -> "Walk the required number of steps to dismiss the alarm. Your phone must detect actual movement — no cheating!"
+                        2 -> "Scan a registered NFC tag (like a sticker on your bathroom mirror) to prove you got out of bed."
+                        3 -> "Scan a QR code placed somewhere far from your bed to dismiss the alarm."
+                        else -> "Simple tap to dismiss. No physical challenge required, but your deposit is still at stake!"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+        
         // Steps slider
         AnimatedVisibility(
             visible = selectedType == 1,
@@ -288,11 +390,18 @@ fun WakeProofSelector(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Target Steps",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
+                        Column {
+                            Text(
+                                text = "Target Steps",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = "≈ ${(targetSteps * 0.7).toInt()} meters to walk",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                        }
                         Text(
                             text = "$targetSteps",
                             style = MaterialTheme.typography.headlineSmall,
@@ -310,6 +419,11 @@ fun WakeProofSelector(
                             activeTrackColor = DawnPurple,
                             inactiveTrackColor = NightSkyLight
                         )
+                    )
+                    Text(
+                        text = "Tip: 50+ steps ensures you really get moving!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SunriseOrange.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -365,10 +479,16 @@ fun WakeProofChip(
 fun DepositSection(
     hasDeposit: Boolean,
     amount: Double,
+    customAmountText: String,
     penaltyRoute: Int,
+    donationAddress: String,
+    buddyAddress: String,
     onToggle: (Boolean) -> Unit,
     onAmountChange: (Double) -> Unit,
-    onRouteChange: (Int) -> Unit
+    onCustomAmountChange: (String) -> Unit,
+    onRouteChange: (Int) -> Unit,
+    onDonationAddressChange: (String) -> Unit,
+    onBuddyAddressChange: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -383,7 +503,10 @@ fun DepositSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("💰", fontSize = 24.sp)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -394,7 +517,7 @@ fun DepositSection(
                             color = TextPrimary
                         )
                         Text(
-                            text = "Boost your accountability",
+                            text = "Lock SOL to stay accountable",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
@@ -421,6 +544,21 @@ fun DepositSection(
                     modifier = Modifier.padding(top = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Deposit explanation
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = DawnPurple.copy(alpha = 0.1f))
+                    ) {
+                        Text(
+                            text = "💡 How it works: Your SOL is locked on-chain. Wake up on time → get it back! Fail → penalty applies.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(12.dp),
+                            lineHeight = 18.sp
+                        )
+                    }
+                    
                     // Amount chips
                     Text(
                         text = "DEPOSIT AMOUNT",
@@ -434,17 +572,40 @@ fun DepositSection(
                         listOf(0.01, 0.05, 0.1, 0.5).forEach { sol ->
                             AmountChip(
                                 amount = sol,
-                                selected = amount == sol,
-                                onClick = { onAmountChange(sol) },
+                                selected = amount == sol && customAmountText.isEmpty(),
+                                onClick = { 
+                                    onAmountChange(sol)
+                                    onCustomAmountChange("")
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
                     }
                     
+                    // Custom amount input
+                    OutlinedTextField(
+                        value = customAmountText,
+                        onValueChange = { text ->
+                            onCustomAmountChange(text)
+                            text.toDoubleOrNull()?.let { onAmountChange(it) }
+                        },
+                        label = { Text("Custom amount (SOL)") },
+                        placeholder = { Text("e.g. 1.5") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                            focusedBorderColor = GoldenHour,
+                            unfocusedContainerColor = NightSkyLight,
+                            focusedContainerColor = NightSkyLight
+                        )
+                    )
+                    
                     // Penalty route
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "IF YOU FAIL",
+                        text = "IF YOU FAIL TO WAKE UP",
                         style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary
                     )
@@ -473,6 +634,65 @@ fun DepositSection(
                             onClick = { onRouteChange(2) },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    
+                    // Penalty explanation
+                    Text(
+                        text = when (penaltyRoute) {
+                            0 -> "🔥 Burn: SOL is permanently destroyed. Maximum stakes!"
+                            1 -> "🎁 Donate: SOL goes to Solarma project development."
+                            else -> "👋 Buddy: SOL goes to your accountability partner."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    
+                    // Donate goes to fixed Solarma treasury - no input needed
+                    AnimatedVisibility(
+                        visible = penaltyRoute == 1,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Text(
+                            text = "✨ 100% goes to Solarma development. Thank you for your support!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GoldenHour,
+                            modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                        )
+                    }
+                    
+                    // Buddy address input (visible when Buddy is selected)
+                    AnimatedVisibility(
+                        visible = penaltyRoute == 2,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = buddyAddress,
+                                onValueChange = onBuddyAddressChange,
+                                label = { Text("Buddy's Wallet Address") },
+                                placeholder = { Text("Your friend's Solana address") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                                    focusedBorderColor = DawnPurple,
+                                    unfocusedContainerColor = NightSkyLight,
+                                    focusedContainerColor = NightSkyLight
+                                )
+                            )
+                            Text(
+                                text = "Your accountability partner will receive SOL if you fail to wake up",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted,
+                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -596,5 +816,8 @@ data class CreateAlarmState(
     val targetSteps: Int = 20,
     val hasDeposit: Boolean = false,
     val depositAmount: Double = 0.05,
-    val penaltyRoute: Int = 0
+    val customAmountText: String = "",
+    val penaltyRoute: Int = 0,
+    val donationAddress: String = "",
+    val buddyAddress: String = ""
 )

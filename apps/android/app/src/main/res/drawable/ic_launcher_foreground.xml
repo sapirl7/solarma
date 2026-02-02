@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sun circle -->
+    <path
+        android:fillColor="#FFB347"
+        android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
+    <!-- Alarm bell icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,40c-6,0 -11,5 -11,11v6h22v-6c0,-6 -5,-11 -11,-11zM50,62c0,2.2 1.8,4 4,4s4,-1.8 4,-4zM41,45a3,3 0,1 0,0 -6a3,3 0,0 0,0 6zM67,45a3,3 0,1 0,0 -6a3,3 0,0 0,0 6z"/>
+</vector>

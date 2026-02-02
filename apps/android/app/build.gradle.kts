@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "app.solarma"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "app.solarma"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
 
@@ -23,6 +23,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -43,6 +44,16 @@ android {
         compose = true
         buildConfig = true
     }
+    
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -52,6 +63,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons)
     debugImplementation(libs.compose.ui.tooling)
     
     // Android
@@ -86,12 +98,25 @@ dependencies {
     implementation(libs.mwa.clientlib)
     
     // Solana primitives (for tx building)
-    implementation("org.sol4k:sol4k:0.4.2")
+    implementation("org.sol4k:sol4k:0.5.0")
+    implementation("org.sol4k:tweetnacl:0.1.6")
     
     // WorkManager (for boot restore)
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.hilt:hilt-work:1.2.0")
     ksp("androidx.hilt:hilt-compiler:1.2.0")
+    
+    // CameraX (for QR scanning)
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+    
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    
+    // ZXing for QR code generation
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     
     // Testing
     testImplementation(libs.junit)

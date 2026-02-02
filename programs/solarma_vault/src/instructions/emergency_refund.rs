@@ -3,6 +3,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{Alarm, AlarmStatus, Vault};
 use crate::error::SolarmaError;
+use crate::constants::{BURN_SINK, EMERGENCY_REFUND_PENALTY_PERCENT};
 
 #[derive(Accounts)]
 pub struct EmergencyRefund<'info> {
@@ -22,6 +23,14 @@ pub struct EmergencyRefund<'info> {
     )]
     pub vault: Account<'info, Vault>,
     
+    /// Sink account receives emergency refund penalty
+    /// CHECK: Validated against BURN_SINK constant
+    #[account(
+        mut,
+        constraint = sink.key() == BURN_SINK @ SolarmaError::InvalidSinkAddress
+    )]
+    pub sink: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub owner: Signer<'info>,
     
@@ -41,7 +50,7 @@ pub fn handler(ctx: Context<EmergencyRefund>) -> Result<()> {
     
     // Calculate penalty (e.g., 5% fee for early cancellation)
     let penalty = alarm.remaining_amount
-        .checked_mul(5)
+        .checked_mul(EMERGENCY_REFUND_PENALTY_PERCENT)
         .ok_or(SolarmaError::Overflow)?
         .checked_div(100)
         .ok_or(SolarmaError::Overflow)?;
@@ -53,9 +62,12 @@ pub fn handler(ctx: Context<EmergencyRefund>) -> Result<()> {
     msg!("Emergency refund: {} - {} penalty = {} returned", 
          alarm.remaining_amount, penalty, refund_amount);
     
-    // The `close = owner` constraint returns all lamports to owner
-    // Penalty is absorbed since vault is closed anyway
-    // In production, could send penalty to protocol treasury
+    if penalty > 0 {
+        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= penalty;
+        **ctx.accounts.sink.to_account_info().try_borrow_mut_lamports()? += penalty;
+    }
+
+    // The `close = owner` constraint returns remaining lamports to owner
     
     // Mark as claimed (terminal state)
     alarm.status = AlarmStatus::Claimed;

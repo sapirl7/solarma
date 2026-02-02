@@ -90,9 +90,54 @@ class HomeViewModel @Inject constructor(
         }
     }
     
-    fun connectWallet() {
-        // Note: Actual connection requires Activity context
-        // This would be triggered from the UI layer
+    fun connectWallet(activityResultSender: com.solana.mobilewalletadapter.clientlib.ActivityResultSender) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            walletManager.connect(activityResultSender).fold(
+                onSuccess = { publicKey ->
+                    // Connection state is observed automatically
+                    _uiState.update { it.copy(isLoading = false) }
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(isLoading = false) }
+                    // TODO: Show error to user
+                }
+            )
+        }
+    }
+    
+    /**
+     * Toggle alarm enabled/disabled.
+     */
+    fun setAlarmEnabled(alarmId: Long, enabled: Boolean) {
+        viewModelScope.launch {
+            alarmDao.setEnabled(alarmId, enabled)
+        }
+    }
+    
+    /**
+     * Delete an alarm.
+     * Returns false if alarm has an onchain deposit (must refund first).
+     */
+    fun deleteAlarm(alarmId: Long) {
+        viewModelScope.launch {
+            val alarm = alarmDao.getById(alarmId)
+            if (alarm?.onchainPubkey != null) {
+                // Alarm has onchain deposit - cannot delete without refund
+                _uiState.update { it.copy(
+                    errorMessage = "Cannot delete alarm with deposit. Cancel and refund first."
+                ) }
+                return@launch
+            }
+            alarmDao.deleteById(alarmId)
+        }
+    }
+    
+    /**
+     * Clear error message.
+     */
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
     
     private fun ByteArray.toBase58(): String {
@@ -121,5 +166,6 @@ data class HomeUiState(
     val savedSol: Double = 0.0,
     val walletConnected: Boolean = false,
     val walletBalance: Double? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )
