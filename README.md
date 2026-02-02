@@ -139,7 +139,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 ### Future
 - Security audit for Mainnet deployment
-- SPL token support (USDC)
+- SPL token support (Seeker ecosystem tokens)
 - Social features and challenges
 - iOS port consideration
 
