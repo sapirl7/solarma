@@ -3,12 +3,37 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Sun circle -->
+    
+    <!-- Background gradient circle -->
     <path
-        android:fillColor="#FFB347"
-        android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
-    <!-- Alarm bell icon -->
+        android:fillColor="#14F195"
+        android:pathData="M54,54m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0"/>
+    
+    <!-- Alarm clock circle -->
+    <path
+        android:fillColor="#9945FF"
+        android:pathData="M54,54m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0"/>
+    
+    <!-- Solana parallelogram inside clock -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,40c-6,0 -11,5 -11,11v6h22v-6c0,-6 -5,-11 -11,-11zM50,62c0,2.2 1.8,4 4,4s4,-1.8 4,-4zM41,45a3,3 0,1 0,0 -6a3,3 0,0 0,0 6zM67,45a3,3 0,1 0,0 -6a3,3 0,0 0,0 6z"/>
+        android:pathData="M42,48l20,0l-4,12l-20,0z"/>
+    <path
+        android:fillColor="#14F195"
+        android:pathData="M44,50l16,0l-2,8l-16,0z"/>
+    
+    <!-- Alarm bells (top) -->
+    <path
+        android:fillColor="#9945FF"
+        android:pathData="M38,30a4,4 0,1 0,0 -8a4,4 0,0 0,0 8z"/>
+    <path
+        android:fillColor="#9945FF"
+        android:pathData="M70,30a4,4 0,1 0,0 -8a4,4 0,0 0,0 8z"/>
+    
+    <!-- Alarm legs (bottom) -->
+    <path
+        android:fillColor="#9945FF"
+        android:pathData="M40,78l6,8M68,78l-6,8"
+        android:strokeWidth="3"
+        android:strokeColor="#9945FF"/>
 </vector>

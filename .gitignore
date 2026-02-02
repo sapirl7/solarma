@@ -10,6 +10,9 @@
 *.swo
 *~
 .DS_Store
+**/.DS_Store
+AGENTS.md
+INTERNAL_LICENSE.md
 
 # ===================
 # Environment / Secrets
