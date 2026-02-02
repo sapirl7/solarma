@@ -21,7 +21,7 @@ default = []
 [dependencies]
 anchor-lang = "0.32.1"
 anchor-spl = "0.32.1"
-blake3 = "=1.5.5"
+blake3 = "=1.8.3"
 
 [dev-dependencies]
 
