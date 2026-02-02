@@ -1,40 +1,57 @@
 # Security Policy
 
-## Reporting Vulnerabilities
+## Supported Versions
 
-Please report security vulnerabilities privately via email to: security@solarma.app
+| Version | Supported          |
+| ------- | ------------------ |
+| 0.1.x   | :white_check_mark: |
 
-**Do not** open public issues for security vulnerabilities.
+## Reporting a Vulnerability
+
+We take security seriously. If you discover a vulnerability:
+
+### Private Disclosure (Preferred)
+
+1. **DO NOT** open a public issue
+2. Email: **security@solarma.app**
+3. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
+
+### Response Timeline
+
+- **24 hours** — Initial acknowledgment
+- **72 hours** — Assessment and severity classification
+- **7 days** — Patch development (critical issues)
+- **30 days** — Coordinated disclosure
 
 ## Scope
 
-Security issues we care about:
-- Smart contract vulnerabilities (Solana program)
-- Wallet/key exposure
-- Deposit theft or manipulation
-- Alarm bypass that could cause deposit loss
-- Privacy violations (sensor data leakage)
+### In Scope
+- Smart contract (`programs/solarma_vault/`)
+- Android app security (wallet integration, key handling)
+- Transaction signing logic
+- PDA derivation and account validation
 
-## Response Timeline
+### Out of Scope
+- UI/UX issues without security impact
+- Third-party dependencies (report to maintainers)
+- Devnet-only issues (unless they affect mainnet logic)
 
-- **Acknowledgment**: Within 48 hours
-- **Initial assessment**: Within 1 week
-- **Fix timeline**: Depends on severity (critical: ASAP)
+## Bug Bounty
 
-## Disclosure Policy
+We currently do not have a formal bug bounty program, but we appreciate responsible disclosure and will publicly credit researchers (with permission).
 
-- We practice coordinated disclosure
-- Researchers will be credited (unless they prefer anonymity)
-- We do not have a formal bug bounty program at this time
+## Security Best Practices
 
-## Known Security Considerations
+### For Users
+- Never share your seed phrase
+- Verify transaction details before signing
+- Only use official releases from GitHub
 
-### Smart Contract
-- Time-based security relies on Solana's clock
-- Permissionless slash is by design (anyone can trigger after deadline)
-- Deposits are held in program-controlled PDAs
-
-### Mobile App
-- Wallet keys never enter app (MWA isolation)
-- Sensor data is processed locally only
-- NFC tag hashes are stored, not raw identifiers
+### For Contributors
+- No secrets in code
+- Review all transaction building logic
+- Test edge cases thoroughly
