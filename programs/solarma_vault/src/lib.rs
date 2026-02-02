@@ -6,7 +6,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("So1armaVau1t1111111111111111111111111111111");
+declare_id!("51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1");
 
 pub mod constants;
 pub mod error;

@@ -15,7 +15,8 @@ import javax.inject.Inject
  */
 class WakeProofEngine @Inject constructor(
     private val stepCounter: StepCounter,
-    private val nfcScanner: NfcScanner
+    private val nfcScanner: NfcScanner,
+    private val qrScanner: QrScanner
 ) {
     companion object {
         private const val TAG = "Solarma.WakeProofEngine"
@@ -65,13 +66,7 @@ class WakeProofEngine @Inject constructor(
             }
             
             TYPE_QR -> {
-                // Fallback to steps if QR not implemented
-                _progress.value = WakeProgress(
-                    type = TYPE_QR,
-                    message = "QR not available, using steps instead",
-                    fallbackActive = true
-                )
-                startStepChallenge(alarm.targetSteps)
+                startQrChallenge(alarm.qrCode)
             }
             
             else -> {
@@ -87,15 +82,16 @@ class WakeProofEngine @Inject constructor(
     
     /**
      * Start step counting challenge.
+     * Falls back to manual confirm after 60 seconds if no progress.
      */
     private fun startStepChallenge(targetSteps: Int) {
         if (!stepCounter.isAvailable()) {
             _progress.value = WakeProgress(
                 type = TYPE_STEPS,
-                message = "Step sensor unavailable. Shake device instead.",
-                fallbackActive = true
+                message = "Step sensor unavailable. Tap to confirm you're awake.",
+                fallbackActive = true,
+                requiresAction = true
             )
-            // TODO: Implement shake fallback
             return
         }
         
@@ -106,8 +102,14 @@ class WakeProofEngine @Inject constructor(
             message = "Walk $targetSteps steps"
         )
         
+        // Track start time for timeout
+        val startTime = System.currentTimeMillis()
+        var lastStepCount = 0
+        
         scope.launch {
             stepCounter.countSteps(targetSteps).collect { stepProgress ->
+                lastStepCount = stepProgress.currentSteps
+                
                 _progress.value = WakeProgress(
                     type = TYPE_STEPS,
                     currentValue = stepProgress.currentSteps,
@@ -118,6 +120,18 @@ class WakeProofEngine @Inject constructor(
                 
                 if (stepProgress.isComplete) {
                     complete()
+                }
+                
+                // Check for timeout (60 seconds with no progress)
+                if (stepProgress.currentSteps == 0 && 
+                    System.currentTimeMillis() - startTime > 60_000) {
+                    Log.w(TAG, "Step challenge timeout, enabling manual fallback")
+                    _progress.value = WakeProgress(
+                        type = TYPE_STEPS,
+                        message = "Sensor not responding. Tap to confirm you're awake.",
+                        fallbackActive = true,
+                        requiresAction = true
+                    )
                 }
             }
         }
@@ -135,6 +149,16 @@ class WakeProofEngine @Inject constructor(
             )
             return
         }
+
+        val expectedHash = decodeHex(tagHash)
+        if (expectedHash == null) {
+            _progress.value = WakeProgress(
+                type = TYPE_NFC,
+                message = "Invalid NFC tag data. Re-register your tag.",
+                error = "Invalid tag hash"
+            )
+            return
+        }
         
         _progress.value = WakeProgress(
             type = TYPE_NFC,
@@ -142,7 +166,7 @@ class WakeProofEngine @Inject constructor(
         )
         
         // Start listening for NFC
-        nfcScanner.startScanning(tagHash.toByteArray())
+        nfcScanner.startScanning(expectedHash)
         
         scope.launch {
             nfcScanner.scanResult.collect { result ->
@@ -177,9 +201,23 @@ class WakeProofEngine @Inject constructor(
      * For TYPE_NONE: manual confirmation.
      */
     fun confirmAwake() {
-        if (currentAlarm?.wakeProofType == TYPE_NONE) {
+        if (currentAlarm?.wakeProofType == TYPE_NONE || _progress.value.fallbackActive) {
             complete()
         }
+    }
+
+    /**
+     * Activate manual fallback for the current challenge.
+     */
+    fun activateFallback(message: String) {
+        val type = currentAlarm?.wakeProofType ?: _progress.value.type
+        _progress.value = _progress.value.copy(
+            type = type,
+            message = message,
+            fallbackActive = true,
+            requiresAction = true,
+            error = null
+        )
     }
     
     /**
@@ -195,6 +233,7 @@ class WakeProofEngine @Inject constructor(
         
         // Cleanup
         nfcScanner.stopScanning()
+        qrScanner.stopScanning()
     }
     
     /**
@@ -202,7 +241,71 @@ class WakeProofEngine @Inject constructor(
      */
     fun stop() {
         nfcScanner.stopScanning()
+        qrScanner.stopScanning()
         currentAlarm = null
+    }
+    
+    /**
+     * Start QR code scanning challenge.
+     */
+    private fun startQrChallenge(expectedCode: String?) {
+        if (expectedCode == null) {
+            _progress.value = WakeProgress(
+                type = TYPE_QR,
+                message = "No QR code registered. Go to Settings to generate one.",
+                error = "No code registered"
+            )
+            return
+        }
+        
+        _progress.value = WakeProgress(
+            type = TYPE_QR,
+            message = "Point camera at your registered QR code"
+        )
+        
+        // Start QR scanning
+        qrScanner.startScanning(expectedCode)
+        
+        scope.launch {
+            qrScanner.scanResult.collect { result ->
+                when (result) {
+                    is QrScanResult.Success -> {
+                        _progress.value = WakeProgress(
+                            type = TYPE_QR,
+                            message = "QR code verified! ✅",
+                            progressPercent = 1f
+                        )
+                        complete()
+                    }
+                    is QrScanResult.WrongCode -> {
+                        _progress.value = _progress.value.copy(
+                            message = "Wrong QR code! Scan the registered one.",
+                            error = "Wrong code"
+                        )
+                    }
+                    is QrScanResult.Error -> {
+                        _progress.value = _progress.value.copy(
+                            message = result.message,
+                            error = result.message
+                        )
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    private fun decodeHex(hex: String): ByteArray? {
+        val clean = hex.trim()
+        if (clean.length % 2 != 0) return null
+        return try {
+            ByteArray(clean.length / 2) { i ->
+                val index = i * 2
+                clean.substring(index, index + 2).toInt(16).toByte()
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 }
 

@@ -65,6 +65,9 @@ interface StatsDao {
     
     @Query("UPDATE stats SET totalSnoozes = totalSnoozes + 1 WHERE id = 1")
     suspend fun incrementSnoozes()
+
+    @Query("UPDATE stats SET totalAlarms = totalAlarms + 1 WHERE id = 1")
+    suspend fun incrementTotalAlarms()
     
     @Query("UPDATE stats SET totalDeposited = totalDeposited + :amount WHERE id = 1")
     suspend fun addDeposit(amount: Long)

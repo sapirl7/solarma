@@ -17,6 +17,10 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -45,6 +49,7 @@ class AlarmService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var currentAlarmId: Long = -1
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     override fun onCreate() {
         super.onCreate()
@@ -80,6 +85,16 @@ class AlarmService : Service() {
     private fun handleAlarmTriggered(alarmId: Long) {
         Log.i(TAG, "Handling alarm: id=$alarmId")
         currentAlarmId = alarmId
+
+        serviceScope.launch {
+            alarmRepository.markTriggered(alarmId)
+            val alarm = alarmRepository.getAlarm(alarmId) ?: return@launch
+            if (alarm.hasDeposit) {
+                val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+                val delay = deadlineMillis - System.currentTimeMillis()
+                SlashAlarmWorker.enqueue(applicationContext, alarmId, delay)
+            }
+        }
         
         // Acquire wake lock
         acquireWakeLock()
@@ -108,8 +123,11 @@ class AlarmService : Service() {
         stopAlarmSound()
         stopVibration()
         
-        // Schedule snooze (5 minutes default)
-        // In real implementation, this would call AlarmScheduler
+        serviceScope.launch {
+            if (currentAlarmId > 0) {
+                alarmRepository.snooze(currentAlarmId)
+            }
+        }
         
         stopForeground(STOP_FOREGROUND_REMOVE)
         releaseWakeLock()
@@ -187,7 +205,13 @@ class AlarmService : Service() {
     // ==================== Vibration ====================
     
     private fun startVibration() {
-        vibrator = getSystemService(VIBRATOR_SERVICE) as? Vibrator
+        vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(android.os.VibratorManager::class.java)
+            vibratorManager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as? Vibrator
+        }
         vibrator?.let {
             val pattern = longArrayOf(0, 500, 200, 500) // vibrate pattern
             val effect = VibrationEffect.createWaveform(pattern, 0) // repeat from index 0

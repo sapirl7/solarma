@@ -3,11 +3,16 @@ package app.solarma.wallet
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.util.Base64
 import android.util.Log
+import app.solarma.data.local.AlarmDao
+import app.solarma.data.local.StatsEntity
+import app.solarma.data.local.StatsDao
+import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlin.math.min
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +24,11 @@ import javax.inject.Singleton
 class TransactionProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val transactionDao: PendingTransactionDao,
-    private val walletManager: WalletManager
+    private val walletManager: WalletManager,
+    private val transactionBuilder: TransactionBuilder,
+    private val rpcClient: SolanaRpcClient,
+    private val alarmDao: AlarmDao,
+    private val statsDao: StatsDao
 ) {
     companion object {
         private const val TAG = "Solarma.TxProcessor"
@@ -29,6 +38,7 @@ class TransactionProcessor @Inject constructor(
     
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var processingJob: Job? = null
+    private val processingMutex = Mutex()
     
     /**
      * Start processing pending transactions.
@@ -59,50 +69,272 @@ class TransactionProcessor @Inject constructor(
     /**
      * Queue a new transaction.
      */
-    suspend fun queueTransaction(
-        type: String,
-        transactionBytes: ByteArray,
-        alarmId: Long?
-    ): Long {
-        val tx = PendingTransaction(
-            type = type,
-            transactionData = Base64.encodeToString(transactionBytes, Base64.NO_WRAP),
-            alarmId = alarmId
-        )
-        val id = transactionDao.insert(tx)
-        Log.i(TAG, "Transaction queued: id=$id, type=$type")
-        return id
-    }
-    
     private suspend fun processPendingTransactions() {
-        val pending = transactionDao.getPendingTransactions().first()
-        
-        for (tx in pending) {
-            if (tx.retryCount >= MAX_RETRIES) {
-                transactionDao.updateStatus(tx.id, "FAILED", "Max retries exceeded", System.currentTimeMillis())
-                Log.w(TAG, "Transaction ${tx.id} failed after max retries")
-                continue
+        // Cannot sign without ActivityResultSender. Skip to avoid false confirmations.
+        Log.d(TAG, "Skipping pending transaction processing: UI approval required")
+    }
+
+    /**
+     * Process pending transactions with UI available for wallet signing.
+     * Call this from a foreground Activity (e.g., MainActivity onResume).
+     */
+    suspend fun processPendingTransactionsWithUi(activityResultSender: ActivityResultSender) {
+        if (!processingMutex.tryLock()) return
+        try {
+            if (!isNetworkAvailable()) {
+                Log.d(TAG, "No network, skipping pending transactions")
+                return
             }
-            
-            try {
-                transactionDao.updateStatus(tx.id, "SENDING", null, System.currentTimeMillis())
-                
-                val data = Base64.decode(tx.transactionData, Base64.NO_WRAP)
-                
-                // Note: In real implementation, need ActivityResultSender from active Activity
-                // This is a placeholder - actual signing requires UI context
-                Log.d(TAG, "Would send transaction: ${tx.id}, type=${tx.type}")
-                
-                // Simulate success for now
-                transactionDao.updateStatus(tx.id, "CONFIRMED", null, System.currentTimeMillis())
-                Log.i(TAG, "Transaction ${tx.id} confirmed")
-                
-            } catch (e: Exception) {
-                val delay = BASE_DELAY_MS * (1 shl tx.retryCount.coerceAtMost(5))
-                transactionDao.updateStatus(tx.id, "PENDING", e.message, System.currentTimeMillis())
-                Log.e(TAG, "Transaction ${tx.id} failed, retry in ${delay}ms", e)
-                delay(delay)
+            if (!walletManager.isConnected()) {
+                Log.d(TAG, "Wallet not connected, skipping pending transactions")
+                return
             }
+            val pending = transactionDao.getPendingTransactions().first()
+            if (pending.isEmpty()) return
+
+            for (tx in pending) {
+                if (tx.retryCount >= MAX_RETRIES) {
+                    transactionDao.updateStatus(tx.id, "FAILED", "Max retries exceeded", System.currentTimeMillis())
+                    Log.w(TAG, "Transaction ${tx.id} failed after max retries")
+                    continue
+                }
+
+                try {
+                    transactionDao.updateStatus(tx.id, "SENDING", null, System.currentTimeMillis())
+                    val alarmId = tx.alarmId
+                    if (alarmId == null) {
+                        transactionDao.updateStatus(tx.id, "FAILED", "Missing alarmId", System.currentTimeMillis())
+                        Log.w(TAG, "Transaction ${tx.id} missing alarmId")
+                        continue
+                    }
+
+                    val alarm = alarmDao.getById(alarmId)
+                    if (alarm == null) {
+                        transactionDao.updateStatus(tx.id, "FAILED", "Alarm not found", System.currentTimeMillis())
+                        Log.w(TAG, "Transaction ${tx.id} alarm not found")
+                        continue
+                    }
+
+                    val ownerAddress = walletManager.getConnectedWallet()
+                        ?: throw IllegalStateException("Wallet not connected")
+                    val owner = org.sol4k.PublicKey(ownerAddress)
+                    val onchainAlarmId = resolveOnchainAlarmId(alarm, owner)
+
+                    val txBytes = when (tx.type) {
+                        "CREATE_ALARM" -> {
+                            val createAlarmId = alarm.onchainAlarmId ?: alarm.id
+                            val alarmPda = transactionBuilder.instructionBuilder
+                                .deriveAlarmPda(owner, createAlarmId)
+                                .address
+                                .toBase58()
+
+                            val exists = rpcClient.accountExists(alarmPda).getOrNull() == true
+                            if (exists) {
+                                alarmDao.update(
+                                    alarm.copy(
+                                        onchainPubkey = alarmPda,
+                                        hasDeposit = true
+                                    )
+                                )
+                                ensureStatsRow()
+                                if (alarm.depositLamports > 0) {
+                                    statsDao.addDeposit(alarm.depositLamports)
+                                }
+                                transactionDao.updateStatus(tx.id, "CONFIRMED", null, System.currentTimeMillis())
+                                Log.i(TAG, "Create alarm already confirmed onchain: ${tx.id}")
+                                continue
+                            }
+
+                            if (alarm.depositLamports <= 0) {
+                                transactionDao.updateStatus(tx.id, "FAILED", "Missing deposit for create", System.currentTimeMillis())
+                                Log.w(TAG, "Create alarm missing deposit for alarm ${alarm.id}")
+                                continue
+                            }
+
+                            val alarmTimeUnix = alarm.alarmTimeMillis / 1000
+                            val deadlineUnix = alarmTimeUnix + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_SECONDS
+                            val route = PenaltyRoute.fromCode(alarm.penaltyRoute)
+                            val buddyAddress = if (route == PenaltyRoute.BUDDY) alarm.penaltyDestination else null
+
+                            transactionBuilder.buildCreateAlarmTransaction(
+                                owner = owner,
+                                alarmId = createAlarmId,
+                                alarmTimeUnix = alarmTimeUnix,
+                                deadlineUnix = deadlineUnix,
+                                depositLamports = alarm.depositLamports,
+                                penaltyRoute = route,
+                                buddyAddress = buddyAddress?.let { org.sol4k.PublicKey(it) }
+                            )
+                        }
+                        "CLAIM" -> transactionBuilder.buildClaimTransaction(owner, onchainAlarmId)
+                        "SNOOZE" -> transactionBuilder.buildSnoozeTransaction(owner, onchainAlarmId)
+                        "SLASH" -> {
+                            val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+                            if (System.currentTimeMillis() < deadlineMillis) {
+                                transactionDao.updateStatus(
+                                    tx.id,
+                                    "PENDING",
+                                    "Deadline not passed",
+                                    System.currentTimeMillis()
+                                )
+                                Log.d(TAG, "Slash skipped until deadline for alarm ${alarm.id}")
+                                continue
+                            }
+                            transactionBuilder.buildSlashTransaction(
+                                owner = owner,
+                                onchainAlarmId = onchainAlarmId,
+                                penaltyRoute = alarm.penaltyRoute,
+                                penaltyDestination = alarm.penaltyDestination
+                            )
+                        }
+                        "EMERGENCY_REFUND" -> transactionBuilder.buildEmergencyRefundTransaction(
+                            owner = owner,
+                            alarmId = onchainAlarmId
+                        )
+                        else -> {
+                            transactionDao.updateStatus(tx.id, "FAILED", "Unknown type ${tx.type}", System.currentTimeMillis())
+                            Log.w(TAG, "Unknown transaction type: ${tx.type}")
+                            continue
+                        }
+                    }
+
+                    val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+                    if (result.isFailure) {
+                        val e = result.exceptionOrNull()
+                        transactionDao.updateStatus(tx.id, "PENDING", e?.message, System.currentTimeMillis())
+                        transactionDao.incrementRetry(tx.id)
+                        Log.e(TAG, "Transaction ${tx.id} failed", e)
+                        continue
+                    }
+                    val signature = result.getOrThrow()
+
+                    val status = rpcClient.getSignatureStatus(signature).getOrNull()
+                    if (status != null && status.err != null) {
+                        if (tx.type == "CREATE_ALARM") {
+                            val createAlarmId = alarm.onchainAlarmId ?: alarm.id
+                            val alarmPda = transactionBuilder.instructionBuilder
+                                .deriveAlarmPda(owner, createAlarmId)
+                                .address
+                                .toBase58()
+                            val exists = rpcClient.accountExists(alarmPda).getOrNull() == true
+                            if (exists) {
+                                alarmDao.update(
+                                    alarm.copy(
+                                        onchainPubkey = alarmPda,
+                                        hasDeposit = true
+                                    )
+                                )
+                                ensureStatsRow()
+                                if (alarm.depositLamports > 0) {
+                                    statsDao.addDeposit(alarm.depositLamports)
+                                }
+                                transactionDao.updateStatus(tx.id, "CONFIRMED", null, System.currentTimeMillis())
+                                Log.i(TAG, "Create alarm confirmed despite error: ${status.err}")
+                                continue
+                            }
+                        }
+                        transactionDao.updateStatus(tx.id, "FAILED", status.err, System.currentTimeMillis())
+                        Log.w(TAG, "Transaction ${tx.id} failed: ${status.err}")
+                        continue
+                    }
+                    val confirmed = status?.confirmationStatus == "confirmed" ||
+                        status?.confirmationStatus == "finalized"
+                    if (!confirmed) {
+                        transactionDao.updateStatus(tx.id, "PENDING", "Not confirmed", System.currentTimeMillis())
+                        transactionDao.incrementRetry(tx.id)
+                        Log.w(TAG, "Transaction ${tx.id} not confirmed yet")
+                        continue
+                    }
+
+                    ensureStatsRow()
+
+                    when (tx.type) {
+                        "CREATE_ALARM" -> {
+                            val createAlarmId = alarm.onchainAlarmId ?: alarm.id
+                            val alarmPda = transactionBuilder.instructionBuilder
+                                .deriveAlarmPda(owner, createAlarmId)
+                                .address
+                                .toBase58()
+                            alarmDao.update(
+                                alarm.copy(
+                                    onchainPubkey = alarmPda,
+                                    hasDeposit = true
+                                )
+                            )
+                            if (alarm.depositLamports > 0) {
+                                statsDao.addDeposit(alarm.depositLamports)
+                            }
+                        }
+                        "CLAIM" -> {
+                            if (alarm.depositLamports > 0) {
+                                statsDao.addSaved(alarm.depositLamports)
+                            }
+                            alarmDao.update(
+                                alarm.copy(
+                                    hasDeposit = false,
+                                    depositLamports = 0,
+                                    onchainPubkey = null
+                                )
+                            )
+                        }
+                        "SLASH" -> {
+                            if (alarm.depositLamports > 0) {
+                                statsDao.addSlashed(alarm.depositLamports)
+                            }
+                            alarmDao.update(
+                                alarm.copy(
+                                    hasDeposit = false,
+                                    depositLamports = 0,
+                                    onchainPubkey = null
+                                )
+                            )
+                        }
+                        "EMERGENCY_REFUND" -> {
+                            if (alarm.depositLamports > 0) {
+                                val penalty = alarm.depositLamports * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
+                                val refund = alarm.depositLamports - penalty
+                                if (refund > 0) {
+                                    statsDao.addSaved(refund)
+                                }
+                                if (penalty > 0) {
+                                    statsDao.addSlashed(penalty)
+                                }
+                            }
+                            alarmDao.update(
+                                alarm.copy(
+                                    hasDeposit = false,
+                                    depositLamports = 0,
+                                    onchainPubkey = null
+                                )
+                            )
+                        }
+                        "SNOOZE" -> {
+                            val cost = computeSnoozeCost(alarm.depositLamports, alarm.snoozeCount)
+                            if (cost > 0) {
+                                statsDao.addSlashed(cost)
+                            }
+                            statsDao.incrementSnoozes()
+                            val newRemaining = (alarm.depositLamports - cost).coerceAtLeast(0)
+                            alarmDao.update(
+                                alarm.copy(
+                                    depositLamports = newRemaining,
+                                    snoozeCount = alarm.snoozeCount + 1
+                                )
+                            )
+                        }
+                    }
+
+                    transactionDao.updateStatus(tx.id, "CONFIRMED", null, System.currentTimeMillis())
+                    Log.i(TAG, "Transaction ${tx.id} confirmed")
+                } catch (e: Exception) {
+                    val delayMs = BASE_DELAY_MS * (1 shl tx.retryCount.coerceAtMost(5))
+                    transactionDao.updateStatus(tx.id, "PENDING", e.message, System.currentTimeMillis())
+                    transactionDao.incrementRetry(tx.id)
+                    Log.e(TAG, "Transaction ${tx.id} failed, retry in ${delayMs}ms", e)
+                }
+            }
+        } finally {
+            processingMutex.unlock()
         }
     }
     
@@ -111,5 +343,50 @@ class TransactionProcessor @Inject constructor(
         val network = cm.activeNetwork ?: return false
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun computeSnoozeCost(remaining: Long, snoozeCount: Int): Long {
+        if (remaining <= 0) return 0
+        val baseCost = remaining * OnchainParameters.SNOOZE_BASE_PERCENT / 100
+        if (baseCost <= 0) return 0
+        val safeCount = snoozeCount.coerceAtMost(30)
+        val multiplier = 1L shl safeCount
+        val cost = baseCost * multiplier
+        return min(cost, remaining)
+    }
+
+    private fun resolveOnchainAlarmId(
+        alarm: app.solarma.data.local.AlarmEntity,
+        owner: org.sol4k.PublicKey
+    ): Long {
+        val onchainPubkey = alarm.onchainPubkey
+        if (onchainPubkey.isNullOrBlank()) {
+            return alarm.onchainAlarmId ?: alarm.id
+        }
+        val defaultId = alarm.id
+        val defaultPda = transactionBuilder.instructionBuilder
+            .deriveAlarmPda(owner, defaultId)
+            .address
+            .toBase58()
+        if (defaultPda == onchainPubkey) {
+            return defaultId
+        }
+        val storedId = alarm.onchainAlarmId
+        if (storedId != null) {
+            val storedPda = transactionBuilder.instructionBuilder
+                .deriveAlarmPda(owner, storedId)
+                .address
+                .toBase58()
+            if (storedPda == onchainPubkey) {
+                return storedId
+            }
+        }
+        return storedId ?: defaultId
+    }
+
+    private suspend fun ensureStatsRow() {
+        if (statsDao.getStatsOnce() == null) {
+            statsDao.insert(StatsEntity())
+        }
     }
 }

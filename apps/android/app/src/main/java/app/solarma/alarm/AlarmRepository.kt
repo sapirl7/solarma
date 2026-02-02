@@ -5,6 +5,8 @@ import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.AlarmEntity
 import app.solarma.data.local.StatsDao
 import app.solarma.data.local.StatsEntity
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -16,9 +18,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class AlarmRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val alarmDao: AlarmDao,
     private val alarmScheduler: AlarmScheduler,
-    private val statsDao: StatsDao
+    private val statsDao: StatsDao,
+    private val transactionQueue: app.solarma.wallet.TransactionQueue
 ) {
     companion object {
         private const val TAG = "Solarma.AlarmRepository"
@@ -37,9 +41,10 @@ class AlarmRepository @Inject constructor(
         if (alarm.isEnabled) {
             alarmScheduler.schedule(id, alarm.alarmTimeMillis)
         }
-        
+
         // Update stats
         ensureStatsExist()
+        statsDao.incrementTotalAlarms()
         
         return id
     }
@@ -95,9 +100,16 @@ class AlarmRepository @Inject constructor(
      * Mark alarm as completed (wake proof passed).
      */
     suspend fun markCompleted(id: Long, success: Boolean) {
+        val alarm = alarmDao.getById(id)
+        if (alarm == null) {
+            Log.w(TAG, "Alarm $id not found for completion")
+            return
+        }
+        ensureStatsExist()
         if (success) {
             // Record successful wake
             statsDao.recordSuccessfulWake(System.currentTimeMillis())
+            alarmDao.updateLastCompleted(id, System.currentTimeMillis())
             Log.i(TAG, "Alarm $id completed successfully")
         } else {
             // Reset streak on failure
@@ -106,7 +118,6 @@ class AlarmRepository @Inject constructor(
         }
         
         // Disable one-time alarm (for repeating, would update next ring)
-        val alarm = alarmDao.getById(id) ?: return
         if (alarm.repeatDays == 0) {
             alarmDao.setEnabled(id, false)
         }
@@ -125,7 +136,7 @@ class AlarmRepository @Inject constructor(
     /**
      * Handle snooze: reschedule alarm, increment stats.
      */
-    suspend fun snooze(id: Long, snoozeMinutes: Int = 5) {
+    suspend fun snooze(id: Long, snoozeMinutes: Int = AlarmTiming.SNOOZE_MINUTES) {
         val nextRing = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
         updateNextRing(id, nextRing)
         statsDao.incrementSnoozes()
@@ -145,9 +156,10 @@ class AlarmRepository @Inject constructor(
      * Restore all alarms after boot.
      * Called from BootReceiver/WorkManager.
      */
-    suspend fun restoreAllAlarms() {
+    suspend fun restoreAllAlarms(): Int {
         val alarms = alarmDao.getEnabledAlarms().first()
         val now = System.currentTimeMillis()
+        var missedCount = 0
         
         for (alarm in alarms) {
             if (alarm.alarmTimeMillis > now) {
@@ -156,11 +168,26 @@ class AlarmRepository @Inject constructor(
             } else {
                 // Alarm time passed while device was off
                 Log.w(TAG, "Alarm ${alarm.id} missed while device was off")
-                // Could trigger immediately or mark as missed
+                missedCount++
+                
+                // Mark as failed and disable one-time alarms
+                markCompleted(alarm.id, success = false)
+                alarmDao.updateLastTriggered(alarm.id, alarm.alarmTimeMillis)
+                
+                if (alarm.repeatDays == 0) {
+                    alarmDao.setEnabled(alarm.id, false)
+                }
+                
+                // Note: if alarm.hasDeposit, funds are lost (penalty applied)
+                if (alarm.hasDeposit) {
+                    Log.e(TAG, "Alarm ${alarm.id} missed with deposit! Penalty will be applied.")
+                    maybeQueueSlash(alarm)
+                }
             }
         }
         
-        Log.i(TAG, "Restored ${alarms.size} alarms")
+        Log.i(TAG, "Restored ${alarms.size - missedCount} alarms, $missedCount missed")
+        return missedCount
     }
     
     /**
@@ -170,5 +197,95 @@ class AlarmRepository @Inject constructor(
         if (statsDao.getStatsOnce() == null) {
             statsDao.insert(StatsEntity())
         }
+    }
+
+    private suspend fun maybeQueueSlash(alarm: AlarmEntity) {
+        val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+        if (System.currentTimeMillis() < deadlineMillis) {
+            SlashAlarmWorker.enqueue(context, alarm.id, deadlineMillis - System.currentTimeMillis())
+            return
+        }
+
+        val lastTriggered = alarm.lastTriggeredAt ?: alarm.alarmTimeMillis
+        val completed = alarm.lastCompletedAt
+        val completedAfterTrigger = completed != null && completed >= lastTriggered
+        if (completedAfterTrigger) {
+            Log.i(TAG, "Skipping slash for alarm ${alarm.id} - already completed")
+            return
+        }
+
+        if (!transactionQueue.hasActive("SLASH", alarm.id)) {
+            transactionQueue.enqueue(type = "SLASH", alarmId = alarm.id)
+            Log.w(TAG, "Queued slash for alarm ${alarm.id}")
+        }
+    }
+    
+    /**
+     * Update onchain PDA address after successful transaction.
+     */
+    suspend fun updateOnchainAddress(id: Long, pdaAddress: String) {
+        val alarm = alarmDao.getById(id) ?: return
+        alarmDao.update(alarm.copy(onchainPubkey = pdaAddress))
+        Log.i(TAG, "Alarm $id onchain address updated: $pdaAddress")
+    }
+    
+    /**
+     * Update deposit status (e.g., if user skips signing).
+     */
+    suspend fun updateDepositStatus(id: Long, hasDeposit: Boolean) {
+        val alarm = alarmDao.getById(id) ?: return
+        val updated = if (hasDeposit) {
+            alarm.copy(hasDeposit = true)
+        } else {
+            alarm.copy(
+                hasDeposit = false,
+                depositLamports = 0,
+                onchainPubkey = null,
+                onchainAlarmId = null,
+                snoozeCount = 0
+            )
+        }
+        alarmDao.update(updated)
+        Log.i(TAG, "Alarm $id deposit status updated: $hasDeposit")
+    }
+
+    /**
+     * Record a successful onchain deposit for stats.
+     */
+    suspend fun recordDeposit(amountLamports: Long) {
+        if (amountLamports <= 0) return
+        ensureStatsExist()
+        statsDao.addDeposit(amountLamports)
+    }
+
+    suspend fun queueCreateAlarm(alarmId: Long) {
+        if (!transactionQueue.hasActive("CREATE_ALARM", alarmId)) {
+            transactionQueue.enqueue(type = "CREATE_ALARM", alarmId = alarmId)
+            PendingCreateNotificationWorker.enqueue(context, alarmId)
+        }
+    }
+
+    /**
+     * Record an emergency refund and update alarm state.
+     */
+    suspend fun recordEmergencyRefund(alarm: AlarmEntity) {
+        if (alarm.depositLamports > 0) {
+            ensureStatsExist()
+            val penalty = alarm.depositLamports * app.solarma.wallet.OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
+            val refund = alarm.depositLamports - penalty
+            if (refund > 0) {
+                statsDao.addSaved(refund)
+            }
+            if (penalty > 0) {
+                statsDao.addSlashed(penalty)
+            }
+        }
+        alarmDao.update(
+            alarm.copy(
+                hasDeposit = false,
+                depositLamports = 0,
+                onchainPubkey = null
+            )
+        )
     }
 }

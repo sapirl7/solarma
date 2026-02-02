@@ -1,14 +1,21 @@
 package app.solarma.alarm
 
+import android.Manifest
+import android.app.PendingIntent
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.nfc.NfcAdapter
+import android.nfc.Tag
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -24,11 +31,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.theme.SolarmaTheme
 import app.solarma.wakeproof.WakeProofEngine
 import app.solarma.wakeproof.WakeProgress
+import app.solarma.wakeproof.QrScanner
+import app.solarma.wakeproof.NfcScanner
+import app.solarma.ui.components.QrCameraPreview
+import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -52,8 +64,38 @@ class AlarmActivity : ComponentActivity() {
     @Inject
     lateinit var wakeProofEngine: WakeProofEngine
     
+    @Inject
+    lateinit var transactionQueue: app.solarma.wallet.TransactionQueue
+    
+    @Inject
+    lateinit var nfcScanner: NfcScanner
+    
+    @Inject
+    lateinit var qrScanner: QrScanner
+    
+    // ActivityResultSender for MWA transactions (claim/snooze)
+    private val activityResultSender by lazy {
+        ActivityResultSender(this)
+    }
+    
     private var alarmId: Long = -1
     private var currentAlarm: AlarmEntity? = null
+    private var pendingPermissionAlarm: AlarmEntity? = null
+    private var nfcAdapter: NfcAdapter? = null
+    private var nfcPendingIntent: PendingIntent? = null
+    
+    // Permission launcher for step counter (Android 10+)
+    private val stepPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        handlePermissionResult(isGranted, WakeProofEngine.TYPE_STEPS)
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        handlePermissionResult(isGranted, WakeProofEngine.TYPE_QR)
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,20 +105,29 @@ class AlarmActivity : ComponentActivity() {
         // Show over lock screen
         setupLockScreenFlags()
         
-        // Load alarm and start wake proof
-        lifecycleScope.launch {
-            currentAlarm = alarmRepository.getAlarm(alarmId)
-            currentAlarm?.let { alarm ->
-                wakeProofEngine.start(alarm)
-            }
-        }
+        // Initialize NFC foreground dispatch
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        nfcPendingIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_MUTABLE
+        )
+
+        startWakeProof()
         
         // Observe wake proof completion
         lifecycleScope.launch {
             wakeProofEngine.isComplete.collect { isComplete ->
                 if (isComplete) {
-                    Log.i(TAG, "Wake proof completed, dismissing alarm")
+                    Log.i(TAG, "Wake proof completed, processing completion")
                     alarmRepository.markCompleted(alarmId, success = true)
+                    // Queue claim deposit if alarm has one
+                    currentAlarm?.let { alarm ->
+                        if (alarm.hasDeposit && alarm.onchainPubkey != null) {
+                            Log.i(TAG, "Queueing claim deposit for alarm ${alarm.id}")
+                            queueClaimDeposit(alarm)
+                        }
+                    }
                     dismissAlarm()
                 }
             }
@@ -91,11 +142,109 @@ class AlarmActivity : ComponentActivity() {
                     progress = progress,
                     isComplete = isComplete,
                     alarm = currentAlarm,
+                    qrScanner = qrScanner,
                     onSnooze = { snoozeAlarm() },
                     onConfirmAwake = { wakeProofEngine.confirmAwake() }
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        nfcAdapter?.enableForegroundDispatch(
+            this,
+            nfcPendingIntent,
+            arrayOf(IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)),
+            null
+        )
+    }
+
+    override fun onPause() {
+        super.onPause()
+        nfcAdapter?.disableForegroundDispatch(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == NfcAdapter.ACTION_TAG_DISCOVERED ||
+            intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
+            intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
+            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            if (tag != null) {
+                Log.i(TAG, "NFC tag detected in alarm flow")
+                nfcScanner.handleTag(tag)
+            }
+        }
+    }
+    
+    private fun startWakeProof() {
+        lifecycleScope.launch {
+            try {
+                currentAlarm = alarmRepository.getAlarm(alarmId)
+                currentAlarm?.let { alarm ->
+                    Log.i(TAG, "Starting wake proof for alarm: ${alarm.id}, type=${alarm.wakeProofType}")
+                    if (alarm.wakeProofType == WakeProofEngine.TYPE_STEPS &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                        ContextCompat.checkSelfPermission(
+                            this@AlarmActivity, Manifest.permission.ACTIVITY_RECOGNITION
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        pendingPermissionAlarm = alarm
+                        Log.i(TAG, "Requesting ACTIVITY_RECOGNITION permission")
+                        stepPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                        return@launch
+                    }
+
+                    if (alarm.wakeProofType == WakeProofEngine.TYPE_QR &&
+                        ContextCompat.checkSelfPermission(
+                            this@AlarmActivity, Manifest.permission.CAMERA
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        pendingPermissionAlarm = alarm
+                        Log.i(TAG, "Requesting CAMERA permission")
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        return@launch
+                    }
+
+                    wakeProofEngine.start(alarm)
+                } ?: run {
+                    Log.e(TAG, "Alarm not found: $alarmId - using fallback")
+                    // Fallback: create dummy alarm with TYPE_NONE for graceful handling
+                    val fallbackAlarm = AlarmEntity(
+                        id = alarmId,
+                        alarmTimeMillis = System.currentTimeMillis(),
+                        wakeProofType = WakeProofEngine.TYPE_NONE
+                    )
+                    currentAlarm = fallbackAlarm
+                    wakeProofEngine.start(fallbackAlarm)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting wake proof", e)
+                // Show error but don't crash - allow dismiss
+                wakeProofEngine.confirmAwake()
+            }
+        }
+    }
+
+    private fun handlePermissionResult(isGranted: Boolean, type: Int) {
+        val alarm = pendingPermissionAlarm
+        if (alarm == null || alarm.wakeProofType != type) {
+            return
+        }
+
+        if (isGranted) {
+            wakeProofEngine.start(alarm)
+        } else {
+            val message = when (type) {
+                WakeProofEngine.TYPE_STEPS -> "Motion permission denied. Tap to confirm you're awake."
+                WakeProofEngine.TYPE_QR -> "Camera permission denied. Tap to confirm you're awake."
+                else -> "Permission denied. Tap to confirm you're awake."
+            }
+            wakeProofEngine.activateFallback(message)
+        }
+
+        pendingPermissionAlarm = null
     }
     
     private fun setupLockScreenFlags() {
@@ -135,6 +284,12 @@ class AlarmActivity : ComponentActivity() {
     private fun snoozeAlarm() {
         lifecycleScope.launch {
             alarmRepository.snooze(alarmId)
+            // Queue snooze transaction if alarm has onchain deposit
+            currentAlarm?.let { alarm ->
+                if (alarm.hasDeposit && alarm.onchainPubkey != null) {
+                    queueSnoozeTransaction(alarm)
+                }
+            }
         }
         wakeProofEngine.stop()
         
@@ -143,6 +298,48 @@ class AlarmActivity : ComponentActivity() {
         }
         startService(intent)
         finish()
+    }
+    
+    /**
+     * Queue snooze transaction for processing.
+     */
+    private suspend fun queueSnoozeTransaction(alarm: AlarmEntity) {
+        try {
+            val queueId = transactionQueue.enqueue(
+                type = "SNOOZE",
+                alarmId = alarm.id
+            )
+            Log.i(TAG, "Snooze transaction queued: queueId=$queueId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue snooze transaction", e)
+        }
+    }
+    
+    /**
+     * Queue claim transaction for processing.
+     * Since we're on lock screen, MWA can't open wallet popup.
+     * Transaction will be processed when user returns to main app.
+     */
+    private fun queueClaimDeposit(alarm: AlarmEntity) {
+        lifecycleScope.launch {
+            try {
+                val queueId = transactionQueue.enqueue(
+                    type = "CLAIM",
+                    alarmId = alarm.id
+                )
+                Log.i(TAG, "Claim transaction queued: queueId=$queueId, alarmId=${alarm.id}")
+                
+                // Show toast to user
+                android.widget.Toast.makeText(
+                    this@AlarmActivity,
+                    "Deposit claim queued. Open app to complete.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to queue claim transaction", e)
+            }
+        }
     }
     
     override fun onDestroy() {
@@ -156,6 +353,7 @@ fun AlarmScreen(
     progress: WakeProgress,
     isComplete: Boolean,
     alarm: AlarmEntity?,
+    qrScanner: QrScanner,
     onSnooze: () -> Unit,
     onConfirmAwake: () -> Unit
 ) {
@@ -230,22 +428,29 @@ fun AlarmScreen(
             ) {
                 // Progress indicator
                 if (!isComplete) {
-                    when (progress.type) {
-                        WakeProofEngine.TYPE_STEPS -> {
-                            StepsProgressView(progress)
-                        }
-                        WakeProofEngine.TYPE_NFC -> {
-                            NfcProgressView(progress)
-                        }
-                        WakeProofEngine.TYPE_NONE -> {
-                            NoProofView(onConfirmAwake)
-                        }
-                        else -> {
-                            Text(
-                                text = progress.message,
-                                color = Color.White,
-                                textAlign = TextAlign.Center
-                            )
+                    if (progress.fallbackActive) {
+                        FallbackView(progress.message, onConfirmAwake)
+                    } else {
+                        when (progress.type) {
+                            WakeProofEngine.TYPE_STEPS -> {
+                                StepsProgressView(progress)
+                            }
+                            WakeProofEngine.TYPE_NFC -> {
+                                NfcProgressView(progress)
+                            }
+                            WakeProofEngine.TYPE_QR -> {
+                                QrProgressView(progress, qrScanner)
+                            }
+                            WakeProofEngine.TYPE_NONE -> {
+                                NoProofView(onConfirmAwake)
+                            }
+                            else -> {
+                                Text(
+                                    text = progress.message,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 } else {
@@ -265,6 +470,24 @@ fun AlarmScreen(
                         color = Color(0xFFFF6B6B),
                         fontSize = 14.sp
                     )
+                }
+
+                if (!isComplete &&
+                    progress.requiresAction &&
+                    progress.type != WakeProofEngine.TYPE_NONE &&
+                    !progress.fallbackActive
+                ) {
+                    Button(
+                        onClick = onConfirmAwake,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF8C00)
+                        )
+                    ) {
+                        Text("I'm Awake! ☀️", fontSize = 18.sp)
+                    }
                 }
             }
             
@@ -311,8 +534,9 @@ fun StepsProgressView(progress: WakeProgress) {
         Spacer(modifier = Modifier.height(16.dp))
         
         // Progress bar
+        @Suppress("DEPRECATION")
         LinearProgressIndicator(
-            progress = { progress.progressPercent },
+            progress = progress.progressPercent.coerceIn(0f, 1f),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp),
@@ -375,6 +599,72 @@ fun NoProofView(onConfirm: () -> Unit) {
             )
         ) {
             Text("I'm Awake! ☀️", fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+fun FallbackView(message: String, onConfirm: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (message.isNotBlank()) {
+            Text(
+                text = message,
+                fontSize = 16.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        NoProofView(onConfirm)
+    }
+}
+
+@Composable
+fun QrProgressView(
+    progress: WakeProgress,
+    qrScanner: QrScanner
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "📷 Scan QR Code",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = progress.message,
+            fontSize = 14.sp,
+            color = Color.White.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Camera preview
+        QrCameraPreview(
+            qrScanner = qrScanner,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+        )
+        
+        // Error message if any
+        if (progress.error != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = progress.error!!,
+                fontSize = 14.sp,
+                color = Color(0xFFFF5252),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

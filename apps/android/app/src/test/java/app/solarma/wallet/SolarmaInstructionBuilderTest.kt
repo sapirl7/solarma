@@ -60,7 +60,7 @@ class SolarmaInstructionBuilderTest {
         assertEquals(SolarmaInstructionBuilder.PROGRAM_ID, instruction.programId)
         
         // Verify we have 4 accounts (alarm, vault, owner, system)
-        assertEquals(4, instruction.keys.size)
+        assertEquals(4, instruction.accounts.size)
     }
     
     @Test
@@ -90,13 +90,12 @@ class SolarmaInstructionBuilderTest {
         
         val instruction = builder.buildClaim(
             owner = owner,
-            alarmPda = alarmPda,
-            vaultBump = 255.toByte()
+            alarmPda = alarmPda
         )
         
         // Claim only has discriminator
         assertEquals(8, instruction.data.size)
-        assertEquals(4, instruction.keys.size)
+        assertEquals(4, instruction.accounts.size)
     }
     
     @Test
@@ -112,21 +111,41 @@ class SolarmaInstructionBuilderTest {
         )
         
         // Snooze has 5 accounts (alarm, vault, sink, owner, system)
-        assertEquals(5, instruction.keys.size)
-        assertEquals(sink, instruction.keys[2].pubkey)
+        assertEquals(5, instruction.accounts.size)
+        assertEquals(sink, instruction.accounts[2].pubkey)
     }
     
     @Test
     fun `buildEmergencyRefund produces correct instruction`() {
         val owner = PublicKey("11111111111111111111111111111111")
         val (alarmPda, _) = builder.deriveAlarmPda(owner, 500L)
+        val sink = PublicKey("1nc1nerator11111111111111111111111111111111")
         
         val instruction = builder.buildEmergencyRefund(
             owner = owner,
-            alarmPda = alarmPda
+            alarmPda = alarmPda,
+            sinkAddress = sink
         )
         
         assertEquals(8, instruction.data.size)
-        assertEquals(4, instruction.keys.size)
+        assertEquals(5, instruction.accounts.size)
+        assertEquals(sink, instruction.accounts[2].pubkey)
+    }
+
+    @Test
+    fun `buildSlash produces correct instruction`() {
+        val owner = PublicKey("11111111111111111111111111111111")
+        val (alarmPda, _) = builder.deriveAlarmPda(owner, 600L)
+        val recipient = PublicKey("1nc1nerator11111111111111111111111111111111")
+
+        val instruction = builder.buildSlash(
+            caller = owner,
+            alarmPda = alarmPda,
+            penaltyRecipient = recipient
+        )
+
+        assertEquals(8, instruction.data.size)
+        assertEquals(5, instruction.accounts.size)
+        assertEquals(recipient, instruction.accounts[2].pubkey)
     }
 }
