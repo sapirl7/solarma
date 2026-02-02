@@ -10,6 +10,7 @@ describe("solarma_vault", () => {
 
     const program = anchor.workspace.SolarmaVault as Program<SolarmaVault>;
     const owner = provider.wallet;
+    const burnSink = new PublicKey("1nc1nerator11111111111111111111111111111111");
 
     // Test alarm parameters
     const alarmId = new anchor.BN(Date.now());
@@ -130,6 +131,7 @@ describe("solarma_vault", () => {
             .accounts({
                 alarm: newAlarmPda,
                 vault: newVaultPda,
+                sink: burnSink,
                 owner: owner.publicKey,
                 systemProgram: SystemProgram.programId,
             })
@@ -165,13 +167,6 @@ describe("solarma_vault", () => {
         );
 
         // Burn sink (must match BURN_SINK in constants.rs)
-        const burnSink = new PublicKey(
-            Buffer.from([
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-            ])
-        );
-
         // Create with past alarm time
         await program.methods
             .createAlarm(

@@ -30,7 +30,11 @@ object DatabaseModule {
             SolarmaDatabase::class.java,
             "solarma_database"
         )
-        .fallbackToDestructiveMigration()
+        .addMigrations(
+            SolarmaDatabase.MIGRATION_3_4,
+            SolarmaDatabase.MIGRATION_4_5,
+            SolarmaDatabase.MIGRATION_5_6
+        )
         .build()
     }
     

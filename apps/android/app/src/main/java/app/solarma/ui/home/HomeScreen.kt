@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.components.*
 import app.solarma.ui.theme.*
+import app.solarma.LocalActivityResultSender
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -47,6 +49,9 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Get ActivityResultSender from CompositionLocal
+    val activityResultSender = LocalActivityResultSender.current
     
     SolarmaBackground {
         Scaffold(
@@ -147,7 +152,7 @@ fun HomeScreen(
                     WalletStatusCard(
                         isConnected = uiState.walletConnected,
                         balance = uiState.walletBalance,
-                        onConnectClick = { viewModel.connectWallet() }
+                        onConnectClick = { viewModel.connectWallet(activityResultSender) }
                     )
                 }
                 
@@ -178,7 +183,9 @@ fun HomeScreen(
                         ) {
                             AlarmCard(
                                 alarm = alarm,
-                                onClick = { onAlarmClick(alarm.id) }
+                                onClick = { onAlarmClick(alarm.id) },
+                                onToggle = { enabled -> viewModel.setAlarmEnabled(alarm.id, enabled) },
+                                onDelete = { viewModel.deleteAlarm(alarm.id) }
                             )
                         }
                     }
@@ -338,7 +345,9 @@ fun WalletStatusCard(
 @Composable
 fun AlarmCard(
     alarm: AlarmEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onToggle: (Boolean) -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
     val time = LocalDateTime.ofInstant(
         Instant.ofEpochMilli(alarm.alarmTimeMillis),
@@ -416,7 +425,7 @@ fun AlarmCard(
                 // Modern switch
                 Switch(
                     checked = alarm.isEnabled,
-                    onCheckedChange = { /* TODO */ },
+                    onCheckedChange = onToggle,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = SunriseOrange,
                         checkedTrackColor = SunriseOrange.copy(alpha = 0.3f),
@@ -424,6 +433,19 @@ fun AlarmCard(
                         uncheckedTrackColor = NightSkyLight
                     )
                 )
+                
+                // Delete button
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete alarm",
+                        tint = TextMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

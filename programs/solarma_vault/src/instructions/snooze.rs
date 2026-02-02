@@ -3,7 +3,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{Alarm, AlarmStatus, Vault};
 use crate::error::SolarmaError;
-use crate::constants::{DEFAULT_SNOOZE_PERCENT, MAX_SNOOZE_COUNT, BURN_SINK};
+use crate::constants::{DEFAULT_SNOOZE_PERCENT, MAX_SNOOZE_COUNT, BURN_SINK, DEFAULT_SNOOZE_EXTENSION_SECONDS};
 
 #[derive(Accounts)]
 pub struct Snooze<'info> {
@@ -87,6 +87,13 @@ pub fn handler(ctx: Context<Snooze>) -> Result<()> {
     
     alarm.snooze_count = alarm.snooze_count
         .checked_add(1)
+        .ok_or(SolarmaError::Overflow)?;
+
+    alarm.alarm_time = alarm.alarm_time
+        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
+        .ok_or(SolarmaError::Overflow)?;
+    alarm.deadline = alarm.deadline
+        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
         .ok_or(SolarmaError::Overflow)?;
     
     msg!("Snooze #{}: cost={}, remaining={}", 

@@ -21,6 +21,7 @@ class AlarmScheduler @Inject constructor(
     companion object {
         private const val TAG = "Solarma.AlarmScheduler"
         private const val REQUEST_CODE_BASE = 10000
+        private const val REQUEST_CODE_MOD = 1_000_000
     }
     
     private val alarmManager: AlarmManager by lazy {
@@ -39,7 +40,7 @@ class AlarmScheduler @Inject constructor(
         
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            (REQUEST_CODE_BASE + alarmId).toInt(),
+            requestCodeFor(alarmId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -81,7 +82,7 @@ class AlarmScheduler @Inject constructor(
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            (REQUEST_CODE_BASE + alarmId).toInt(),
+            requestCodeFor(alarmId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -99,5 +100,10 @@ class AlarmScheduler @Inject constructor(
         } else {
             true
         }
+    }
+
+    private fun requestCodeFor(alarmId: Long): Int {
+        val hash = (alarmId xor (alarmId ushr 32)).toInt() and 0x7fffffff
+        return REQUEST_CODE_BASE + (hash % REQUEST_CODE_MOD)
     }
 }
