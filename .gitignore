@@ -93,3 +93,11 @@ temp/
 coverage/
 .nyc_output/
 test-results/
+
+# ===================
+# Private / Internal docs
+# ===================
+docs/PITCH_DECK.md
+docs/GRANT_APPLICATION.md
+docs/demo/
+docs/demo.zip
