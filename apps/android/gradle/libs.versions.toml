@@ -6,7 +6,7 @@ ksp = "2.1.0-1.0.29"
 hilt = "2.54"
 
 # AndroidX
-compose-bom = "2024.12.01"
+compose-bom = "2026.01.01"
 lifecycle = "2.8.7"
 room = "2.6.1"
 datastore = "1.1.1"
