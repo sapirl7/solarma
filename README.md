@@ -1,134 +1,167 @@
-# Solarma
+<p align="center">
+  <img src="docs/assets/solarma-logo.png" alt="Solarma Logo" width="120" />
+</p>
 
-> Wake up and prove it. Your SOL depends on it.
+<h1 align="center">Solarma</h1>
 
-A Solana-native Android alarm app with onchain commitment vault. Stake SOL when setting alarms — complete your wake proof challenge to claim it back, or lose it!
+<p align="center">
+  <strong>Wake-proof alarm with SOL commitment vault</strong><br>
+  Built for <a href="https://solanamobile.com/seeker">Solana Seeker</a>
+</p>
 
-## 🎯 Overview
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#roadmap">Roadmap</a>
+</p>
 
-Solarma combines two powerful concepts:
-1. **Physical Wake Proof**: Complete challenges (steps, NFC scan) to dismiss alarms
-2. **Financial Commitment**: Stake SOL that you only get back if you wake up on time
+---
 
-## 🏗️ Architecture
+## Features
+
+🌅 **Commitment Alarm** — Deposit SOL to back your wake-up commitment
+
+📱 **Native Android** — Optimized for Solana Seeker hardware
+
+🔐 **Non-custodial** — Your keys, your funds (MWA integration)
+
+⏰ **Wake Proof** — Verify wakeup via NFC, QR code, or step counter
+
+💸 **Penalty Routes** — Burn, Donate, or send to Buddy on failure
+
+🔓 **Permissionless Slash** — Anyone can trigger after deadline
+
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Android App                              │
-├───────────────┬───────────────┬───────────────────────────────┤
-│ Alarm Engine  │ Wake Proof    │ Wallet Integration             │
-│ - Scheduler   │ - StepCounter │ - MWA (Mobile Wallet Adapter)  │
-│ - Service     │ - NFC/QR      │ - Transaction Builder          │
-│ - Repository  │ - Engine      │ - RPC Client                   │
-└───────────────┴───────────────┴───────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Solana (Anchor)                           │
-├──────────────────────────────────────────────────────────────┤
-│ Instructions:                                                 │
-│ - create_alarm: Create alarm with SOL deposit                │
-│ - claim: Return deposit after completing wake proof          │
-│ - snooze: Reduce deposit for extra time                      │
-│ - slash: Transfer to penalty after deadline (permissionless) │
-│ - emergency_refund: Cancel before alarm time (5% fee)        │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                     SOLARMA FLOW                        │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐             │
+│  │ CREATE  │───▶│  ALARM  │───▶│  CLAIM  │             │
+│  │ + $SOL  │    │  TIME   │    │ ✓ PASS  │             │
+│  └─────────┘    └────┬────┘    └─────────┘             │
+│                      │                                  │
+│                      ▼                                  │
+│                ┌─────────┐    ┌─────────┐              │
+│                │ SNOOZE? │───▶│  SLASH  │              │
+│                │ -10%    │    │ ✗ FAIL  │              │
+│                └─────────┘    └─────────┘              │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+1. **Create alarm** with SOL deposit (min 0.001 SOL)
+2. **Wake up** before deadline and complete wake-proof
+3. **Claim** your deposit back
+4. **Or fail** — deposit goes to penalty destination
+
+## Quick Start
 
 ### Prerequisites
+- Android Studio Hedgehog+
+- Rust + Anchor CLI 0.32+
+- Solana CLI 1.18+
 - Node.js 18+
-- Rust 1.70+
-- Solana CLI
-- Anchor 0.29+
-- Android Studio (for Android app)
 
-### Setup
-
+### Build Android App
 ```bash
-# Clone the repo
-git clone https://github.com/sapirl7/solarma.git
-cd solarma
-
-# Run setup script
-./scripts/setup-dev.sh
-
-# Deploy to devnet
-./scripts/deploy-devnet.sh
-```
-
-### Run Tests
-
-```bash
-# Anchor tests
-anchor test
-
-# Android unit tests
 cd apps/android
-./gradlew test
+./gradlew assembleDebug
+# APK at app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 📱 Android App
+### Build & Test Smart Contract
+```bash
+cd programs/solarma_vault
+anchor build
+anchor test
+```
 
-The Android app is built with:
-- **Kotlin** + **Jetpack Compose** for UI
-- **Hilt** for dependency injection
-- **Room** for local persistence
-- **WorkManager** for reliable alarm restoration
-- **sol4k** for Solana primitives
-- **Mobile Wallet Adapter** for wallet integration
+### Run with Makefile
+```bash
+make build        # Build everything
+make test         # Run all tests  
+make deploy-dev   # Deploy to devnet
+```
 
-### Key Components
+## Architecture
 
-| Component | Description |
-|-----------|-------------|
-| `AlarmRepository` | Manages alarm data in Room DB |
-| `AlarmScheduler` | Schedules alarms via AlarmManager |
-| `WakeProofEngine` | Orchestrates challenge completion |
-| `StepCounter` | Counts steps using TYPE_STEP_COUNTER |
-| `OnchainAlarmService` | Bridges local alarms with Solana |
+```
+solarma/
+├── apps/android/          # Kotlin + Compose Android app
+│   ├── wallet/            # Solana MWA integration
+│   ├── alarm/             # AlarmManager + WorkManager
+│   └── wakeproof/         # NFC/QR/Step verification
+│
+├── programs/solarma_vault/  # Anchor smart contract
+│   ├── instructions/      # create, claim, snooze, slash
+│   └── state/             # Alarm, Vault, UserProfile
+│
+└── docs/                  # Architecture & guides
+```
 
-## ⚓ Anchor Program
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
-The Solana program handles the financial commitment:
-
-### Instructions
+### Smart Contract
 
 | Instruction | Description |
 |-------------|-------------|
-| `create_alarm` | Create alarm PDA with SOL deposit to vault |
-| `claim` | Return deposit to owner (after alarm_time, before deadline) |
-| `snooze` | Deduct 10% from deposit, extend deadline |
-| `slash` | Transfer remaining deposit to penalty route (after deadline) |
-| `emergency_refund` | Cancel alarm before alarm_time (5% fee) |
+| `initialize` | Create user profile |
+| `create_alarm` | Create alarm + deposit SOL to vault |
+| `claim` | Claim deposit (after alarm_time, before deadline) |
+| `snooze` | Snooze with 10% penalty (doubles each time) |
+| `emergency_refund` | Cancel before alarm_time (-5% penalty) |
+| `slash` | Permissionless slash after deadline |
 
-### PDAs
+**Program ID (Devnet):** `51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1`
 
-- **Alarm PDA**: `["alarm", owner, alarm_id]`
-- **Vault PDA**: `["vault", alarm_pda]`
+## Contributing
 
-## 💰 Penalty Routes
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- How to set up development environment
+- Code style guidelines
+- PR process
 
-When you fail to wake up, your deposit goes to:
+### Community
 
-| Route | Description |
-|-------|-------------|
-| 🔥 Burn | Permanently burned |
-| 🎁 Donate | Sent to charity |
-| 👋 Buddy | Sent to a friend |
+- 🐦 Twitter: [@solarma_app](https://twitter.com/solarma_app)
+- 💬 Discord: [Coming soon]
+- 📧 Email: security@solarma.app (for vulnerabilities)
 
-## 🔒 Security
+## Roadmap
 
-- Vault PDA is program-owned (no external access)
-- Time checks prevent early claim/snooze
-- Close constraints ensure proper fund transfers
-- Emergency refund has 5% fee to prevent abuse
+### v0.1.0 (Current)
+- [x] Core alarm functionality
+- [x] Create/Claim/Snooze/Slash instructions
+- [x] NFC/QR/Step counter wake-proof
+- [x] MWA wallet integration
 
-## 📄 License
+### v0.2.0 (Planned)
+- [ ] SPL token deposits (USDC)
+- [ ] Social features (buddy challenges)
+- [ ] Streak rewards system
+- [ ] Widget for home screen
 
-MIT
+### v1.0.0 (Mainnet)
+- [ ] Security audit
+- [ ] Mainnet deployment
+- [ ] Play Store release
 
-## 🙏 Acknowledgments
+## Security
 
-Built for the Solana ecosystem with ❤️
+Found a vulnerability? See [SECURITY.md](SECURITY.md) for responsible disclosure.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE)
+
+---
+
+<p align="center">
+  Built with ☀️ for the Solana Seeker community
+</p>

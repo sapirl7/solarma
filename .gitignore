@@ -56,6 +56,11 @@ apps/android/.cxx/
 programs/solarma_vault/target/
 programs/solarma_vault/.anchor/
 programs/solarma_vault/test-ledger/
+programs/target/
+programs/Cargo.lock
+test-ledger/
+*.lock
+!Cargo.lock  # Keep root Cargo.lock if exists
 
 # ===================
 # Logs
