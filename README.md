@@ -126,11 +126,22 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 ## Roadmap
 
-| Phase | Timeline | Milestones |
-|-------|----------|------------|
-| **Open Beta** | Q2 2026 | Community testing, social features |
-| **Mainnet** | Q3 2026 | USDC deposits, leaderboards |
-| **Premium** | Q4 2026 | Team challenges, B2B API |
+### Current State
+- Smart contract deployed to Devnet
+- Android app functional with MWA integration
+- Core features: create, claim, snooze, slash, emergency refund
+- Wake-proof: NFC, QR, step counter
+
+### Near Term
+- Community feedback and bug fixes
+- UI/UX improvements based on user testing
+- Documentation expansion
+
+### Future
+- Security audit for Mainnet deployment
+- SPL token support (USDC)
+- Social features and challenges
+- iOS port consideration
 
 ---
 
