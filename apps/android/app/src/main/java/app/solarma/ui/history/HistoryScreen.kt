@@ -2,6 +2,7 @@ package app.solarma.ui.history
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,7 +75,6 @@ fun HistoryScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    } {
                         Text("HISTORY", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextMuted)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
