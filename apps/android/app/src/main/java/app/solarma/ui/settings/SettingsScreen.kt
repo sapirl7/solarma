@@ -364,7 +364,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Outlined.Code,
                         title = "Open Source",
-                        subtitle = "github.com/solarma-app",
+                        subtitle = "github.com/sapirl7/solarma",
                         onClick = { /* Open URL */ }
                     )
                 }
