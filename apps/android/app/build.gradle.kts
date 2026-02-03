@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,7 +20,32 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
+        val devnetRpc = (project.findProperty("SOLANA_RPC_DEVNET") as String?) ?: ""
+        val mainnetRpc = (project.findProperty("SOLANA_RPC_MAINNET") as String?) ?: ""
+        buildConfigField("String", "SOLANA_RPC_DEVNET", "\"$devnetRpc\"")
+        buildConfigField("String", "SOLANA_RPC_MAINNET", "\"$mainnetRpc\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val keystorePropsFile = rootProject.file("apps/android/keystore.properties")
+    val keystoreProps = Properties()
+    if (keystorePropsFile.exists()) {
+        keystoreProps.load(FileInputStream(keystorePropsFile))
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropsFile.exists()) {
+                val storeFilePath = keystoreProps.getProperty("STORE_FILE")
+                if (!storeFilePath.isNullOrBlank()) {
+                    storeFile = file(storeFilePath)
+                    storePassword = keystoreProps.getProperty("STORE_PASSWORD")
+                    keyAlias = keystoreProps.getProperty("KEY_ALIAS")
+                    keyPassword = keystoreProps.getProperty("KEY_PASSWORD")
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -28,6 +56,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val hasSigning = keystorePropsFile.exists() &&
+                !keystoreProps.getProperty("STORE_FILE").isNullOrBlank()
+            if (hasSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+                logger.warn("Release signing config not found; using debug signing.")
+            }
         }
     }
     

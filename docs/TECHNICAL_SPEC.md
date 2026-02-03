@@ -6,13 +6,22 @@ Solarma is a commitment-based alarm application built on Solana. This document p
 
 ## Smart Contract (Anchor)
 
-### Program ID
+### Program ID (Devnet)
 ```
-So1armaVau1t1111111111111111111111111111111
+51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1
 ```
-*Note: Placeholder ID. Actual ID generated on deployment.*
+*Note: Mainnet Program ID will differ when deployed.*
 
 ### Account Structures
+
+#### UserProfile Account
+```rust
+pub struct UserProfile {
+    pub owner: Pubkey,          // 32 bytes
+    pub tag_hash: Option<[u8; 32]>, // 33 bytes (reserved)
+    pub bump: u8,               // 1 byte
+}
+```
 
 #### Alarm Account
 ```rust
@@ -52,6 +61,14 @@ seeds = ["vault", alarm.key()]
 
 ### Instructions
 
+#### initialize
+Creates a user profile PDA (currently reserved for future on-chain tag binding).
+
+**Accounts:**
+1. `user_profile` (init) - UserProfile PDA
+2. `owner` (signer, mut) - Profile owner
+3. `system_program` - System program
+
 #### create_alarm
 Creates a new alarm with optional SOL deposit.
 
@@ -61,7 +78,7 @@ Creates a new alarm with optional SOL deposit.
 - `deadline: i64` - When claim period ends
 - `deposit_amount: u64` - Lamports to stake
 - `penalty_route: u8` - Where deposit goes on failure
-- `penalty_destination: Option<Pubkey>` - Required for Buddy route
+- `penalty_destination: Option<Pubkey>` - Required for Donate or Buddy routes
 
 **Accounts:**
 1. `alarm` (init) - Alarm PDA
@@ -83,7 +100,8 @@ Returns deposit to owner. Must be after `alarm_time` and before `deadline`.
 - `InvalidAlarmState` - Not in Created status
 
 #### snooze
-Deducts 10% from deposit, extends deadline by 10 minutes.
+Deducts 10% from remaining deposit and doubles each use (10% → 20% → 40%...),
+extends alarm_time and deadline by 5 minutes.
 
 **Accounts:**
 1. `alarm` (mut) - Alarm account
@@ -117,8 +135,9 @@ Owner cancels alarm before it rings. 5% fee applies.
 **Accounts:**
 1. `alarm` (mut) - Alarm account
 2. `vault` (mut, close) - Vault, closed to owner
-3. `owner` (signer, mut) - Must match alarm.owner
-4. `system_program` - System program
+3. `sink` (mut) - Penalty sink (BURN_SINK)
+4. `owner` (signer, mut) - Must match alarm.owner
+5. `system_program` - System program
 
 **Errors:**
 - `TooLateForRefund` - Called after alarm_time
@@ -133,21 +152,25 @@ pub const MIN_DEPOSIT_LAMPORTS: u64 = 1_000_000; // 0.001 SOL
 pub const DEFAULT_GRACE_PERIOD: i64 = 1800; // 30 minutes
 ```
 
-### Error Codes
+### Error Codes (Names)
 
-| Code | Name | Description |
-|------|------|-------------|
-| 6000 | DeadlinePassed | Claim period expired |
-| 6001 | DeadlineNotPassed | Too early for slash |
-| 6002 | InvalidAlarmState | Wrong status for operation |
-| 6003 | InvalidPenaltyRoute | Route value out of range |
-| 6004 | InsufficientDeposit | Not enough for operation |
-| 6005 | Overflow | Arithmetic overflow |
-| 6006 | MaxSnoozeReached | 10 snoozes maximum |
-| 6007 | InvalidPenaltyRecipient | Wrong address for route |
-| 6008 | PenaltyDestinationNotSet | Buddy route needs address |
-| 6009 | TooEarly | Before alarm_time |
-| 6010 | TooLateForRefund | After alarm_time |
+- DeadlinePassed
+- DeadlineNotPassed
+- InvalidAlarmState
+- InvalidPenaltyRoute
+- InsufficientDeposit
+- Overflow
+- AlarmTimeInPast
+- InvalidDeadline
+- DepositTooSmall
+- BuddyAddressRequired
+- PenaltyDestinationRequired
+- InvalidSinkAddress
+- MaxSnoozesReached
+- InvalidPenaltyRecipient
+- PenaltyDestinationNotSet
+- TooEarly
+- TooLateForRefund
 
 ---
 
@@ -198,7 +221,7 @@ app.solarma/
    └─> CreateAlarmViewModel.save()
        ├─> AlarmRepository.insert() → Room
        ├─> AlarmScheduler.schedule() → AlarmManager
-       └─> OnchainAlarmService.createOnchainAlarm() → Solana
+       └─> OnchainAlarmService.createOnchainAlarm() → Solana (pending confirmation supported)
 
 2. Alarm fires (AlarmManager)
    └─> AlarmReceiver.onReceive()
@@ -225,10 +248,22 @@ app.solarma/
 
 ## API Reference
 
-### RPC Endpoints
+### RPC Endpoints (Default)
 
-**Devnet**: `https://api.devnet.solana.com`  
-**Mainnet**: `https://api.mainnet-beta.solana.com`
+The app uses a fallback list of public endpoints:
+
+**Devnet**
+- `https://api.devnet.solana.com`
+- `https://devnet.helius-rpc.com`
+- `https://rpc-devnet.solflare.com`
+- `https://devnet.genesysgo.net`
+
+**Mainnet**
+- `https://api.mainnet-beta.solana.com`
+- `https://solana-mainnet.g.alchemy.com/v2/demo`
+- `https://rpc.helius.xyz`
+
+For production, use a dedicated provider with API keys.
 
 ### Transaction Structure
 

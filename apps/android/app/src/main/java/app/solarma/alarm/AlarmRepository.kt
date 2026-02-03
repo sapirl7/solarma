@@ -5,6 +5,9 @@ import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.AlarmEntity
 import app.solarma.data.local.StatsDao
 import app.solarma.data.local.StatsEntity
+import app.solarma.wallet.OnchainAlarmParser
+import app.solarma.wallet.SolanaRpcClient
+import app.solarma.wallet.SolarmaInstructionBuilder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +25,8 @@ class AlarmRepository @Inject constructor(
     private val alarmDao: AlarmDao,
     private val alarmScheduler: AlarmScheduler,
     private val statsDao: StatsDao,
-    private val transactionQueue: app.solarma.wallet.TransactionQueue
+    private val transactionQueue: app.solarma.wallet.TransactionQueue,
+    private val rpcClient: SolanaRpcClient
 ) {
     companion object {
         private const val TAG = "Solarma.AlarmRepository"
@@ -288,4 +292,89 @@ class AlarmRepository @Inject constructor(
             )
         )
     }
+
+    /**
+     * Import onchain alarms for a wallet address.
+     */
+    suspend fun importOnchainAlarms(ownerAddress: String): Result<ImportResult> {
+        val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()
+        val accountsResult = rpcClient.getProgramAccounts(programId, ownerAddress)
+        return accountsResult.map { accounts ->
+            var imported = 0
+            var updated = 0
+            var skipped = 0
+            val now = System.currentTimeMillis()
+
+            for (account in accounts) {
+                val parsed = OnchainAlarmParser.parse(account.pubkey, account.dataBase64)
+                if (parsed == null) {
+                    skipped++
+                    continue
+                }
+                if (parsed.owner != ownerAddress) {
+                    skipped++
+                    continue
+                }
+                if (parsed.status != 0 || parsed.remainingAmount <= 0) {
+                    skipped++
+                    continue
+                }
+
+                val alarmTimeMillis = parsed.alarmTimeUnix * 1000
+                val depositLamports = parsed.remainingAmount
+                val depositSol = depositLamports / 1_000_000_000.0
+                val isEnabled = alarmTimeMillis > now
+
+                val existing = alarmDao.getByOnchainPubkey(parsed.pubkey)
+                if (existing != null) {
+                    val updatedAlarm = existing.copy(
+                        alarmTimeMillis = alarmTimeMillis,
+                        isEnabled = isEnabled,
+                        hasDeposit = true,
+                        depositAmount = depositSol,
+                        depositLamports = depositLamports,
+                        penaltyRoute = parsed.penaltyRoute,
+                        penaltyDestination = parsed.penaltyDestination,
+                        onchainPubkey = parsed.pubkey,
+                        snoozeCount = parsed.snoozeCount
+                    )
+                    alarmDao.update(updatedAlarm)
+                    if (updatedAlarm.isEnabled) {
+                        alarmScheduler.schedule(updatedAlarm.id, alarmTimeMillis)
+                    }
+                    updated++
+                } else {
+                    val newAlarm = AlarmEntity(
+                        alarmTimeMillis = alarmTimeMillis,
+                        label = "Imported Alarm",
+                        isEnabled = isEnabled,
+                        repeatDays = 0,
+                        wakeProofType = 1,
+                        targetSteps = 20,
+                        hasDeposit = true,
+                        depositAmount = depositSol,
+                        depositLamports = depositLamports,
+                        penaltyRoute = parsed.penaltyRoute,
+                        penaltyDestination = parsed.penaltyDestination,
+                        onchainPubkey = parsed.pubkey,
+                        onchainAlarmId = null,
+                        snoozeCount = parsed.snoozeCount
+                    )
+                    val id = alarmDao.insert(newAlarm)
+                    if (isEnabled) {
+                        alarmScheduler.schedule(id, alarmTimeMillis)
+                    }
+                    imported++
+                }
+            }
+
+            ImportResult(imported = imported, updated = updated, skipped = skipped)
+        }
+    }
 }
+
+data class ImportResult(
+    val imported: Int,
+    val updated: Int,
+    val skipped: Int
+)

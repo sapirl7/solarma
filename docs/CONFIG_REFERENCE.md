@@ -2,12 +2,21 @@
 
 ## Environment Variables
 
-### Android App (local.properties / BuildConfig)
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SOLANA_RPC_URL` | Yes | RPC endpoint URL |
-| `SOLANA_NETWORK` | Yes | mainnet-beta / devnet / localnet |
-| `DEBUG_LOGGING` | No | Enable verbose logs (default: false) |
+### Android App (Gradle properties)
+Optional overrides (comma-separated endpoints):
+
+| Property | Description |
+|----------|-------------|
+| `SOLANA_RPC_DEVNET` | Override Devnet RPC endpoints |
+| `SOLANA_RPC_MAINNET` | Override Mainnet RPC endpoints |
+
+Set in `~/.gradle/gradle.properties` or project `gradle.properties`.
+
+Example:
+```properties
+SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+```
 
 ### Anchor Program
 | Variable | Required | Description |
@@ -44,40 +53,13 @@ wallet = "~/.config/solana/id.json"
 solarma_vault = "PROGRAM_ID_HERE"
 ```
 
-## Alarm Configuration
+## Runtime Settings (Android DataStore)
 
-### Wake Proof Presets
-```yaml
-light:
-  steps: 20
-  alternatives: ["interaction_10s"]
-
-normal:
-  steps: 50
-  nfc: required
-  alternatives: ["qr"]
-
-hard:
-  steps: 100
-  nfc: required
-  squats: 10
-  attention_timer: 20s
-```
-
-### Snooze Models
-```yaml
-linear:
-  cost_per_snooze: 10%  # of remaining
-
-exponential:
-  base_cost: 5%
-  multiplier: 2  # doubles each snooze
-```
-
-## Feature Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `ENABLE_DEPOSIT` | true | Allow onchain deposits |
-| `ENABLE_SQUATS` | false | Enable squat detection (Phase 2) |
-| `ENABLE_SEEKER_CHECK` | false | Require Seeker device (Phase 5) |
+| Key | Description |
+|-----|-------------|
+| `is_devnet` | Use Devnet (true) or Mainnet (false) |
+| `default_steps` | Default step target for wake proof |
+| `default_deposit_sol` | Default SOL deposit |
+| `default_penalty` | 0=Burn, 1=Donate, 2=Buddy |
+| `nfc_tag_hash` | Stored NFC tag hash (local only) |
+| `qr_code` | Stored QR code (local only) |

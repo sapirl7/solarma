@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.solarma.alarm.AlarmRepository
+import app.solarma.alarm.ImportResult
 import app.solarma.wallet.WalletManager
 import app.solarma.wallet.SolanaRpcClient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +26,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "so
 class SettingsViewModel @Inject constructor(
     private val walletManager: WalletManager,
     private val rpcClient: SolanaRpcClient,
+    private val alarmRepository: AlarmRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     
@@ -38,6 +41,9 @@ class SettingsViewModel @Inject constructor(
     
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
+    val importState: StateFlow<ImportState> = _importState.asStateFlow()
     
     init {
         // Load saved settings
@@ -192,6 +198,25 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
+
+    suspend fun importOnchainAlarms() {
+        if (_importState.value is ImportState.Loading) return
+        val ownerAddress = walletManager.getConnectedWallet()
+            ?: run {
+                _importState.value = ImportState.Error("Wallet not connected")
+                return
+            }
+        _importState.value = ImportState.Loading
+        val result = alarmRepository.importOnchainAlarms(ownerAddress)
+        _importState.value = result.fold(
+            onSuccess = { ImportState.Success(it) },
+            onFailure = { ImportState.Error(it.message ?: "Import failed") }
+        )
+    }
+
+    fun resetImportState() {
+        _importState.value = ImportState.Idle
+    }
 }
 
 /**
@@ -217,3 +242,10 @@ data class SettingsUiState(
     val soundName: String = "Sunrise Glow",
     val vibrationEnabled: Boolean = true
 )
+
+sealed class ImportState {
+    object Idle : ImportState()
+    object Loading : ImportState()
+    data class Success(val result: ImportResult) : ImportState()
+    data class Error(val message: String) : ImportState()
+}

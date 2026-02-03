@@ -10,8 +10,8 @@
 
 ### Prerequisites
 1. **Rust toolchain**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-2. **Anchor CLI**: `cargo install --git https://github.com/coral-xyz/anchor avm && avm install latest && avm use latest`
-3. **Solana CLI**: `sh -c "$(curl -sSfL https://release.solana.com/stable/install)"`
+2. **Anchor CLI**: `cargo install --git https://github.com/coral-xyz/anchor avm && avm install 0.32.1 && avm use 0.32.1`
+3. **Solana CLI**: `sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"`
 4. **Node.js 18+**: Use nvm or direct install
 5. **Android Studio** or SDK command-line tools
 6. **JDK 17+**

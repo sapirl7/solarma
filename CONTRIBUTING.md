@@ -104,4 +104,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for:
 
 ## Code of Conduct
 
-Be respectful and inclusive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/).
+Be respectful and inclusive. See `CODE_OF_CONDUCT.md` (Contributor Covenant).

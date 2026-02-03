@@ -47,7 +47,7 @@ Solarma is a two-component system:
 
 #### Wallet Integration
 - Mobile Wallet Adapter (MWA) for transaction signing
-- Transaction queue for offline resilience
+- Intent-based transaction queue (rebuild tx with fresh blockhash)
 
 ## Solana Program Architecture
 
@@ -58,16 +58,17 @@ Created → Claimed (success)
 ```
 
 ### Accounts
-- `UserProfile` (PDA) — User settings, registered tags
+- `UserProfile` (PDA) — Reserved for future on-chain tag binding (currently tags stored locally)
 - `Alarm` (PDA) — Alarm state, deposit, penalty route
 
 ### Instructions
 | Instruction | Access | Description |
 |-------------|--------|-------------|
-| register_tag | user | Store hash of NFC/QR tag |
+| initialize | user | Create user profile PDA |
 | create_alarm | user | Create alarm with deposit |
 | snooze | user | Decrease deposit, extend time |
 | claim | user | Claim remaining deposit |
+| emergency_refund | user | Cancel before alarm time (penalty applies) |
 | slash | permissionless | Transfer deposit after deadline |
 
 ## Security Model

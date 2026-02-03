@@ -13,7 +13,7 @@ We take security seriously. If you discover a vulnerability:
 ### Private Disclosure (Preferred)
 
 1. **DO NOT** open a public issue
-2. Email: **security@solarma.app**
+2. Email: **a.kdywtlf@gmail.com**
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

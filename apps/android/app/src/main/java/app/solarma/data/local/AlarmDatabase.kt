@@ -94,6 +94,9 @@ interface AlarmDao {
     
     @Query("SELECT * FROM alarms WHERE id = :id")
     suspend fun getById(id: Long): AlarmEntity?
+
+    @Query("SELECT * FROM alarms WHERE onchainPubkey = :pubkey")
+    suspend fun getByOnchainPubkey(pubkey: String): AlarmEntity?
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(alarm: AlarmEntity): Long

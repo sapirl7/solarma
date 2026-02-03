@@ -45,6 +45,7 @@ fun SettingsScreen(
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val importState by viewModel.importState.collectAsState()
     var showNfcDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     var showStepsDialog by remember { mutableStateOf(false) }
@@ -67,6 +68,24 @@ fun SettingsScreen(
 
     LaunchedEffect(showNfcDialog) {
         activity?.setNfcTagCallback(if (showNfcDialog) nfcCallback else null)
+    }
+
+    LaunchedEffect(importState) {
+        when (val state = importState) {
+            is ImportState.Success -> {
+                Toast.makeText(
+                    context,
+                    "Imported ${state.result.imported}, updated ${state.result.updated}, skipped ${state.result.skipped}",
+                    Toast.LENGTH_LONG
+                ).show()
+                viewModel.resetImportState()
+            }
+            is ImportState.Error -> {
+                Toast.makeText(context, "Import failed: ${state.message}", Toast.LENGTH_LONG).show()
+                viewModel.resetImportState()
+            }
+            else -> Unit
+        }
     }
     
     Scaffold(
@@ -146,6 +165,33 @@ fun SettingsScreen(
                                     checkedTrackColor = SunriseOrange.copy(alpha = 0.3f)
                                 )
                             )
+                        }
+                    )
+
+                    HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+
+                    val isImporting = importState is ImportState.Loading
+                    SettingsRow(
+                        icon = Icons.Outlined.Sync,
+                        title = "Import Onchain Alarms",
+                        subtitle = if (isImporting) "Importing..." else "Restore alarms from blockchain",
+                        trailingContent = if (isImporting) {
+                            {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = SunriseOrange
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        onClick = if (isImporting) null else {
+                            {
+                                coroutineScope.launch {
+                                    viewModel.importOnchainAlarms()
+                                }
+                            }
                         }
                     )
                 }

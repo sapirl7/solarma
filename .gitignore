@@ -50,6 +50,8 @@ apps/android/.gradle/
 apps/android/app/build/
 apps/android/local.properties
 apps/android/*.keystore
+apps/android/*.jks
+apps/android/keystore.properties
 apps/android/captures/
 apps/android/.externalNativeBuild/
 apps/android/.cxx/
@@ -86,6 +88,7 @@ temp/
 # ===================
 # AI / Agent specific
 # ===================
+.ai/
 .gemini/brain/
 .cursor/
 .aider/

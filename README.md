@@ -88,6 +88,30 @@ make deploy-dev   # Deploy to devnet
 
 ---
 
+## Production Notes
+
+### RPC Provider (Recommended)
+For production stability, use a dedicated RPC provider and configure endpoints locally:
+
+```properties
+# ~/.gradle/gradle.properties
+SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+```
+
+Do not commit real keys.
+
+### Signed Release APK
+1. Copy `apps/android/keystore.properties.example` → `apps/android/keystore.properties`
+2. Generate keystore:
+   `keytool -genkeypair -v -keystore solarma-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias solarma`
+3. Build:
+   `cd apps/android && ./gradlew assembleRelease`
+
+See `docs/RELEASE_CHECKLIST.md` for the full release flow.
+
+---
+
 ## Architecture
 
 ```

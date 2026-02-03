@@ -38,4 +38,4 @@ We do not share data with third parties except:
 
 ## Contact
 
-Privacy questions: privacy@solarma.app
+Privacy questions: a.kdywtlf@gmail.com

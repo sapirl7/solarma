@@ -138,9 +138,10 @@ class OnchainAlarmService @Inject constructor(
             Log.i(TAG, "Claiming deposit for alarm: ${alarm.id}")
             
             val owner = PublicKey(ownerAddress)
-            val txBytes = transactionBuilder.buildClaimTransaction(
+            val alarmPda = resolveAlarmPda(alarm, owner)
+            val txBytes = transactionBuilder.buildClaimTransactionByPubkey(
                 owner = owner,
-                alarmId = resolveOnchainAlarmId(alarm, owner)
+                alarmPda = alarmPda
             )
             
             val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
@@ -177,9 +178,10 @@ class OnchainAlarmService @Inject constructor(
             Log.i(TAG, "Snoozing alarm: ${alarm.id}")
             
             val owner = PublicKey(ownerAddress)
-            val txBytes = transactionBuilder.buildSnoozeTransaction(
+            val alarmPda = resolveAlarmPda(alarm, owner)
+            val txBytes = transactionBuilder.buildSnoozeTransactionByPubkey(
                 owner = owner,
-                alarmId = resolveOnchainAlarmId(alarm, owner)
+                alarmPda = alarmPda
             )
             
             val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
@@ -216,9 +218,10 @@ class OnchainAlarmService @Inject constructor(
             Log.i(TAG, "Emergency refund for alarm: ${alarm.id}")
             
             val owner = PublicKey(ownerAddress)
-            val txBytes = transactionBuilder.buildEmergencyRefundTransaction(
+            val alarmPda = resolveAlarmPda(alarm, owner)
+            val txBytes = transactionBuilder.buildEmergencyRefundTransactionByPubkey(
                 owner = owner,
-                alarmId = resolveOnchainAlarmId(alarm, owner)
+                alarmPda = alarmPda
             )
             
             val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
@@ -265,29 +268,12 @@ class OnchainAlarmService @Inject constructor(
         return ConfirmationResult.Pending
     }
 
-    private fun resolveOnchainAlarmId(alarm: AlarmEntity, owner: PublicKey): Long {
+    private fun resolveAlarmPda(alarm: AlarmEntity, owner: PublicKey): PublicKey {
         val onchainPubkey = alarm.onchainPubkey
-        if (onchainPubkey.isNullOrBlank()) {
-            return alarm.onchainAlarmId ?: alarm.id
+        if (!onchainPubkey.isNullOrBlank()) {
+            return PublicKey(onchainPubkey)
         }
-        val defaultId = alarm.id
-        val defaultPda = transactionBuilder.instructionBuilder
-            .deriveAlarmPda(owner, defaultId)
-            .address
-            .toBase58()
-        if (defaultPda == onchainPubkey) {
-            return defaultId
-        }
-        val storedId = alarm.onchainAlarmId
-        if (storedId != null) {
-            val storedPda = transactionBuilder.instructionBuilder
-                .deriveAlarmPda(owner, storedId)
-                .address
-                .toBase58()
-            if (storedPda == onchainPubkey) {
-                return storedId
-            }
-        }
-        return storedId ?: defaultId
+        val alarmId = alarm.onchainAlarmId ?: alarm.id
+        return transactionBuilder.instructionBuilder.deriveAlarmPda(owner, alarmId).address
     }
 }

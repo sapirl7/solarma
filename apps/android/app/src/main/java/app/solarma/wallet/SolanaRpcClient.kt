@@ -1,8 +1,10 @@
 package app.solarma.wallet
 
 import android.util.Log
+import app.solarma.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -19,26 +21,45 @@ class SolanaRpcClient @Inject constructor() {
     companion object {
         private const val TAG = "Solarma.RpcClient"
         
-        // Devnet RPC endpoints (fallback order)
-        private val DEVNET_ENDPOINTS = listOf(
+        // Default Devnet RPC endpoints (fallback order)
+        private val DEFAULT_DEVNET_ENDPOINTS = listOf(
             "https://api.devnet.solana.com",
             "https://devnet.helius-rpc.com",
             "https://rpc-devnet.solflare.com",
             "https://devnet.genesysgo.net"
         )
         
-        // Mainnet RPC endpoints (fallback order)
-        private val MAINNET_ENDPOINTS = listOf(
+        // Default Mainnet RPC endpoints (fallback order)
+        private val DEFAULT_MAINNET_ENDPOINTS = listOf(
             "https://api.mainnet-beta.solana.com",
             "https://solana-mainnet.g.alchemy.com/v2/demo",
             "https://rpc.helius.xyz"
         )
+
+        private const val BASE_BACKOFF_MS = 5_000L
+        private const val MAX_BACKOFF_MS = 60_000L
     }
     
     private var isMainnet: Boolean = false
+    private val endpointFailureCount = mutableMapOf<String, Int>()
+    private val endpointLastFailedAt = mutableMapOf<String, Long>()
     
+    private fun parseEndpoints(raw: String): List<String> {
+        return raw.split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+    }
+
+    private val devnetEndpoints: List<String> by lazy {
+        parseEndpoints(BuildConfig.SOLANA_RPC_DEVNET).ifEmpty { DEFAULT_DEVNET_ENDPOINTS }
+    }
+
+    private val mainnetEndpoints: List<String> by lazy {
+        parseEndpoints(BuildConfig.SOLANA_RPC_MAINNET).ifEmpty { DEFAULT_MAINNET_ENDPOINTS }
+    }
+
     private val currentEndpoints: List<String>
-        get() = if (isMainnet) MAINNET_ENDPOINTS else DEVNET_ENDPOINTS
+        get() = if (isMainnet) mainnetEndpoints else devnetEndpoints
     
     fun setNetwork(mainnet: Boolean) {
         isMainnet = mainnet
@@ -156,6 +177,49 @@ class SolanaRpcClient @Inject constructor() {
             Result.failure(e)
         }
     }
+
+    /**
+     * Fetch program accounts filtered by owner (memcmp on Alarm.owner offset).
+     */
+    suspend fun getProgramAccounts(programId: String, ownerAddress: String): Result<List<ProgramAccount>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val params = """
+                    ["$programId", {
+                        "encoding": "base64",
+                        "filters": [
+                            {"memcmp": {"offset": 8, "bytes": "$ownerAddress"}}
+                        ]
+                    }]
+                """.trimIndent()
+                val response = makeRpcCallWithFallback(
+                    method = "getProgramAccounts",
+                    params = params
+                )
+                val json = JSONObject(response)
+                if (json.has("error")) {
+                    val message = json.getJSONObject("error").optString("message", "RPC error")
+                    throw Exception(message)
+                }
+                val result = json.getJSONArray("result")
+                val accounts = mutableListOf<ProgramAccount>()
+                for (i in 0 until result.length()) {
+                    val item = result.getJSONObject(i)
+                    val pubkey = item.getString("pubkey")
+                    val account = item.getJSONObject("account")
+                    val dataField = account.get("data")
+                    val dataBase64 = when (dataField) {
+                        is JSONArray -> dataField.getString(0)
+                        else -> dataField.toString()
+                    }
+                    accounts.add(ProgramAccount(pubkey = pubkey, dataBase64 = dataBase64))
+                }
+                Result.success(accounts)
+            } catch (e: Exception) {
+                Log.e(TAG, "getProgramAccounts failed", e)
+                Result.failure(e)
+            }
+        }
     
     /**
      * Send signed transaction to network.
@@ -187,10 +251,21 @@ class SolanaRpcClient @Inject constructor() {
     private fun makeRpcCallWithFallback(method: String, params: String): String {
         val errors = mutableListOf<String>()
         
+        val now = System.currentTimeMillis()
         for ((index, endpoint) in currentEndpoints.withIndex()) {
             try {
+                val lastFailed = endpointLastFailedAt[endpoint]
+                val failures = endpointFailureCount[endpoint] ?: 0
+                val cooldown = (BASE_BACKOFF_MS * (1L shl failures.coerceAtMost(6)))
+                    .coerceAtMost(MAX_BACKOFF_MS)
+                if (lastFailed != null && now - lastFailed < cooldown) {
+                    Log.d(TAG, "Skipping endpoint due to backoff (${cooldown}ms): $endpoint")
+                    continue
+                }
                 Log.d(TAG, "Trying RPC endpoint ${index + 1}/${currentEndpoints.size}: $endpoint")
                 val result = makeRpcCall(endpoint, method, params)
+                endpointFailureCount.remove(endpoint)
+                endpointLastFailedAt.remove(endpoint)
                 if (index > 0) {
                     Log.i(TAG, "Fallback successful on endpoint: $endpoint")
                 }
@@ -199,6 +274,9 @@ class SolanaRpcClient @Inject constructor() {
                 val errorMsg = "Endpoint $endpoint failed: ${e.message}"
                 Log.w(TAG, errorMsg)
                 errors.add(errorMsg)
+                val failures = (endpointFailureCount[endpoint] ?: 0) + 1
+                endpointFailureCount[endpoint] = failures.coerceAtMost(10)
+                endpointLastFailedAt[endpoint] = now
                 // Continue to next endpoint
             }
         }
@@ -255,4 +333,9 @@ class SolanaRpcClient @Inject constructor() {
 data class SignatureStatus(
     val confirmationStatus: String?,
     val err: String?
+)
+
+data class ProgramAccount(
+    val pubkey: String,
+    val dataBase64: String
 )

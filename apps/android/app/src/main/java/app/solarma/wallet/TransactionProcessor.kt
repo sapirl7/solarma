@@ -118,7 +118,7 @@ class TransactionProcessor @Inject constructor(
                     val ownerAddress = walletManager.getConnectedWallet()
                         ?: throw IllegalStateException("Wallet not connected")
                     val owner = org.sol4k.PublicKey(ownerAddress)
-                    val onchainAlarmId = resolveOnchainAlarmId(alarm, owner)
+                    val alarmPda = resolveAlarmPda(alarm, owner)
 
                     val txBytes = when (tx.type) {
                         "CREATE_ALARM" -> {
@@ -166,8 +166,8 @@ class TransactionProcessor @Inject constructor(
                                 buddyAddress = buddyAddress?.let { org.sol4k.PublicKey(it) }
                             )
                         }
-                        "CLAIM" -> transactionBuilder.buildClaimTransaction(owner, onchainAlarmId)
-                        "SNOOZE" -> transactionBuilder.buildSnoozeTransaction(owner, onchainAlarmId)
+                        "CLAIM" -> transactionBuilder.buildClaimTransactionByPubkey(owner, alarmPda)
+                        "SNOOZE" -> transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda)
                         "SLASH" -> {
                             val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
                             if (System.currentTimeMillis() < deadlineMillis) {
@@ -180,16 +180,16 @@ class TransactionProcessor @Inject constructor(
                                 Log.d(TAG, "Slash skipped until deadline for alarm ${alarm.id}")
                                 continue
                             }
-                            transactionBuilder.buildSlashTransaction(
+                            transactionBuilder.buildSlashTransactionByPubkey(
                                 owner = owner,
-                                onchainAlarmId = onchainAlarmId,
+                                alarmPda = alarmPda,
                                 penaltyRoute = alarm.penaltyRoute,
                                 penaltyDestination = alarm.penaltyDestination
                             )
                         }
-                        "EMERGENCY_REFUND" -> transactionBuilder.buildEmergencyRefundTransaction(
+                        "EMERGENCY_REFUND" -> transactionBuilder.buildEmergencyRefundTransactionByPubkey(
                             owner = owner,
-                            alarmId = onchainAlarmId
+                            alarmPda = alarmPda
                         )
                         else -> {
                             transactionDao.updateStatus(tx.id, "FAILED", "Unknown type ${tx.type}", System.currentTimeMillis())
@@ -355,33 +355,18 @@ class TransactionProcessor @Inject constructor(
         return min(cost, remaining)
     }
 
-    private fun resolveOnchainAlarmId(
+    private fun resolveAlarmPda(
         alarm: app.solarma.data.local.AlarmEntity,
         owner: org.sol4k.PublicKey
-    ): Long {
+    ): org.sol4k.PublicKey {
         val onchainPubkey = alarm.onchainPubkey
-        if (onchainPubkey.isNullOrBlank()) {
-            return alarm.onchainAlarmId ?: alarm.id
+        if (!onchainPubkey.isNullOrBlank()) {
+            return org.sol4k.PublicKey(onchainPubkey)
         }
-        val defaultId = alarm.id
-        val defaultPda = transactionBuilder.instructionBuilder
-            .deriveAlarmPda(owner, defaultId)
+        val alarmId = alarm.onchainAlarmId ?: alarm.id
+        return transactionBuilder.instructionBuilder
+            .deriveAlarmPda(owner, alarmId)
             .address
-            .toBase58()
-        if (defaultPda == onchainPubkey) {
-            return defaultId
-        }
-        val storedId = alarm.onchainAlarmId
-        if (storedId != null) {
-            val storedPda = transactionBuilder.instructionBuilder
-                .deriveAlarmPda(owner, storedId)
-                .address
-                .toBase58()
-            if (storedPda == onchainPubkey) {
-                return storedId
-            }
-        }
-        return storedId ?: defaultId
     }
 
     private suspend fun ensureStatsRow() {

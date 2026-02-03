@@ -67,11 +67,23 @@ class TransactionBuilder @Inject constructor(
         Log.i(TAG, "Building claim tx: alarmId=$alarmId")
         
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+        buildClaimTransactionByPubkey(owner, alarmPda.address)
+    }
+
+    /**
+     * Build claim transaction using alarm PDA directly.
+     */
+    suspend fun buildClaimTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building claim tx: alarmPda=${alarmPda.toBase58()}")
+
         val instruction = instructionBuilder.buildClaim(
             owner = owner,
-            alarmPda = alarmPda.address
+            alarmPda = alarmPda
         )
-        
+
         buildTransaction(owner, instruction)
     }
     
@@ -85,12 +97,24 @@ class TransactionBuilder @Inject constructor(
         Log.i(TAG, "Building snooze tx: alarmId=$alarmId")
         
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+        buildSnoozeTransactionByPubkey(owner, alarmPda.address)
+    }
+
+    /**
+     * Build snooze transaction using alarm PDA directly.
+     */
+    suspend fun buildSnoozeTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building snooze tx: alarmPda=${alarmPda.toBase58()}")
+
         val instruction = instructionBuilder.buildSnooze(
             owner = owner,
-            alarmPda = alarmPda.address,
+            alarmPda = alarmPda,
             sinkAddress = BURN_SINK
         )
-        
+
         buildTransaction(owner, instruction)
     }
     
@@ -104,12 +128,24 @@ class TransactionBuilder @Inject constructor(
         Log.i(TAG, "Building emergency_refund tx: alarmId=$alarmId")
         
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+        buildEmergencyRefundTransactionByPubkey(owner, alarmPda.address)
+    }
+
+    /**
+     * Build emergency_refund transaction using alarm PDA directly.
+     */
+    suspend fun buildEmergencyRefundTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building emergency_refund tx: alarmPda=${alarmPda.toBase58()}")
+
         val instruction = instructionBuilder.buildEmergencyRefund(
             owner = owner,
-            alarmPda = alarmPda.address,
+            alarmPda = alarmPda,
             sinkAddress = BURN_SINK
         )
-        
+
         buildTransaction(owner, instruction)
     }
 
@@ -125,6 +161,20 @@ class TransactionBuilder @Inject constructor(
         Log.i(TAG, "Building slash tx: alarmId=$onchainAlarmId, route=$penaltyRoute")
 
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, onchainAlarmId)
+        buildSlashTransactionByPubkey(owner, alarmPda.address, penaltyRoute, penaltyDestination)
+    }
+
+    /**
+     * Build slash transaction using alarm PDA directly.
+     */
+    suspend fun buildSlashTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey,
+        penaltyRoute: Int,
+        penaltyDestination: String?
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building slash tx: alarmPda=${alarmPda.toBase58()}, route=$penaltyRoute")
+
         val route = PenaltyRoute.fromCode(penaltyRoute)
         val recipient = when (route) {
             PenaltyRoute.BURN -> BURN_SINK
@@ -137,7 +187,7 @@ class TransactionBuilder @Inject constructor(
 
         val instruction = instructionBuilder.buildSlash(
             caller = owner,
-            alarmPda = alarmPda.address,
+            alarmPda = alarmPda,
             penaltyRecipient = recipient
         )
 
