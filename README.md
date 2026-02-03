@@ -10,6 +10,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sapirl7/solarma/actions"><img src="https://img.shields.io/github/actions/workflow/status/sapirl7/solarma/android.yml?style=flat-square&logo=github&label=Android" alt="Android Build"></a>
+  <a href="https://github.com/sapirl7/solarma/actions"><img src="https://img.shields.io/github/actions/workflow/status/sapirl7/solarma/anchor.yml?style=flat-square&logo=rust&label=Anchor" alt="Anchor Build"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License"></a>
+  <a href="https://github.com/sapirl7/solarma/releases"><img src="https://img.shields.io/github/v/release/sapirl7/solarma?style=flat-square&color=14F195" alt="Release"></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> · 
   <a href="#how-it-works">How It Works</a> · 
   <a href="#quick-start">Quick Start</a> · 
