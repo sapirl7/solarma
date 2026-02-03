@@ -42,25 +42,55 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Home Screen" width="280" />
+  <img src="docs/screenshots/create.png" alt="Create Alarm" width="280" />
+</p>
+
+---
+
 ## How It Works
 
-```
-                    SOLARMA FLOW
-                    
-     CREATE          ALARM           CLAIM
-    + Stake   ───▶   TIME    ───▶   Success
-      SOL                           (get SOL back)
-                       │
-                       ▼
-                    SNOOZE?         SLASH
-                  (10%→20%→40%)───▶ Failure
-                                    (penalty applied)
+```mermaid
+flowchart LR
+    subgraph CREATE["🔒 Create Alarm"]
+        A[Set wake time] --> B[Deposit SOL]
+    end
+    
+    subgraph WAKE["⏰ Wake Up"]
+        C{Complete proof?}
+        C -->|NFC/QR/Steps| D[✅ Verified]
+        C -->|Snooze| E[10% penalty]
+        E --> C
+    end
+    
+    subgraph RESULT["💰 Outcome"]
+        F[Claim deposit]
+        G[Penalty applied]
+    end
+    
+    B --> C
+    D --> F
+    C -->|Deadline passed| G
+    
+    style CREATE fill:#14F195,color:#000
+    style WAKE fill:#9945FF,color:#fff
+    style RESULT fill:#1E1E1E,color:#fff
 ```
 
-1. **Create alarm** with SOL deposit (minimum 0.001 SOL)
-2. **Wake up** before deadline and complete verification
-3. **Claim** your full deposit back
-4. **Or fail** — deposit routes to penalty destination
+### The Flow
+
+| Step | Action | Result |
+|------|--------|--------|
+| 1️⃣ | **Create alarm** with SOL deposit | Funds locked in vault |
+| 2️⃣ | **Wake up** and complete verification | Prove you're awake |
+| 3️⃣ | **Claim** before deadline | Get 100% deposit back |
+| ❌ | **Miss deadline** | Penalty applied (burn/donate/buddy) |
+
+> **Snooze penalty:** 10% → 20% → 40% (doubles each time)
+
 
 ---
 
