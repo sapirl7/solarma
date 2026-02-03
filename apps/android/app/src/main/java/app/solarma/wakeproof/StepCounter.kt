@@ -49,14 +49,17 @@ class StepCounter @Inject constructor(
     
     /**
      * Count steps until target reached.
-     * Uses TYPE_STEP_COUNTER if available (more accurate), else TYPE_STEP_DETECTOR.
+     * Prefers TYPE_STEP_DETECTOR (real-time) over TYPE_STEP_COUNTER (batched).
+     * STEP_DETECTOR fires immediately on each step, while STEP_COUNTER may batch updates.
      */
     fun countSteps(targetSteps: Int): Flow<StepProgress> = callbackFlow {
         var baselineSteps: Float? = null
         var currentSteps = 0
         
-        val useCounter = stepCounterSensor != null
-        val sensor = if (useCounter) stepCounterSensor else stepDetectorSensor
+        // Prefer STEP_DETECTOR for immediate response (fires on each step)
+        // Only fallback to STEP_COUNTER if detector unavailable
+        val useDetector = stepDetectorSensor != null
+        val sensor = if (useDetector) stepDetectorSensor else stepCounterSensor
         
         if (sensor == null) {
             Log.e(TAG, "No step sensor available")
@@ -65,12 +68,15 @@ class StepCounter @Inject constructor(
             return@callbackFlow
         }
         
-        Log.i(TAG, "Starting step count with ${if (useCounter) "STEP_COUNTER" else "STEP_DETECTOR"}")
+        Log.i(TAG, "Starting step count with ${if (useDetector) "STEP_DETECTOR" else "STEP_COUNTER"}")
         
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
-                if (useCounter) {
-                    // TYPE_STEP_COUNTER: values[0] is cumulative step count since boot
+                if (useDetector) {
+                    // TYPE_STEP_DETECTOR: each event is a single step (immediate)
+                    currentSteps++
+                } else {
+                    // TYPE_STEP_COUNTER: values[0] is cumulative step count since boot (batched)
                     val totalSteps = event.values[0]
                     
                     if (baselineSteps == null) {
@@ -79,9 +85,6 @@ class StepCounter @Inject constructor(
                     }
                     
                     currentSteps = (totalSteps - baselineSteps!!).toInt()
-                } else {
-                    // TYPE_STEP_DETECTOR: each event is a single step
-                    currentSteps++
                 }
                 
                 val progress = currentSteps.toFloat() / targetSteps

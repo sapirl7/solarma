@@ -1,11 +1,16 @@
 package app.solarma.ui.create
 
+import android.Manifest
 import android.app.AlarmManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -61,6 +66,21 @@ fun CreateAlarmScreen(
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             alarmManager != null &&
             !alarmManager.canScheduleExactAlarms()
+    
+    // Step permission launcher - request when user selects Steps method
+    val stepPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            state = state.copy(wakeProofType = 1)
+        } else {
+            Toast.makeText(context, "Step permission required for step counter", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    // Check if step permission is needed (Android 10+)
+    val needsStepPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
     
     val saveState by viewModel.saveState.collectAsState()
     
@@ -197,7 +217,14 @@ fun CreateAlarmScreen(
                 WakeProofSelector(
                     selectedType = state.wakeProofType,
                     targetSteps = state.targetSteps,
-                    onTypeChange = { state = state.copy(wakeProofType = it) },
+                    onTypeChange = { type ->
+                        if (type == 1 && needsStepPermission) {
+                            // Request permission first, state will be updated in callback
+                            stepPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                        } else {
+                            state = state.copy(wakeProofType = type)
+                        }
+                    },
                     onStepsChange = { state = state.copy(targetSteps = it) }
                 )
                 
