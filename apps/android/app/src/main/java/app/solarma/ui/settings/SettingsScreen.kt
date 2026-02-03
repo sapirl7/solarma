@@ -365,7 +365,10 @@ fun SettingsScreen(
                         icon = Icons.Outlined.Code,
                         title = "Open Source",
                         subtitle = "github.com/sapirl7/solarma",
-                        onClick = { /* Open URL */ }
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/sapirl7/solarma"))
+                            context.startActivity(intent)
+                        }
                     )
                 }
             }

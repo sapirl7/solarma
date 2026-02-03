@@ -534,7 +534,19 @@ fun DepositSection(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("💰", fontSize = 24.sp)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(SolanaPurple, SolanaGreen)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("◎", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(

@@ -45,8 +45,10 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/home.png" alt="Home Screen" width="280" />
-  <img src="docs/screenshots/create.png" alt="Create Alarm" width="280" />
+  <img src="docs/assets/screenshot_home.png" alt="Home Screen" width="200" />
+  <img src="docs/assets/screenshot_create.png" alt="Create Alarm" width="200" />
+  <img src="docs/assets/screenshot_deposit.png" alt="Deposit Options" width="200" />
+  <img src="docs/assets/screenshot_settings.png" alt="Settings" width="200" />
 </p>
 
 ---
@@ -90,6 +92,59 @@ flowchart LR
 | ❌ | **Miss deadline** | Penalty applied (burn/donate/buddy) |
 
 > **Snooze penalty:** 10% → 20% → 40% (doubles each time)
+
+---
+
+## Wake Proof Challenges
+
+Choose how to prove you're awake. Each mode requires physical action to dismiss the alarm.
+
+### 🚶 Steps Mode
+Walk a required number of steps to dismiss. Uses the phone's pedometer sensor.
+- **Target range:** 10–200 steps (configurable)
+- **Sensor:** `TYPE_STEP_DETECTOR` for instant response
+- **Requires:** `ACTIVITY_RECOGNITION` permission (Android 10+)
+- **Tip:** 50+ steps ensures you're truly moving
+
+### 📱 NFC Mode
+Tap a pre-registered NFC tag to dismiss. Place it somewhere you need to walk to.
+- **Setup:** Register tag in Settings → NFC Tag
+- **Use cases:** Bathroom, kitchen, coffee maker
+- **Tag types:** Any NFC tag (stickers, cards, keychains)
+
+### 📷 QR Code Mode
+Scan a unique QR code generated in the app. Print it and place strategically.
+- **Setup:** Generate code in Settings → QR Code
+- **Security:** Each code is unique per user
+- **Use cases:** Another room, near window, fridge
+
+### ✅ None Mode
+Standard alarm without wake proof. No deposit locking, no penalties.
+- **Use case:** Regular alarms without commitment
+- **Note:** Cannot stake SOL in this mode
+
+---
+
+## Penalty Options
+
+If you fail to wake up, choose where your SOL goes:
+
+| Mode | Icon | Description |
+|------|------|-------------|
+| **Burn** | 🔥 | SOL permanently destroyed (maximum stakes!) |
+| **Donate** | 🎁 | Sent to configured charity address |
+| **Buddy** | 👋 | Sent to your accountability partner |
+
+---
+
+## Deposit Amounts
+
+Quick-select or custom input:
+- **0.01 SOL** — Light commitment (~$2)
+- **0.05 SOL** — Standard stake (~$10)
+- **0.1 SOL** — Serious motivation (~$20)
+- **0.5 SOL** — High stakes (~$100)
+- **Custom** — Any amount you choose
 
 
 ---
