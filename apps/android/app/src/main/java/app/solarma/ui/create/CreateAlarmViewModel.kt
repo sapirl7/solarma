@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.solarma.alarm.AlarmRepository
+import app.solarma.alarm.AlarmTimeCalculator
 import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.settings.dataStore
 import app.solarma.wallet.OnchainAlarmService
@@ -19,10 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.ZoneId
 import kotlin.math.roundToLong
 import javax.inject.Inject
 
@@ -86,7 +84,7 @@ class CreateAlarmViewModel @Inject constructor(
                 }
                 
                 // Convert LocalTime to next occurrence
-                val triggerAtMillis = calculateNextTrigger(state.time)
+                val triggerAtMillis = AlarmTimeCalculator.nextTriggerMillis(state.time)
                 val depositLamports = (state.depositAmount * 1_000_000_000L).roundToLong()
                 val penaltyDestination = when (state.penaltyRoute) {
                     1 -> SolarmaTreasury.ADDRESS
@@ -221,20 +219,6 @@ class CreateAlarmViewModel @Inject constructor(
         }
     }
     
-    private fun calculateNextTrigger(time: LocalTime): Long {
-        val now = LocalDateTime.now()
-        var targetDateTime = LocalDateTime.of(LocalDate.now(), time)
-        
-        if (targetDateTime.isBefore(now)) {
-            targetDateTime = targetDateTime.plusDays(1)
-        }
-        
-        return targetDateTime
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-    }
-
     private fun generateOnchainAlarmId(): Long {
         val now = System.currentTimeMillis()
         val rand = (0..1023).random()

@@ -1,5 +1,7 @@
 # QA Checklist (Devnet/Mainnet)
 
+See `docs/QA_MATRIX.md` for device coverage tracking.
+
 ## Device & Permissions
 - [ ] POST_NOTIFICATIONS granted (Android 13+)
 - [ ] Exact alarm permission granted

@@ -5,7 +5,9 @@
 - [ ] Verify Program ID matches on-chain deployment
 - [ ] Run tests: `make test`
 - [ ] Run lint: `make lint`
+- [ ] Run security checks: `make audit`
 - [ ] Update `CHANGELOG.md`
+- [ ] Generate reproducible artifacts: `./scripts/release-build.sh`
 
 ## Android Release
 - [ ] Configure signing keys (local only, never commit)
@@ -25,3 +27,4 @@
 ## Publish
 - [ ] Tag release in git
 - [ ] Attach APK + release notes
+- [ ] (Optional) Trigger the `Release Build` workflow for CI artifacts

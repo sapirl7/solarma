@@ -37,7 +37,7 @@ echo "Checking Solana CLI..."
 if check_command solana; then
     solana --version
 else
-    echo -e "${YELLOW}→${NC} Install: sh -c \"\$(curl -sSfL https://release.solana.com/stable/install)\""
+    echo -e "${YELLOW}→${NC} Install: sh -c \"\$(curl -sSfL https://release.solana.com/v1.18.26/install)\""
 fi
 
 # Check Anchor
@@ -46,7 +46,7 @@ echo "Checking Anchor CLI..."
 if check_command anchor; then
     anchor --version
 else
-    echo -e "${YELLOW}→${NC} Install: cargo install --git https://github.com/coral-xyz/anchor avm && avm install latest"
+    echo -e "${YELLOW}→${NC} Install: cargo install --git https://github.com/coral-xyz/anchor avm && avm install 0.32.1 && avm use 0.32.1"
 fi
 
 # Check Node.js

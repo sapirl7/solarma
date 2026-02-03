@@ -17,7 +17,7 @@ fi
 # Check for Solana CLI
 if ! command -v solana &> /dev/null; then
     echo "📦 Installing Solana CLI..."
-    sh -c "$(curl -sSfL https://release.solana.com/v1.18.4/install)"
+    sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"
     export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
 fi
 
@@ -25,8 +25,8 @@ fi
 if ! command -v anchor &> /dev/null; then
     echo "📦 Installing Anchor..."
     cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-    avm install 0.29.0
-    avm use 0.29.0
+    avm install 0.32.1
+    avm use 0.32.1
 fi
 
 # Check for Node.js
@@ -36,8 +36,10 @@ if ! command -v node &> /dev/null; then
 fi
 
 # Install Node dependencies
-echo "📦 Installing Node dependencies..."
-npm install
+if [ -f "programs/solarma_vault/package.json" ]; then
+    echo "📦 Installing Node dependencies..."
+    (cd programs/solarma_vault && npm install)
+fi
 
 # Set up Solana for devnet
 echo "🔧 Configuring Solana for devnet..."

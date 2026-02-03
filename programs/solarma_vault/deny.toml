@@ -1,0 +1,22 @@
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+unsound = "warn"
+yanked = "deny"
+
+[licenses]
+unlicensed = "deny"
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "CC0-1.0",
+  "Unicode-DFS-2016",
+  "OpenSSL"
+]
+
+[licenses.private]
+ignore = true

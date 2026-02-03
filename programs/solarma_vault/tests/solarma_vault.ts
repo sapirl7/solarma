@@ -294,6 +294,38 @@ describe("solarma_vault", () => {
                 expect(err.message).to.include("AlarmTimeInPast");
             }
         });
+
+        it("FAILS: Creates alarm with deadline before alarm_time", async () => {
+            const alarmId = new anchor.BN(Date.now() + 6);
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 3600;
+            const deadline = alarmTime - 1;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            try {
+                await program.methods
+                    .createAlarm(
+                        alarmId,
+                        new anchor.BN(alarmTime),
+                        new anchor.BN(deadline),
+                        new anchor.BN(0),
+                        0,
+                        null
+                    )
+                    .accounts({
+                        alarm,
+                        vault,
+                        owner: owner.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .rpc();
+                expect.fail("Should have thrown InvalidDeadline error");
+            } catch (err: any) {
+                expect(err.message).to.include("InvalidDeadline");
+            }
+        });
     });
 
     // =========================================================================

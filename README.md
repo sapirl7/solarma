@@ -21,7 +21,8 @@
   <a href="#how-it-works">How It Works</a> · 
   <a href="#quick-start">Quick Start</a> · 
   <a href="#architecture">Architecture</a> · 
-  <a href="#contributing">Contributing</a>
+  <a href="#contributing">Contributing</a> ·
+  <a href="#support">Support</a>
 </p>
 
 ---
@@ -153,9 +154,12 @@ Quick-select or custom input:
 
 ### Prerequisites
 - Android Studio Hedgehog or later
-- Rust with Anchor CLI 0.32+
-- Solana CLI 1.18+
-- Node.js 18+
+- Rust stable (see `docs/TOOLCHAIN.md`)
+- Anchor CLI 0.32.1
+- Solana CLI 1.18.26
+- Node.js 18.x (npm)
+
+Canonical versions live in `docs/TOOLCHAIN.md`.
 
 ### Build Android App
 ```bash
@@ -201,6 +205,9 @@ Do not commit real keys.
    `cd apps/android && ./gradlew assembleRelease`
 
 See `docs/RELEASE_CHECKLIST.md` for the full release flow.
+
+### Reproducible Builds
+See `docs/REPRODUCIBLE_BUILDS.md` for deterministic build instructions.
 
 ---
 
@@ -278,7 +285,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 - [ ] Private RPC with API keys
 - [ ] Signed release APK
 - [ ] On-chain alarm recovery implemented
-- [ ] QA matrix for all wake-proof methods
+- [ ] QA matrix for all wake-proof methods (`docs/QA_MATRIX.md`)
 
 ### Future
 - SPL token support (Seeker ecosystem tokens)
@@ -293,9 +300,19 @@ Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instruct
 
 ---
 
+## Support
+
+See [SUPPORT.md](SUPPORT.md) for community support channels.
+
+---
+
 ## Security
 
 Report vulnerabilities responsibly. See [SECURITY.md](SECURITY.md) for disclosure process.
+
+Additional resources:
+- `docs/THREAT_MODEL.md`
+- `docs/SECURITY_CHECKS.md`
 
 ---
 

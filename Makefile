@@ -1,7 +1,7 @@
 # Solarma Makefile
 # Unified entry point for all build operations
 
-.PHONY: init format lint typecheck test build run clean help
+.PHONY: init format lint typecheck test build run clean audit help
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  make build      - Build all artifacts"
 	@echo "  make run        - Start dev environment"
 	@echo "  make clean      - Safe cleanup"
+	@echo "  make audit      - Run security checks"
 	@echo ""
 
 # Initialize toolchain and environment
@@ -89,3 +90,8 @@ clean:
 	@echo "🧹 Cleaning..."
 	@./scripts/safe_run.sh clean
 	@echo "✅ Clean complete"
+
+# Security audit (cargo audit/deny + npm audit)
+audit:
+	@echo "🔐 Running security checks..."
+	@./scripts/security-audit.sh

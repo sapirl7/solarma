@@ -99,8 +99,9 @@ class HomeViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false) }
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false) }
-                    // TODO: Show error to user
+                    val message = error.message?.takeIf { it.isNotBlank() }
+                        ?: "Wallet connection failed"
+                    _uiState.update { it.copy(isLoading = false, errorMessage = message) }
                 }
             )
         }

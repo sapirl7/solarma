@@ -9,6 +9,8 @@
 ## Setup
 
 ### Prerequisites
+See `docs/TOOLCHAIN.md` for the canonical version list.
+
 1. **Rust toolchain**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 2. **Anchor CLI**: `cargo install --git https://github.com/coral-xyz/anchor avm && avm install 0.32.1 && avm use 0.32.1`
 3. **Solana CLI**: `sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"`
@@ -29,6 +31,7 @@ make init
 make lint    # Check code style
 make test    # Run all tests
 make build   # Build everything
+make audit   # Security checks
 ```
 
 ### Running Android App

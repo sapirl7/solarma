@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Toolchain reference (`docs/TOOLCHAIN.md`)
+- Threat model and security checks documentation
+- Security audit script and `make audit` target
+- Release build workflow and local release build script
+- QA matrix template and support/community templates
+
+### Changed
+- CI toolchain aligned to Anchor 0.32.1 and Solana 1.18.26
+- Standardized Anchor tests on npm
+
+### Removed
+- Stray root `package-lock.json`
+
 ## [0.2.0] - 2026-02-03
 
 ### Added

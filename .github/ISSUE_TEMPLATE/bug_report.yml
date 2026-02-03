@@ -1,0 +1,62 @@
+name: Bug Report
+description: Report a bug in Solarma
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the details below.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Device model, Android version, app version, and network.
+      placeholder: "Pixel 8, Android 14, v0.2.0, Devnet"
+    validations:
+      required: true
+  - type: dropdown
+    id: wake_proof
+    attributes:
+      label: Wake Proof Mode
+      description: Which wake proof was used?
+      options:
+        - Steps
+        - NFC
+        - QR
+        - None
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Clear, numbered steps.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: What actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Screenshots
+      description: Paste relevant logcat lines or screenshots.
+      placeholder: "Optional, redact sensitive info"
+    validations:
+      required: false

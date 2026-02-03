@@ -42,6 +42,7 @@ target/
 # ===================
 node_modules/
 .pnpm-store/
+yarn.lock
 
 # ===================
 # Android

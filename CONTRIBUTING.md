@@ -7,8 +7,10 @@ Thank you for your interest in contributing! Solarma is a community-driven proje
 ### Prerequisites
 - **Android**: Android Studio Hedgehog (2023.1.1)+ with Kotlin 1.9+
 - **Rust**: rustup with stable toolchain
-- **Solana**: Solana CLI 1.18+ and Anchor CLI 0.32+
-- **Node**: Node.js 18+ with Yarn
+- **Solana**: Solana CLI 1.18.26 and Anchor CLI 0.32.1
+- **Node**: Node.js 18+ with npm
+
+See `docs/TOOLCHAIN.md` for the canonical version list.
 
 ### Setup Development Environment
 
@@ -17,9 +19,9 @@ Thank you for your interest in contributing! Solarma is a community-driven proje
 git clone https://github.com/sapirl7/solarma.git
 cd solarma
 
-# Install Anchor dependencies  
+# Install Anchor dependencies
 cd programs/solarma_vault
-yarn install
+npm install
 
 # Build smart contract
 anchor build
@@ -67,7 +69,7 @@ test: add TransactionQueue unit tests
 - Document public functions
 
 ### TypeScript (Tests)
-- Use ESLint configuration
+- Format with Prettier
 - Add type annotations
 
 ## Running Tests
@@ -88,6 +90,12 @@ anchor test
 ```bash
 make test
 ```
+
+### Security Checks
+```bash
+make audit
+```
+Requires `cargo-audit` and `cargo-deny`. See `docs/SECURITY_CHECKS.md`.
 
 ## Architecture Guidelines
 

@@ -3,7 +3,7 @@ name = "solarma-vault"
 version = "0.1.0"
 description = "Solarma commitment vault - deposit, claim, snooze, slash"
 edition = "2021"
-license = "UNLICENSED"
+license = "Apache-2.0"
 publish = false
 
 [lib]
