@@ -1,0 +1,26 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+solarma_vault = "51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1"
+
+[programs.devnet]
+solarma_vault = "51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"
+
+[toolchain]
+anchor_version = "0.32.1"
+solana_version = "1.18.26"
+
+[workspace]
+members = ["."]
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

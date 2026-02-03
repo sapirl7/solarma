@@ -1,0 +1,110 @@
+# Solarma .gitignore
+
+# ===================
+# IDE / Editor
+# ===================
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+**/.DS_Store
+AGENTS.md
+INTERNAL_LICENSE.md
+.ai/
+
+# ===================
+# Environment / Secrets
+# ===================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keypair*.json
+id.json
+
+# ===================
+# Build outputs
+# ===================
+build/
+dist/
+out/
+target/
+*.apk
+*.aab
+*.so
+
+# ===================
+# Dependencies
+# ===================
+node_modules/
+.pnpm-store/
+
+# ===================
+# Android
+# ===================
+apps/android/.gradle/
+apps/android/app/build/
+apps/android/local.properties
+apps/android/*.keystore
+apps/android/*.jks
+apps/android/keystore.properties
+apps/android/captures/
+apps/android/.externalNativeBuild/
+apps/android/.cxx/
+
+# ===================
+# Rust / Anchor
+# ===================
+programs/solarma_vault/target/
+programs/solarma_vault/.anchor/
+programs/solarma_vault/test-ledger/
+programs/target/
+programs/Cargo.lock
+test-ledger/
+*.lock
+!Cargo.lock  # Keep root Cargo.lock if exists
+
+# ===================
+# Logs
+# ===================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===================
+# Temporary
+# ===================
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ===================
+# AI / Agent specific
+# ===================
+.ai/
+.gemini/brain/
+.cursor/
+.aider/
+.copilot/
+
+# ===================
+# Test outputs
+# ===================
+coverage/
+.nyc_output/
+test-results/
+
+# ===================
+# Private / Internal docs
+# ===================
+docs/PITCH_DECK.md
+docs/GRANT_APPLICATION.md
+docs/demo/
+docs/demo.zip

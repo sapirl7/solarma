@@ -1,0 +1,30 @@
+//! Program constants
+
+use anchor_lang::prelude::*;
+
+/// Sink address for burned deposits (Solana incinerator)
+/// https://explorer.solana.com/address/1nc1nerator11111111111111111111111111111111
+pub const BURN_SINK: Pubkey = Pubkey::new_from_array([
+    0, 51, 144, 114, 141, 52, 17, 96, 121, 189, 201, 17, 191, 255, 0, 219,
+    212, 77, 46, 205, 204, 247, 156, 166, 225, 0, 56, 225, 0, 0, 0, 0,
+]);
+
+/// Default snooze cost percentage (10% of remaining)
+pub const DEFAULT_SNOOZE_PERCENT: u64 = 10;
+
+/// Maximum snooze count before full penalty
+pub const MAX_SNOOZE_COUNT: u8 = 10;
+
+/// Minimum deposit amount in lamports (0.001 SOL)
+pub const MIN_DEPOSIT_LAMPORTS: u64 = 1_000_000;
+
+/// Emergency refund penalty percent (e.g., 5%)
+pub const EMERGENCY_REFUND_PENALTY_PERCENT: u64 = 5;
+
+/// Grace period after alarm time before deadline starts (in seconds)
+/// Default: 30 minutes = 1800 seconds
+pub const DEFAULT_GRACE_PERIOD: i64 = 1800;
+
+/// Default snooze extension (in seconds)
+/// Default: 5 minutes = 300 seconds
+pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300;

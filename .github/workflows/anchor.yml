@@ -1,0 +1,49 @@
+name: Anchor CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'programs/**'
+      - '.github/workflows/anchor.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'programs/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      
+      - name: Install Anchor CLI
+        run: cargo install --git https://github.com/coral-xyz/anchor anchor-cli --locked
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: programs/solarma_vault/yarn.lock
+      
+      - name: Install dependencies
+        working-directory: programs/solarma_vault
+        run: yarn install --frozen-lockfile
+      
+      - name: Build program
+        working-directory: programs/solarma_vault
+        run: anchor build
+      
+      - name: Run tests
+        working-directory: programs/solarma_vault
+        run: anchor test --skip-deploy

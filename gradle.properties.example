@@ -1,0 +1,5 @@
+# Optional RPC overrides (comma-separated)
+SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+
+# Do not commit real keys. Copy to ~/.gradle/gradle.properties or project gradle.properties
