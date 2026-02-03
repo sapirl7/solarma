@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sapirl7/solarma/actions"><img src="https://img.shields.io/github/actions/workflow/status/sapirl7/solarma/android.yml?style=flat-square&logo=github&label=Android" alt="Android Build"></a>
-  <a href="https://github.com/sapirl7/solarma/actions"><img src="https://img.shields.io/github/actions/workflow/status/sapirl7/solarma/anchor.yml?style=flat-square&logo=rust&label=Anchor" alt="Anchor Build"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License"></a>
-  <a href="https://github.com/sapirl7/solarma/releases"><img src="https://img.shields.io/github/v/release/sapirl7/solarma?style=flat-square&color=14F195" alt="Release"></a>
+  <img src="https://img.shields.io/badge/Android-Kotlin-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Blockchain-Solana-14F195?style=flat-square&logo=solana" alt="Solana">
+  <img src="https://img.shields.io/badge/Smart_Contract-Anchor-9945FF?style=flat-square" alt="Anchor">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square" alt="License"></a>
 </p>
 
 <p align="center">
