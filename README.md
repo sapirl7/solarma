@@ -151,18 +151,38 @@ See `docs/RELEASE_CHECKLIST.md` for the full release flow.
 
 ## Architecture
 
-```
-solarma/
-├── apps/android/          # Kotlin + Jetpack Compose
-│   ├── wallet/            # MWA integration
-│   ├── alarm/             # AlarmManager + WorkManager
-│   └── wakeproof/         # NFC / QR / Step verification
-│
-├── programs/solarma_vault/  # Anchor program
-│   ├── instructions/      # create, claim, snooze, slash
-│   └── state/             # Alarm, Vault, UserProfile
-│
-└── docs/                  # Technical documentation
+```mermaid
+graph TB
+    subgraph Android["📱 Android App"]
+        UI[Jetpack Compose UI]
+        VM[ViewModels]
+        WP[WakeProof Engine]
+        WM[Wallet Manager]
+    end
+    
+    subgraph WakeProof["🔐 Wake Verification"]
+        NFC[NFC Scanner]
+        QR[QR Scanner]
+        STEP[Step Counter]
+    end
+    
+    subgraph Solana["⛓️ Solana Blockchain"]
+        MWA[Mobile Wallet Adapter]
+        VAULT[Solarma Vault Program]
+        PDA[Alarm PDAs]
+    end
+    
+    UI --> VM
+    VM --> WP
+    VM --> WM
+    WP --> NFC & QR & STEP
+    WM --> MWA
+    MWA --> VAULT
+    VAULT --> PDA
+    
+    style Android fill:#7F52FF,color:#fff
+    style WakeProof fill:#14F195,color:#000
+    style Solana fill:#9945FF,color:#fff
 ```
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
