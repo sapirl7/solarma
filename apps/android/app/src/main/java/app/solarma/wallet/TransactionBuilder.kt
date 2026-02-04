@@ -448,5 +448,5 @@ enum class PenaltyRoute(val code: Byte) {
  * Solarma project treasury for DONATE penalty route.
  */
 object SolarmaTreasury {
-    const val ADDRESS = "DUMy9ui595PWvH3kszkD2WkUtRYZS6WGRfhrp5rcMif2"
+    const val ADDRESS = "2g536HdC3ByKNZc6gev6jb6NmFr7dMnTnp66Gqk5rusk"
 }
