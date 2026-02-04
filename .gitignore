@@ -81,6 +81,7 @@ yarn-error.log*
 # ===================
 # Temporary
 # ===================
+.cargo-home/
 tmp/
 temp/
 *.tmp

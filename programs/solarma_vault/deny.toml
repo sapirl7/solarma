@@ -1,22 +1,28 @@
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-unsound = "warn"
-yanked = "deny"
+# Keep advisories visible; use `ignore` entries only with explicit justification.
+ignore = [
+  { id = "RUSTSEC-2025-0141", reason = "Transitive bincode dependency via Solana/Anchor; monitor upstream for replacements." }
+]
 
 [licenses]
-unlicensed = "deny"
 allow = [
   "Apache-2.0",
   "MIT",
   "BSD-2-Clause",
   "BSD-3-Clause",
-  "ISC",
   "Zlib",
   "CC0-1.0",
-  "Unicode-DFS-2016",
-  "OpenSSL"
+  "Unicode-3.0"
 ]
+confidence-threshold = 0.8
 
 [licenses.private]
 ignore = true
+
+[bans]
+multiple-versions = "allow"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

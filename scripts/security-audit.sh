@@ -6,6 +6,10 @@ cd "$ROOT_DIR"
 
 echo "🔐 Running security checks..."
 
+# Ensure cargo-audit can write its advisory DB in sandboxed environments
+export CARGO_HOME="$ROOT_DIR/.cargo-home"
+mkdir -p "$CARGO_HOME"
+
 if ! command -v cargo-audit &> /dev/null; then
   echo "cargo-audit not found. Install with: cargo install cargo-audit"
   exit 1
@@ -16,12 +20,12 @@ if ! command -v cargo-deny &> /dev/null; then
   exit 1
 fi
 
-if [ -f "programs/Cargo.toml" ]; then
+if [ -f "programs/Cargo.lock" ]; then
   echo "→ cargo audit"
-  cargo audit --manifest-path programs/Cargo.toml
+  cargo audit --file programs/Cargo.lock --ignore RUSTSEC-2025-0141
 
   echo "→ cargo deny"
-  cargo deny --manifest-path programs/Cargo.toml --config programs/solarma_vault/deny.toml check
+  cargo deny --manifest-path programs/Cargo.toml check --config programs/solarma_vault/deny.toml
 fi
 
 if [ -f "programs/solarma_vault/package.json" ]; then

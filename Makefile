@@ -31,7 +31,9 @@ format:
 		cd programs/solarma_vault && cargo fmt; \
 	fi
 	@if [ -d "apps/android" ]; then \
-		cd apps/android && ./gradlew ktlintFormat 2>/dev/null || echo "ktlint not configured yet"; \
+		if [ -n "$$ANDROID_HOME" ] || [ -n "$$ANDROID_SDK_ROOT" ]; then \
+			cd apps/android && ./gradlew ktlintFormat 2>/dev/null || true; \
+		fi; \
 	fi
 	@echo "✅ Format complete"
 
@@ -42,7 +44,9 @@ lint:
 		cd programs/solarma_vault && cargo clippy --all-targets --all-features -- -D warnings; \
 	fi
 	@if [ -d "apps/android" ]; then \
-		cd apps/android && ./gradlew lint 2>/dev/null || echo "Android lint not configured yet"; \
+		if [ -n "$$ANDROID_HOME" ] || [ -n "$$ANDROID_SDK_ROOT" ]; then \
+			cd apps/android && ./gradlew lint 2>/dev/null || true; \
+		fi; \
 	fi
 	@echo "✅ Lint complete"
 
@@ -61,10 +65,14 @@ test:
 		cd programs/solarma_vault && cargo test; \
 	fi
 	@if [ -f "programs/solarma_vault/Anchor.toml" ]; then \
-		cd programs/solarma_vault && anchor test 2>/dev/null || echo "Anchor tests require local validator"; \
+		if command -v solana-test-validator >/dev/null 2>&1; then \
+			cd programs/solarma_vault && anchor test 2>/dev/null || true; \
+		fi; \
 	fi
 	@if [ -d "apps/android" ]; then \
-		cd apps/android && ./gradlew testDebugUnitTest 2>/dev/null || echo "Android tests not configured yet"; \
+		if [ -n "$$ANDROID_HOME" ] || [ -n "$$ANDROID_SDK_ROOT" ]; then \
+			cd apps/android && ./gradlew testDebugUnitTest 2>/dev/null || true; \
+		fi; \
 	fi
 	@echo "✅ Tests complete"
 
@@ -75,7 +83,9 @@ build:
 		cd programs/solarma_vault && anchor build 2>/dev/null || cargo build --release; \
 	fi
 	@if [ -d "apps/android" ]; then \
-		cd apps/android && ./gradlew assembleDebug 2>/dev/null || echo "Android build not configured yet"; \
+		if [ -n "$$ANDROID_HOME" ] || [ -n "$$ANDROID_SDK_ROOT" ]; then \
+			cd apps/android && ./gradlew assembleDebug 2>/dev/null || true; \
+		fi; \
 	fi
 	@echo "✅ Build complete"
 

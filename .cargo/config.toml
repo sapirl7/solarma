@@ -1,0 +1,5 @@
+[build]
+rustflags = [
+  "--check-cfg=cfg(target_os,values(\"solana\"))",
+  "--check-cfg=cfg(feature,values(\"anchor-debug\",\"custom-heap\",\"custom-panic\",\"test-bpf\"))"
+]

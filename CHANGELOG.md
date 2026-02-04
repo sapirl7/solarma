@@ -16,6 +16,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ### Changed
 - CI toolchain aligned to Anchor 0.32.1 and Solana 1.18.26
 - Standardized Anchor tests on npm
+- Security audit configuration hardened and made deterministic
+- Android/Anchor tasks now auto-skip when tooling is not available
+- Pinned mocha to a non-vulnerable version for tests
 
 ### Removed
 - Stray root `package-lock.json`

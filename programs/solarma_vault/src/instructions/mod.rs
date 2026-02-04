@@ -1,5 +1,7 @@
 //! Instruction handlers
 
+#![allow(ambiguous_glob_reexports)]
+
 pub mod initialize;
 pub mod create_alarm;
 pub mod claim;
@@ -13,4 +15,3 @@ pub use claim::*;
 pub use snooze::*;
 pub use slash::*;
 pub use emergency_refund::*;
-
