@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -281,54 +282,93 @@ fun WalletStatusCard(
     balance: Double?,
     onConnectClick: () -> Unit
 ) {
+    val uriHandler = LocalUriHandler.current
     val backgroundColor = if (isConnected) 
         SolanaGreen.copy(alpha = 0.1f) 
     else 
         GraphiteSurface
+    
+    val showFaucetButton = isConnected && (balance == null || balance < 0.1)
     
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = AlarmCardShape,
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isConnected) {
-                    PulsingDot(color = SolanaGreen)
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(TextMuted)
-                    )
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isConnected) {
+                        PulsingDot(color = SolanaGreen)
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(TextMuted)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (isConnected) "Wallet Connected" else "Wallet Disconnected",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isConnected) SolanaGreen else TextPrimary
+                        )
+                        if (isConnected && balance != null) {
+                            SolAmount(amount = balance, showSymbol = false)
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = if (isConnected) "Wallet Connected" else "Wallet Disconnected",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isConnected) SolanaGreen else TextPrimary
+                
+                if (!isConnected) {
+                    GradientButton(
+                        text = "Connect",
+                        onClick = onConnectClick,
+                        modifier = Modifier.width(120.dp)
                     )
-                    if (isConnected && balance != null) {
-                        SolAmount(amount = balance, showSymbol = false)
+                } else if (showFaucetButton) {
+                    OutlinedButton(
+                        onClick = { uriHandler.openUri("https://faucet.solana.com") },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GoldenHour
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = Brush.horizontalGradient(
+                                listOf(GoldenHour, GoldenHour.copy(alpha = 0.5f))
+                            )
+                        )
+                    ) {
+                        Text("Get Test SOL →", fontSize = 12.sp)
                     }
                 }
             }
             
-            if (!isConnected) {
-                GradientButton(
-                    text = "Connect",
-                    onClick = onConnectClick,
-                    modifier = Modifier.width(120.dp)
-                )
+            // Devnet testing notice
+            if (showFaucetButton) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(GoldenHour.copy(alpha = 0.1f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚠️ Beta: Using Devnet test tokens only",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GoldenHour
+                    )
+                }
             }
         }
     }
