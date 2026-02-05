@@ -28,7 +28,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    val keystorePropsFile = rootProject.file("apps/android/keystore.properties")
+    val keystorePropsFile = rootProject.file("keystore.properties")
     val keystoreProps = Properties()
     if (keystorePropsFile.exists()) {
         keystoreProps.load(FileInputStream(keystorePropsFile))
@@ -39,7 +39,7 @@ android {
             if (keystorePropsFile.exists()) {
                 val storeFilePath = keystoreProps.getProperty("STORE_FILE")
                 if (!storeFilePath.isNullOrBlank()) {
-                    storeFile = file(storeFilePath)
+                    storeFile = rootProject.file(storeFilePath)
                     storePassword = keystoreProps.getProperty("STORE_PASSWORD")
                     keyAlias = keystoreProps.getProperty("KEY_ALIAS")
                     keyPassword = keystoreProps.getProperty("KEY_PASSWORD")
