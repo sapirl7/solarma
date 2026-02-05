@@ -17,8 +17,8 @@ android {
         applicationId = "app.solarma"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         val devnetRpc = (project.findProperty("SOLANA_RPC_DEVNET") as String?) ?: ""
         val mainnetRpc = (project.findProperty("SOLANA_RPC_MAINNET") as String?) ?: ""
