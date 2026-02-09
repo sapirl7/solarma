@@ -149,6 +149,7 @@ class HomeViewModelTest {
     fun `deleteAlarm with onchain deposit shows error`() = runTest {
         val alarm = AlarmEntity(
             id = 7, alarmTimeMillis = 1000,
+            hasDeposit = true,
             onchainPubkey = "9xQeWvG816bUx9EPjHmaT1E4aLGb2P"
         )
         whenever(alarmDao.getById(7L)).thenReturn(alarm)
@@ -169,6 +170,7 @@ class HomeViewModelTest {
         // Set an error first via deleteAlarm with deposit
         val alarm = AlarmEntity(
             id = 1, alarmTimeMillis = 1000,
+            hasDeposit = true,
             onchainPubkey = "SomeKey"
         )
         whenever(alarmDao.getById(1L)).thenReturn(alarm)
