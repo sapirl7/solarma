@@ -27,6 +27,7 @@ import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 
 // ═══════════════════════════════════════════════════════════════
 // ONBOARDING — 4-slide intro explaining the Solarma concept
@@ -41,7 +42,7 @@ private data class OnboardingPage(
 )
 
 private val pages = listOf(
-    OnboardingPage(emoji = "⏰", titleRes = R.string.onboarding_title_1, subtitleRes = R.string.onboarding_sub_1, accentColor = SolanaGreen),
+    OnboardingPage(iconRes = R.drawable.ic_launcher_foreground, titleRes = R.string.onboarding_title_1, subtitleRes = R.string.onboarding_sub_1, accentColor = SolanaGreen),
     OnboardingPage(emoji = "🔒", titleRes = R.string.onboarding_title_2, subtitleRes = R.string.onboarding_sub_2, accentColor = SolanaPurple),
     OnboardingPage(emoji = "☀️", titleRes = R.string.onboarding_title_3, subtitleRes = R.string.onboarding_sub_3, accentColor = SolanaGreen),
     OnboardingPage(iconRes = R.drawable.ic_solana_logo, titleRes = R.string.onboarding_title_4, subtitleRes = R.string.onboarding_sub_4, accentColor = SolanaPurple),
@@ -156,11 +157,13 @@ private fun OnboardingPageContent(page: OnboardingPage) {
         verticalArrangement = Arrangement.Center
     ) {
         // Icon with glow card
+        val isAppIcon = page.iconRes == R.drawable.ic_launcher_foreground
         Card(
             modifier = Modifier.size(140.dp),
             shape = RoundedCornerShape(32.dp),
             colors = CardDefaults.cardColors(
-                containerColor = page.accentColor.copy(alpha = 0.1f)
+                containerColor = if (isAppIcon) Color.Transparent
+                    else page.accentColor.copy(alpha = 0.1f)
             )
         ) {
             Box(
@@ -168,16 +171,20 @@ private fun OnboardingPageContent(page: OnboardingPage) {
                 contentAlignment = Alignment.Center
             ) {
                 if (page.iconRes != null) {
-                    // Drawable icon (Solana logo)
                     androidx.compose.foundation.Image(
                         painter = painterResource(id = page.iconRes),
                         contentDescription = stringResource(page.titleRes),
-                        modifier = Modifier
-                            .size(72.dp)
+                        modifier = if (isAppIcon) Modifier
+                            .fillMaxSize()
                             .scale(emojiScale)
+                            .clip(RoundedCornerShape(32.dp))
+                        else Modifier
+                            .size(90.dp)
+                            .scale(emojiScale),
+                        contentScale = if (isAppIcon) ContentScale.Crop
+                            else ContentScale.Fit
                     )
                 } else {
-                    // Emoji text
                     Text(
                         text = page.emoji ?: "",
                         fontSize = 64.sp,
