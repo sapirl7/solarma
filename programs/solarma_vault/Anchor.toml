@@ -26,4 +26,4 @@ members = ["."]
 test = "npm run test:fast"
 
 [test]
-startup_wait = 10000
+startup_wait = 30000
