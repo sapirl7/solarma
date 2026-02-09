@@ -292,8 +292,7 @@ class OnchainAlarmService @Inject constructor(
             try {
                 if (!isNetworkAvailable()) return@withContext 0
                 
-                val owner = walletManager.getConnectedPublicKey() ?: return@withContext 0
-                val ownerBase58 = owner.toBase58()
+                val ownerBase58 = walletManager.getConnectedWallet() ?: return@withContext 0
                 val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()
                 
                 val result = rpcClient.getProgramAccounts(programId, ownerBase58)

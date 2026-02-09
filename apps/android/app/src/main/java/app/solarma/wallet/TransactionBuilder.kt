@@ -427,7 +427,7 @@ class TransactionBuilder @Inject constructor(
      * leading zeros, causing ~1/256 blockhashes to decode incorrectly.
      */
     private fun decodeBase58(input: String): ByteArray {
-        return PublicKey(input).toByteArray()
+        return PublicKey(input).bytes()
     }
 }
 
