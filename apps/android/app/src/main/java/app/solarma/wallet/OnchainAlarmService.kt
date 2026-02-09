@@ -307,25 +307,36 @@ class OnchainAlarmService @Inject constructor(
                     // Decode on-chain alarm data
                     try {
                         val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
-                        if (data.size < 8 + 32 + 8 + 8 + 33 + 8 + 8 + 1 + 33 + 1 + 1) continue
+                        // Minimum size: 8 disc + 32 owner + 8 id + 8 time + 8 deadline
+                        //   + 8 initial + 8 remaining + 1 route + 1+32 dest + 1 snooze + 1 status + 1 bump + 1 vault_bump = 110
+                        if (data.size < 110) continue
                         
                         // Parse key fields from Borsh-serialized data
-                        // Layout: 8 disc | 32 owner | 8 alarm_time | 8 deadline | 33 mint | 8 initial | 8 remaining | 1 route | 33 dest | 1 snooze | 1 status
+                        // Rust Alarm struct layout (state.rs):
+                        //   8 disc | 32 owner | 8 alarm_id | 8 alarm_time | 8 deadline |
+                        //   8 initial_amount | 8 remaining_amount | 1 penalty_route |
+                        //   1+32 penalty_destination (Option<Pubkey>) | 1 snooze_count |
+                        //   1 status | 1 bump | 1 vault_bump | 64 padding
                         val buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                         buf.position(8)  // skip discriminator
                         buf.position(buf.position() + 32) // skip owner
-                        val alarmTime = buf.getLong()      // alarm_time (unix sec)
+                        val alarmId = buf.getLong()         // alarm_id (u64)
+                        val alarmTime = buf.getLong()       // alarm_time (unix sec)
                         val deadline = buf.getLong()        // deadline (unix sec)
-                        buf.position(buf.position() + 33)  // skip deposit_mint Option<Pubkey>
                         val initialAmount = buf.getLong()   // initial_amount
                         val remainingAmount = buf.getLong() // remaining_amount
                         val penaltyRoute = buf.get().toInt() // penalty_route
-                        buf.position(buf.position() + 33)   // skip penalty_destination
+                        // penalty_destination: Option<Pubkey> = 1 byte tag + 32 bytes if Some
+                        val hasDestination = buf.get().toInt() and 0xFF
+                        if (hasDestination != 0) {
+                            buf.position(buf.position() + 32) // skip Pubkey bytes
+                        }
                         val snoozeCount = buf.get().toInt() and 0xFF
                         val status = buf.get().toInt() and 0xFF
                         
-                        // Skip already-completed alarms (Claimed=1, Slashed=2)
-                        if (status != 0) continue
+                        // AlarmStatus: Created=0, Acknowledged=1, Claimed=2, Slashed=3
+                        // Skip completed alarms (Claimed=2 or Slashed=3)
+                        if (status >= 2) continue
                         
                         // Create local alarm record for this on-chain alarm
                         val alarm = AlarmEntity(
