@@ -176,26 +176,12 @@ mod unit_tests {
         assert_eq!(MAX_SNOOZE_COUNT, 10);
     }
 
-    #[test]
-    fn test_max_snooze_boundary_guard() {
-        // The guard in snooze.rs: require!(alarm.snooze_count < MAX_SNOOZE_COUNT)
-        let max = MAX_SNOOZE_COUNT;
-
-        // snooze_count=9 should be the last ALLOWED snooze
-        let last_allowed: u8 = max - 1;
-        assert!(
-            last_allowed < max,
-            "snooze_count={last_allowed} should pass guard"
-        );
-
-        // snooze_count == MAX should be REJECTED
-        assert!(max >= max, "snooze_count={max} should fail guard");
-
-        // snooze_count > MAX should also be REJECTED
-        if let Some(over) = max.checked_add(1) {
-            assert!(over >= max, "snooze_count={over} should fail guard");
-        }
-    }
+    // Compile-time invariants for the snooze guard boundary:
+    //   require!(alarm.snooze_count < MAX_SNOOZE_COUNT)
+    const _: () = {
+        assert!(9 < MAX_SNOOZE_COUNT); // snooze_count=9 must pass
+        assert!(10 >= MAX_SNOOZE_COUNT); // snooze_count=10 must fail
+    };
 
     #[test]
     fn test_exponential_cost_drains_before_max_snooze() {
