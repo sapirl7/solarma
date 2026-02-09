@@ -35,7 +35,13 @@ jobs:
       - name: Install Solana CLI
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          SOLANA_BIN="$HOME/.local/share/solana/install/active_release/bin"
+          echo "$SOLANA_BIN" >> "$GITHUB_PATH"
+          export PATH="$SOLANA_BIN:$PATH"
+          solana --version
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
 
       - name: Install Anchor CLI
         if: steps.cache-anchor.outputs.cache-hit != 'true'
