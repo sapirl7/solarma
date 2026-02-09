@@ -116,6 +116,14 @@ jobs:
       - name: Anchor build
         run: anchor build
 
+      - name: Link build artifacts
+        run: |
+          # anchor build outputs to ../target/deploy/ (Cargo workspace root)
+          # but anchor test expects ./target/deploy/ (crate dir)
+          mkdir -p target/deploy
+          ln -sf "$(realpath ../target/deploy/solarma_vault.so)" target/deploy/solarma_vault.so
+          ls -la target/deploy/
+
       - name: Verify Solana toolchain
         run: |
           solana --version
