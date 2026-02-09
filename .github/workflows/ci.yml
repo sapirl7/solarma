@@ -116,8 +116,18 @@ jobs:
       - name: Anchor build
         run: anchor build
 
+      - name: Verify Solana toolchain
+        run: |
+          solana --version
+          solana-test-validator --version || agave-test-validator --version || true
+          solana config set --url localhost
+
       - name: Anchor test (localnet, fast suite)
         run: anchor test --skip-build -- --grep @slow --invert
+
+      - name: Show validator log on failure
+        if: failure()
+        run: cat .anchor/test-ledger/test-ledger-log.txt 2>/dev/null | tail -100 || echo "No log found"
 
   # Android checks
   android:
