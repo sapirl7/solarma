@@ -49,10 +49,10 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/screenshot_home.png" alt="Home Screen" width="200" />
-  <img src="docs/assets/screenshot_create.png" alt="Create Alarm" width="200" />
-  <img src="docs/assets/screenshot_deposit.png" alt="Deposit Options" width="200" />
-  <img src="docs/assets/screenshot_settings.png" alt="Settings" width="200" />
+  <img src="docs/assets/screenshot_home.jpg" alt="Home Screen" width="200" />
+  <img src="docs/assets/screenshot_create.jpg" alt="Create Alarm" width="200" />
+  <img src="docs/assets/screenshot_details.jpg" alt="Alarm Details" width="200" />
+  <img src="docs/assets/screenshot_wakeup.jpg" alt="Wake Up" width="200" />
 </p>
 
 ---
