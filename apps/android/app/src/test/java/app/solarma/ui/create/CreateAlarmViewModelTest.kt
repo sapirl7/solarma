@@ -3,6 +3,7 @@ package app.solarma.ui.create
 import android.content.Context
 import app.solarma.alarm.AlarmRepository
 import app.solarma.wallet.OnchainAlarmService
+import app.solarma.wallet.PendingTransactionDao
 import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.WalletManager
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ class CreateAlarmViewModelTest {
     private lateinit var onchainAlarmService: OnchainAlarmService
     private lateinit var walletManager: WalletManager
     private lateinit var rpcClient: SolanaRpcClient
+    private lateinit var pendingTransactionDao: PendingTransactionDao
     private lateinit var context: Context
     private lateinit var viewModel: CreateAlarmViewModel
 
@@ -41,9 +43,10 @@ class CreateAlarmViewModelTest {
         onchainAlarmService = mock()
         walletManager = mock()
         rpcClient = mock()
+        pendingTransactionDao = mock()
         context = mock()
 
-        viewModel = CreateAlarmViewModel(alarmRepository, onchainAlarmService, walletManager, rpcClient, context)
+        viewModel = CreateAlarmViewModel(alarmRepository, onchainAlarmService, walletManager, rpcClient, pendingTransactionDao, context)
     }
 
     @After
