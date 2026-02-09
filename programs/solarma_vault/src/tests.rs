@@ -182,9 +182,15 @@ mod unit_tests {
         // snooze_count=9 should be the last ALLOWED snooze
         assert!(9 < MAX_SNOOZE_COUNT, "snooze_count=9 should pass guard");
         // snooze_count=10 should be REJECTED
-        assert!(!(10 < MAX_SNOOZE_COUNT), "snooze_count=10 should fail guard");
+        assert!(
+            !(10 < MAX_SNOOZE_COUNT),
+            "snooze_count=10 should fail guard"
+        );
         // Edge: u8::MAX should also be rejected
-        assert!(!(u8::MAX < MAX_SNOOZE_COUNT), "snooze_count=255 should fail guard");
+        assert!(
+            !(u8::MAX < MAX_SNOOZE_COUNT),
+            "snooze_count=255 should fail guard"
+        );
     }
 
     #[test]
