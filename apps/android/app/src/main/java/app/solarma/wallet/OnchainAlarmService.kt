@@ -343,59 +343,72 @@ class OnchainAlarmService @Inject constructor(
                 
                 var synced = 0
                 for (account in accounts) {
+                    try {
+                    // Decode on-chain data
+                    val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
+                    if (data.size < 110) continue
+                    
                     // Check if this on-chain alarm exists locally
                     val existing = alarmDao.getByOnchainPubkey(account.pubkey)
-                    if (existing != null) continue  // Already in local DB
                     
-                    // Decode on-chain alarm data
-                    try {
-                        val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
-                        // Minimum size: 8 disc + 32 owner + 8 id + 8 time + 8 deadline
-                        //   + 8 initial + 8 remaining + 1 route + 1+32 dest + 1 snooze + 1 status + 1 bump + 1 vault_bump = 110
-                        if (data.size < 110) continue
-                        
-                        // Parse key fields from Borsh-serialized data
-                        // Rust Alarm struct layout (state.rs):
-                        //   8 disc | 32 owner | 8 alarm_id | 8 alarm_time | 8 deadline |
-                        //   8 initial_amount | 8 remaining_amount | 1 penalty_route |
-                        //   1+32 penalty_destination (Option<Pubkey>) | 1 snooze_count |
-                        //   1 status | 1 bump | 1 vault_bump | 64 padding
-                        val buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                        buf.position(8)  // skip discriminator
-                        buf.position(buf.position() + 32) // skip owner
-                        val alarmId = buf.getLong()         // alarm_id (u64)
-                        val alarmTime = buf.getLong()       // alarm_time (unix sec)
-                        val deadline = buf.getLong()        // deadline (unix sec)
-                        val initialAmount = buf.getLong()   // initial_amount
-                        val remainingAmount = buf.getLong() // remaining_amount
-                        val penaltyRoute = buf.get().toInt() // penalty_route
-                        // penalty_destination: Option<Pubkey> = 1 byte tag + 32 bytes if Some
-                        val hasDestination = buf.get().toInt() and 0xFF
-                        if (hasDestination != 0) {
-                            buf.position(buf.position() + 32) // skip Pubkey bytes
+                    // Parse key fields from Borsh-serialized data
+                    // Rust Alarm struct layout (state.rs):
+                    //   8 disc | 32 owner | 8 alarm_id | 8 alarm_time | 8 deadline |
+                    //   8 initial_amount | 8 remaining_amount | 1 penalty_route |
+                    //   1+32 penalty_destination (Option<Pubkey>) | 1 snooze_count |
+                    //   1 status | 1 bump | 1 vault_bump | 64 padding
+                    val buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                    buf.position(8)  // skip discriminator
+                    buf.position(buf.position() + 32) // skip owner
+                    val alarmId = buf.getLong()         // alarm_id (u64)
+                    val alarmTime = buf.getLong()       // alarm_time (unix sec)
+                    val deadline = buf.getLong()        // deadline (unix sec)
+                    val initialAmount = buf.getLong()   // initial_amount
+                    val remainingAmount = buf.getLong() // remaining_amount
+                    val penaltyRoute = buf.get().toInt() // penalty_route
+                    // penalty_destination: Option<Pubkey> = 1 byte tag + 32 bytes if Some
+                    val hasDestination = buf.get().toInt() and 0xFF
+                    if (hasDestination != 0) {
+                        buf.position(buf.position() + 32) // skip Pubkey bytes
+                    }
+                    val snoozeCount = buf.get().toInt() and 0xFF
+                    val status = buf.get().toInt() and 0xFF
+                    
+                    // AlarmStatus: Created=0, Acknowledged=1, Claimed=2, Slashed=3
+                    val isResolved = status >= 2 || remainingAmount <= 0
+                    
+                    if (existing != null) {
+                        // Alarm exists locally — update deposit state from on-chain
+                        if (isResolved && existing.hasDeposit) {
+                            // On-chain shows resolved but local still has deposit → fix it
+                            alarmDao.update(existing.copy(
+                                hasDeposit = false,
+                                depositLamports = 0,
+                                depositAmount = 0.0
+                            ))
+                            Log.i(TAG, "Sync: cleared stale deposit for ${account.pubkey} (on-chain status=$status, remaining=$remainingAmount)")
                         }
-                        val snoozeCount = buf.get().toInt() and 0xFF
-                        val status = buf.get().toInt() and 0xFF
-                        
-                        // AlarmStatus: Created=0, Acknowledged=1, Claimed=2, Slashed=3
-                        // Skip completed alarms (Claimed=2 or Slashed=3)
-                        if (status >= 2) continue
-                        
-                        // Create local alarm record for this on-chain alarm
-                        val alarm = AlarmEntity(
-                            alarmTimeMillis = alarmTime * 1000,
-                            label = "Synced from chain",
-                            isEnabled = true,
-                            hasDeposit = true,
-                            depositLamports = initialAmount,
-                            penaltyRoute = penaltyRoute,
-                            onchainPubkey = account.pubkey,
-                            snoozeCount = snoozeCount,
-                            wakeProofType = 0  // Default — user can reconfigure
-                        )
-                        alarmDao.insert(alarm)
-                        synced++
-                        Log.i(TAG, "Synced on-chain alarm: ${account.pubkey} (time=$alarmTime, remaining=$remainingAmount)")
+                        continue  // Don't re-insert
+                    }
+                    
+                    // Skip resolved alarms — no need to import them as new
+                    if (isResolved) continue
+                    
+                    // Create local alarm record for this NEW on-chain alarm
+                    val alarm = AlarmEntity(
+                        alarmTimeMillis = alarmTime * 1000,
+                        label = "Synced from chain",
+                        isEnabled = true,
+                        hasDeposit = true,
+                        depositLamports = initialAmount,
+                        penaltyRoute = penaltyRoute,
+                        onchainPubkey = account.pubkey,
+                        snoozeCount = snoozeCount,
+                        wakeProofType = 0  // Default — user can reconfigure
+                    )
+                    alarmDao.insert(alarm)
+                    synced++
+                    Log.i(TAG, "Synced on-chain alarm: ${account.pubkey} (time=$alarmTime, remaining=$remainingAmount)")
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed to decode on-chain alarm: ${account.pubkey}", e)
                     }

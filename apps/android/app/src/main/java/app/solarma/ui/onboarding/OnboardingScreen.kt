@@ -26,23 +26,25 @@ import app.solarma.ui.components.GradientButton
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
 
 // ═══════════════════════════════════════════════════════════════
 // ONBOARDING — 4-slide intro explaining the Solarma concept
 // ═══════════════════════════════════════════════════════════════
 
 private data class OnboardingPage(
-    val emoji: String,
+    val emoji: String? = null,
+    val iconRes: Int? = null,
     val titleRes: Int,
     val subtitleRes: Int,
     val accentColor: Color
 )
 
 private val pages = listOf(
-    OnboardingPage("⏰", R.string.onboarding_title_1, R.string.onboarding_sub_1, SolanaGreen),
-    OnboardingPage("🔒", R.string.onboarding_title_2, R.string.onboarding_sub_2, SolanaPurple),
-    OnboardingPage("☀️", R.string.onboarding_title_3, R.string.onboarding_sub_3, SolanaGreen),
-    OnboardingPage("◎", R.string.onboarding_title_4, R.string.onboarding_sub_4, SolanaPurple),
+    OnboardingPage(emoji = "⏰", titleRes = R.string.onboarding_title_1, subtitleRes = R.string.onboarding_sub_1, accentColor = SolanaGreen),
+    OnboardingPage(emoji = "🔒", titleRes = R.string.onboarding_title_2, subtitleRes = R.string.onboarding_sub_2, accentColor = SolanaPurple),
+    OnboardingPage(emoji = "☀️", titleRes = R.string.onboarding_title_3, subtitleRes = R.string.onboarding_sub_3, accentColor = SolanaGreen),
+    OnboardingPage(iconRes = R.drawable.ic_solana_logo, titleRes = R.string.onboarding_title_4, subtitleRes = R.string.onboarding_sub_4, accentColor = SolanaPurple),
 )
 
 @Composable
@@ -153,7 +155,7 @@ private fun OnboardingPageContent(page: OnboardingPage) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Emoji with glow card
+        // Icon with glow card
         Card(
             modifier = Modifier.size(140.dp),
             shape = RoundedCornerShape(32.dp),
@@ -165,11 +167,23 @@ private fun OnboardingPageContent(page: OnboardingPage) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = page.emoji,
-                    fontSize = 64.sp,
-                    modifier = Modifier.scale(emojiScale)
-                )
+                if (page.iconRes != null) {
+                    // Drawable icon (Solana logo)
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = page.iconRes),
+                        contentDescription = stringResource(page.titleRes),
+                        modifier = Modifier
+                            .size(72.dp)
+                            .scale(emojiScale)
+                    )
+                } else {
+                    // Emoji text
+                    Text(
+                        text = page.emoji ?: "",
+                        fontSize = 64.sp,
+                        modifier = Modifier.scale(emojiScale)
+                    )
+                }
             }
         }
 

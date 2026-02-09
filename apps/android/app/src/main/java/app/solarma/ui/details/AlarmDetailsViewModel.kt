@@ -70,7 +70,7 @@ class AlarmDetailsViewModel @Inject constructor(
                             lastAttemptAt = System.currentTimeMillis()
                         )
                     )
-                    _alarm.value = currentAlarm.copy(hasDeposit = false, onchainPubkey = null, depositLamports = 0)
+                    _alarm.value = currentAlarm.copy(hasDeposit = false, depositLamports = 0, depositAmount = 0.0)
                     _refundState.value = RefundState.Success(signature)
                 }
                 .onFailure { e ->
@@ -85,7 +85,7 @@ class AlarmDetailsViewModel @Inject constructor(
     fun deleteAlarm() {
         viewModelScope.launch {
             _alarm.value?.let { alarm ->
-                if (alarm.onchainPubkey != null) {
+                if (alarm.hasDeposit && alarm.depositLamports > 0) {
                     _deleteState.value = DeleteState.BlockedByDeposit
                     return@launch
                 }
@@ -123,7 +123,7 @@ class AlarmDetailsViewModel @Inject constructor(
                             lastAttemptAt = System.currentTimeMillis()
                         )
                     )
-                    _alarm.value = currentAlarm.copy(hasDeposit = false, onchainPubkey = null, depositLamports = 0)
+                    _alarm.value = currentAlarm.copy(hasDeposit = false, depositLamports = 0, depositAmount = 0.0)
                     _refundState.value = RefundState.Success(signature)
                 }
                 .onFailure { e ->

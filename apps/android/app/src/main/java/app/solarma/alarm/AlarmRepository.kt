@@ -316,7 +316,9 @@ class AlarmRepository @Inject constructor(
             alarm.copy(
                 hasDeposit = false,
                 depositLamports = 0,
-                onchainPubkey = null
+                depositAmount = 0.0
+                // Keep onchainPubkey! Clearing it causes sync to re-insert
+                // the alarm as a duplicate with hasDeposit=true.
             )
         )
     }
