@@ -127,8 +127,9 @@ fun AlarmDetailsScreen(
                     // Time card
                     AlarmTimeCard(currentAlarm)
                     
-                    // Deposit card (if applicable)
-                    if (currentAlarm.hasDeposit) {
+                    // Deposit card (if applicable — only show when actual deposit exists)
+                    val hasActiveDeposit = currentAlarm.hasDeposit && currentAlarm.depositLamports > 0
+                    if (hasActiveDeposit) {
                         DepositCard(
                             alarm = currentAlarm,
                             isProcessing = refundState is RefundState.Processing,
@@ -164,7 +165,7 @@ fun AlarmDetailsScreen(
     
     // Delete confirmation dialog
     if (showDeleteDialog) {
-        val hasDeposit = alarm?.hasDeposit == true
+        val hasDeposit = alarm?.let { it.hasDeposit && it.depositLamports > 0 } == true
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text(if (hasDeposit) "Cannot Delete" else "Delete Alarm?") },

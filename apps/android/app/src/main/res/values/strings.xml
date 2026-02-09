@@ -47,8 +47,8 @@
     <string name="onboarding_sub_2">Your SOL is locked in a smart contract until alarm time. No cheating, no snoozing for free.</string>
     <string name="onboarding_title_3">Wake \u0026 Prove It</string>
     <string name="onboarding_sub_3">Walk steps, scan NFC tag, or scan a QR code — prove you\'re actually up and moving.</string>
-    <string name="onboarding_title_4">Get It Back</string>
-    <string name="onboarding_sub_4">Wake on time → full refund. Snooze → penalty grows. Miss it → deposit is gone.</string>
+    <string name="onboarding_title_4">Get Your SOL Back</string>
+    <string name="onboarding_sub_4">Wake on time → full SOL refund. Snooze → penalty grows. Miss it → SOL is gone.</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_start">Get Started</string>
     <string name="onboarding_skip">Skip</string>

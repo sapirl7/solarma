@@ -42,7 +42,7 @@ private val pages = listOf(
     OnboardingPage("⏰", R.string.onboarding_title_1, R.string.onboarding_sub_1, SolanaGreen),
     OnboardingPage("🔒", R.string.onboarding_title_2, R.string.onboarding_sub_2, SolanaPurple),
     OnboardingPage("☀️", R.string.onboarding_title_3, R.string.onboarding_sub_3, SolanaGreen),
-    OnboardingPage("💰", R.string.onboarding_title_4, R.string.onboarding_sub_4, SolanaPurple),
+    OnboardingPage("◎", R.string.onboarding_title_4, R.string.onboarding_sub_4, SolanaPurple),
 )
 
 @Composable
