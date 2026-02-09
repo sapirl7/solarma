@@ -39,4 +39,17 @@
 
     <!-- Balance Pre-check -->
     <string name="insufficient_balance">Insufficient balance: %.4f SOL available, ~%.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title_1">Stake Your Wake</string>
+    <string name="onboarding_sub_1">Put SOL on the line to motivate yourself to wake up on time. Your money, your motivation.</string>
+    <string name="onboarding_title_2">Lock a Deposit</string>
+    <string name="onboarding_sub_2">Your SOL is locked in a smart contract until alarm time. No cheating, no snoozing for free.</string>
+    <string name="onboarding_title_3">Wake \u0026 Prove It</string>
+    <string name="onboarding_sub_3">Walk steps, scan NFC tag, or scan a QR code — prove you\'re actually up and moving.</string>
+    <string name="onboarding_title_4">Get It Back</string>
+    <string name="onboarding_sub_4">Wake on time → full refund. Snooze → penalty grows. Miss it → deposit is gone.</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get Started</string>
+    <string name="onboarding_skip">Skip</string>
 </resources>
