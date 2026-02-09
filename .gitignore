@@ -72,8 +72,7 @@ programs/solarma_vault/test-ledger/
 programs/target/
 programs/Cargo.lock
 test-ledger/
-*.lock
-!Cargo.lock  # Keep root Cargo.lock if exists
+!package-lock.json
 
 # ===================
 # Logs
