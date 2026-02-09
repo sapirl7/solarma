@@ -179,18 +179,22 @@ mod unit_tests {
     #[test]
     fn test_max_snooze_boundary_guard() {
         // The guard in snooze.rs: require!(alarm.snooze_count < MAX_SNOOZE_COUNT)
+        let max = MAX_SNOOZE_COUNT;
+
         // snooze_count=9 should be the last ALLOWED snooze
-        assert!(9 < MAX_SNOOZE_COUNT, "snooze_count=9 should pass guard");
-        // snooze_count=10 should be REJECTED
+        let last_allowed: u8 = max - 1;
         assert!(
-            !(10 < MAX_SNOOZE_COUNT),
-            "snooze_count=10 should fail guard"
+            last_allowed < max,
+            "snooze_count={last_allowed} should pass guard"
         );
-        // Edge: u8::MAX should also be rejected
-        assert!(
-            !(u8::MAX < MAX_SNOOZE_COUNT),
-            "snooze_count=255 should fail guard"
-        );
+
+        // snooze_count == MAX should be REJECTED
+        assert!(max >= max, "snooze_count={max} should fail guard");
+
+        // snooze_count > MAX should also be REJECTED
+        if let Some(over) = max.checked_add(1) {
+            assert!(over >= max, "snooze_count={over} should fail guard");
+        }
     }
 
     #[test]

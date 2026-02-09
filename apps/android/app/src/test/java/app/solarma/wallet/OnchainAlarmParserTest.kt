@@ -96,14 +96,18 @@ class OnchainAlarmParserTest {
         penaltyRoute: Int,
         penaltyDestination: String?,
         snoozeCount: Int,
-        status: Int
+        status: Int,
+        alarmId: Long = 1L
     ): String {
         val discriminator = discriminator("account:Alarm")
         val ownerBytes = PublicKey(owner).bytes()
         val penaltyBytes = penaltyDestination?.let { PublicKey(it).bytes() }
 
-        val size = 8 + 32 + 8 + 8 +
-            1 + 0 + // deposit_mint = None
+        // Rust Alarm struct layout:
+        // 8 disc + 32 owner + 8 alarm_id + 8 alarm_time + 8 deadline +
+        // 8 initial + 8 remaining + 1 route +
+        // 1 + (32 if Some) penalty_dest + 1 snooze + 1 status + 1 bump + 1 vault_bump + 32 padding
+        val size = 8 + 32 + 8 + 8 + 8 +
             8 + 8 +
             1 +
             1 + (penaltyBytes?.size ?: 0) +
@@ -113,12 +117,12 @@ class OnchainAlarmParserTest {
         val buffer = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN)
         buffer.put(discriminator)
         buffer.put(ownerBytes)
-        buffer.putLong(alarmTime)
-        buffer.putLong(deadline)
-        buffer.put(0.toByte()) // deposit_mint = None
-        buffer.putLong(initialAmount)
-        buffer.putLong(remainingAmount)
-        buffer.put(penaltyRoute.toByte())
+        buffer.putLong(alarmId)             // alarm_id
+        buffer.putLong(alarmTime)           // alarm_time
+        buffer.putLong(deadline)            // deadline
+        buffer.putLong(initialAmount)       // initial_amount
+        buffer.putLong(remainingAmount)     // remaining_amount
+        buffer.put(penaltyRoute.toByte())   // penalty_route
         if (penaltyBytes != null) {
             buffer.put(1.toByte())
             buffer.put(penaltyBytes)

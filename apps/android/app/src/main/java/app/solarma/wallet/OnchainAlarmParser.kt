@@ -48,16 +48,12 @@ object OnchainAlarmParser {
             buffer.get(ownerBytes)
             val owner = PublicKey(ownerBytes).toBase58()
 
-            val alarmTime = buffer.long
-            val deadline = buffer.long
+            val alarmId = buffer.long       // alarm_id (u64)
+            val alarmTime = buffer.long     // alarm_time (i64)
+            val deadline = buffer.long      // deadline (i64)
 
-            val hasDepositMint = buffer.get().toInt()
-            if (hasDepositMint == 1) {
-                buffer.position(buffer.position() + 32)
-            }
-
-            val initialAmount = buffer.long
-            val remainingAmount = buffer.long
+            val initialAmount = buffer.long   // initial_amount (u64)
+            val remainingAmount = buffer.long // remaining_amount (u64)
 
             val penaltyRoute = buffer.get().toInt() and 0xFF
 
