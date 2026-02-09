@@ -8,7 +8,7 @@ Solarma is a commitment-based alarm application built on Solana. This document p
 
 ### Program ID (Devnet)
 ```
-51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1
+F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP
 ```
 *Note: Mainnet Program ID will differ when deployed.*
 
@@ -149,7 +149,9 @@ pub const BURN_SINK: Pubkey = ...; // Well-known burn address
 pub const DEFAULT_SNOOZE_PERCENT: u64 = 10;
 pub const MAX_SNOOZE_COUNT: u8 = 10;
 pub const MIN_DEPOSIT_LAMPORTS: u64 = 1_000_000; // 0.001 SOL
+pub const EMERGENCY_REFUND_PENALTY_PERCENT: u64 = 5;
 pub const DEFAULT_GRACE_PERIOD: i64 = 1800; // 30 minutes
+pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300; // 5 minutes
 ```
 
 ### Error Codes (Names)

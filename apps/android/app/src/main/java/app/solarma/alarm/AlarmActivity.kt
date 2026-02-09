@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import androidx.work.WorkManager
 
 /**
  * Full-screen alarm activity shown over lock screen.
@@ -121,10 +122,12 @@ class AlarmActivity : ComponentActivity() {
                 if (isComplete) {
                     Log.i(TAG, "Wake proof completed, processing completion")
                     alarmRepository.markCompleted(alarmId, success = true)
-                    // Queue claim deposit if alarm has one
+                    // Queue on-chain transactions if alarm has deposit
                     currentAlarm?.let { alarm ->
                         if (alarm.hasDeposit && alarm.onchainPubkey != null) {
-                            Log.i(TAG, "Queueing claim deposit for alarm ${alarm.id}")
+                            // H3: Queue ack_awake first (records proof on-chain)
+                            Log.i(TAG, "Queueing ack_awake + claim for alarm ${alarm.id}")
+                            queueAckAwake(alarm)
                             queueClaimDeposit(alarm)
                         }
                     }
@@ -170,7 +173,12 @@ class AlarmActivity : ComponentActivity() {
         if (intent.action == NfcAdapter.ACTION_TAG_DISCOVERED ||
             intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
             intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
-            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+            }
             if (tag != null) {
                 Log.i(TAG, "NFC tag detected in alarm flow")
                 nfcScanner.handleTag(tag)
@@ -207,7 +215,7 @@ class AlarmActivity : ComponentActivity() {
                         return@launch
                     }
 
-                    wakeProofEngine.start(alarm)
+                    wakeProofEngine.start(alarm, lifecycleScope)
                 } ?: run {
                     Log.e(TAG, "Alarm not found: $alarmId - using fallback")
                     // Fallback: create dummy alarm with TYPE_NONE for graceful handling
@@ -217,12 +225,17 @@ class AlarmActivity : ComponentActivity() {
                         wakeProofType = WakeProofEngine.TYPE_NONE
                     )
                     currentAlarm = fallbackAlarm
-                    wakeProofEngine.start(fallbackAlarm)
+                    wakeProofEngine.start(fallbackAlarm, lifecycleScope)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting wake proof", e)
-                // Show error but don't crash - allow dismiss
-                wakeProofEngine.confirmAwake()
+                // SECURITY: Do NOT auto-confirm deposit alarms on error.
+                // This prevents bypassing the commitment mechanism.
+                if (currentAlarm?.hasDeposit != true) {
+                    wakeProofEngine.confirmAwake()
+                } else {
+                    Log.e(TAG, "Deposit alarm proof error — NOT auto-confirming")
+                }
             }
         }
     }
@@ -234,14 +247,19 @@ class AlarmActivity : ComponentActivity() {
         }
 
         if (isGranted) {
-            wakeProofEngine.start(alarm)
+            wakeProofEngine.start(alarm, lifecycleScope)
         } else {
-            val message = when (type) {
-                WakeProofEngine.TYPE_STEPS -> "Motion permission denied. Tap to confirm you're awake."
-                WakeProofEngine.TYPE_QR -> "Camera permission denied. Tap to confirm you're awake."
-                else -> "Permission denied. Tap to confirm you're awake."
+            // SECURITY: Deposit alarms must NOT get a free fallback on permission denial
+            if (alarm.hasDeposit) {
+                Log.w(TAG, "Permission denied for deposit alarm — no fallback")
+            } else {
+                val message = when (type) {
+                    WakeProofEngine.TYPE_STEPS -> "Motion permission denied. Tap to confirm you're awake."
+                    WakeProofEngine.TYPE_QR -> "Camera permission denied. Tap to confirm you're awake."
+                    else -> "Permission denied. Tap to confirm you're awake."
+                }
+                wakeProofEngine.activateFallback(message)
             }
-            wakeProofEngine.activateFallback(message)
         }
 
         pendingPermissionAlarm = null
@@ -272,6 +290,11 @@ class AlarmActivity : ComponentActivity() {
      */
     private fun dismissAlarm() {
         wakeProofEngine.stop()
+        
+        // SECURITY: Cancel pending slash worker — user proved they're awake
+        WorkManager.getInstance(this)
+            .cancelUniqueWork("slash_alarm_$alarmId")
+        Log.i(TAG, "Cancelled slash worker for alarm $alarmId")
         
         // Stop the alarm service
         val intent = Intent(this, AlarmService::class.java).apply {
@@ -320,6 +343,24 @@ class AlarmActivity : ComponentActivity() {
      * Since we're on lock screen, MWA can't open wallet popup.
      * Transaction will be processed when user returns to main app.
      */
+    /**
+     * H3: Queue ack_awake transaction to record wake proof on-chain.
+     */
+    private fun queueAckAwake(alarm: AlarmEntity) {
+        lifecycleScope.launch {
+            try {
+                val queueId = transactionQueue.enqueue(
+                    type = "ACK_AWAKE",
+                    alarmId = alarm.id
+                )
+                Log.i(TAG, "ACK_AWAKE queued: queueId=$queueId, alarmId=${alarm.id}")
+            } catch (e: Exception) {
+                // Non-blocking: if ack fails, claim can still proceed
+                Log.w(TAG, "Failed to queue ack_awake (non-critical)", e)
+            }
+        }
+    }
+    
     private fun queueClaimDeposit(alarm: AlarmEntity) {
         lifecycleScope.launch {
             try {
@@ -357,7 +398,13 @@ fun AlarmScreen(
     onSnooze: () -> Unit,
     onConfirmAwake: () -> Unit
 ) {
-    val currentTime = remember { LocalTime.now() }
+    var currentTime by remember { mutableStateOf(LocalTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            currentTime = LocalTime.now()
+        }
+    }
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     
     // Pulsing animation for the sun icon

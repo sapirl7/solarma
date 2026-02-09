@@ -1,6 +1,12 @@
 # Solarma .gitignore
 
 # ===================
+# Private / Pitch / Grant
+# ===================
+solarma_pitch.html
+*.pitch.html
+
+# ===================
 # IDE / Editor
 # ===================
 .idea/

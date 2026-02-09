@@ -181,7 +181,8 @@ class OnchainAlarmService @Inject constructor(
             val alarmPda = resolveAlarmPda(alarm, owner)
             val txBytes = transactionBuilder.buildSnoozeTransactionByPubkey(
                 owner = owner,
-                alarmPda = alarmPda
+                alarmPda = alarmPda,
+                snoozeCount = alarm.snoozeCount
             )
             
             val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
@@ -276,4 +277,84 @@ class OnchainAlarmService @Inject constructor(
         val alarmId = alarm.onchainAlarmId ?: alarm.id
         return transactionBuilder.instructionBuilder.deriveAlarmPda(owner, alarmId).address
     }
+    
+    /**
+     * M3: Sync on-chain alarms with the local Room database.
+     * Fetches all program accounts owned by the current wallet and inserts
+     * any missing alarms into the local DB. This handles multi-device scenarios
+     * where an alarm was created on another device.
+     *
+     * @param alarmDao the DAO to check/insert local alarms
+     * @return number of new alarms synced from on-chain, or -1 on error
+     */
+    suspend fun syncOnchainAlarms(alarmDao: app.solarma.data.local.AlarmDao): Int = 
+        withContext(Dispatchers.IO) {
+            try {
+                if (!isNetworkAvailable()) return@withContext 0
+                
+                val owner = walletManager.getConnectedPublicKey() ?: return@withContext 0
+                val ownerBase58 = owner.toBase58()
+                val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()
+                
+                val result = rpcClient.getProgramAccounts(programId, ownerBase58)
+                val accounts = result.getOrNull() ?: return@withContext -1
+                
+                var synced = 0
+                for (account in accounts) {
+                    // Check if this on-chain alarm exists locally
+                    val existing = alarmDao.getByOnchainPubkey(account.pubkey)
+                    if (existing != null) continue  // Already in local DB
+                    
+                    // Decode on-chain alarm data
+                    try {
+                        val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
+                        if (data.size < 8 + 32 + 8 + 8 + 33 + 8 + 8 + 1 + 33 + 1 + 1) continue
+                        
+                        // Parse key fields from Borsh-serialized data
+                        // Layout: 8 disc | 32 owner | 8 alarm_time | 8 deadline | 33 mint | 8 initial | 8 remaining | 1 route | 33 dest | 1 snooze | 1 status
+                        val buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                        buf.position(8)  // skip discriminator
+                        buf.position(buf.position() + 32) // skip owner
+                        val alarmTime = buf.getLong()      // alarm_time (unix sec)
+                        val deadline = buf.getLong()        // deadline (unix sec)
+                        buf.position(buf.position() + 33)  // skip deposit_mint Option<Pubkey>
+                        val initialAmount = buf.getLong()   // initial_amount
+                        val remainingAmount = buf.getLong() // remaining_amount
+                        val penaltyRoute = buf.get().toInt() // penalty_route
+                        buf.position(buf.position() + 33)   // skip penalty_destination
+                        val snoozeCount = buf.get().toInt() and 0xFF
+                        val status = buf.get().toInt() and 0xFF
+                        
+                        // Skip already-completed alarms (Claimed=1, Slashed=2)
+                        if (status != 0) continue
+                        
+                        // Create local alarm record for this on-chain alarm
+                        val alarm = AlarmEntity(
+                            alarmTimeMillis = alarmTime * 1000,
+                            label = "Synced from chain",
+                            isEnabled = true,
+                            hasDeposit = true,
+                            depositLamports = initialAmount,
+                            penaltyRoute = penaltyRoute,
+                            onchainPubkey = account.pubkey,
+                            snoozeCount = snoozeCount,
+                            wakeProofType = 0  // Default — user can reconfigure
+                        )
+                        alarmDao.insert(alarm)
+                        synced++
+                        Log.i(TAG, "Synced on-chain alarm: ${account.pubkey} (time=$alarmTime, remaining=$remainingAmount)")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to decode on-chain alarm: ${account.pubkey}", e)
+                    }
+                }
+                
+                if (synced > 0) {
+                    Log.i(TAG, "M3: Synced $synced on-chain alarms to local DB")
+                }
+                synced
+            } catch (e: Exception) {
+                Log.e(TAG, "syncOnchainAlarms failed", e)
+                -1
+            }
+        }
 }

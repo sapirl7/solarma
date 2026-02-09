@@ -1,26 +1,29 @@
+[toolchain]
+anchor_version = "0.32.1"
+solana_version = "1.18.26"
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
 
-[programs.localnet]
-solarma_vault = "51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1"
-
 [programs.devnet]
-solarma_vault = "51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1"
+solarma_vault = "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP"
+
+[programs.localnet]
+solarma_vault = "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
-
-[toolchain]
-anchor_version = "0.32.1"
-solana_version = "1.18.26"
 
 [workspace]
 members = ["."]
 
 [scripts]
-test = "npm run test"
+test = "npm run test:fast"
+
+[test]
+startup_wait = 10000

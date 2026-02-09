@@ -2,6 +2,7 @@ package app.solarma.ui.settings
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import app.solarma.BuildConfig
 
 /**
  * Settings screen with premium dark UI.
@@ -153,7 +155,7 @@ fun SettingsScreen(
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
                     
                     SettingsRow(
-                        icon = Icons.Outlined.CurrencyBitcoin,
+                        icon = Icons.Outlined.Hub,
                         title = "Network",
                         subtitle = if (uiState.isDevnet) "Devnet" else "Mainnet",
                         trailingContent = {
@@ -348,15 +350,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Outlined.Info,
                         title = "Version",
-                        subtitle = "0.1.0 (MVP)"
-                    )
-                    
-                    HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
-                    SettingsRow(
-                        icon = Icons.Outlined.Policy,
-                        title = "Privacy Policy",
-                        onClick = { /* Open URL */ }
+                        subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
                     )
                     
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -366,7 +360,7 @@ fun SettingsScreen(
                         title = "Open Source",
                         subtitle = "github.com/sapirl7/solarma",
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/sapirl7/solarma"))
+                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/sapirl7/solarma".toUri())
                             context.startActivity(intent)
                         }
                     )
@@ -661,7 +655,7 @@ private fun SettingsRow(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = title,
             tint = SolanaGreen,
             modifier = Modifier.size(24.dp)
         )
@@ -688,7 +682,7 @@ private fun SettingsRow(
         } else if (onClick != null) {
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = null,
+                contentDescription = "Navigate to $title",
                 tint = TextSecondary
             )
         }

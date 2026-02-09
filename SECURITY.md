@@ -2,56 +2,75 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| Version | Supported |
+|---------|-----------|
+| 0.2.x   | ✅ Current |
+| < 0.2.0 | ❌ |
 
 ## Reporting a Vulnerability
 
-We take security seriously. If you discover a vulnerability:
+If you discover a security vulnerability in Solarma, **please report it responsibly**.
 
-### Private Disclosure (Preferred)
+### Do NOT
 
-1. **DO NOT** open a public issue
-2. Email: **a.kdywtlf@gmail.com**
-3. Include:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Suggested fix (if any)
+- Open a public GitHub issue
+- Post about it on social media
+- Exploit the vulnerability
+
+### Do
+
+- Email: **security@solarma.app** (or DM on X: [@solarma_app](https://x.com/solarma_app))
+- Include:
+  - Description of the vulnerability
+  - Steps to reproduce
+  - Potential impact assessment
+  - Suggested fix (if any)
 
 ### Response Timeline
 
-- **24 hours** — Initial acknowledgment
-- **72 hours** — Assessment and severity classification
-- **7 days** — Patch development (critical issues)
-- **30 days** — Coordinated disclosure
+| Action | Timeline |
+|--------|----------|
+| Acknowledgment | Within 48 hours |
+| Initial assessment | Within 1 week |
+| Fix deployed | Within 2 weeks (critical) |
 
 ## Scope
 
 ### In Scope
-- Smart contract (`programs/solarma_vault/`)
-- Android app security (wallet integration, key handling)
-- Transaction signing logic
-- PDA derivation and account validation
+
+- Smart contract (`programs/solarma_vault/src/`)
+  - Deposit/claim/slash logic
+  - PDA derivation and seed collisions
+  - Arithmetic overflow or underflow
+  - Rent-exempt guard bypasses
+  - State transition violations
+- Android app (`apps/android/`)
+  - Transaction signing vulnerabilities
+  - Private key handling
+  - MWA integration issues
 
 ### Out of Scope
-- UI/UX issues without security impact
-- Third-party dependencies (report to maintainers)
-- Devnet-only issues (unless they affect mainnet logic)
 
-## Bug Bounty
+- Solana network-level issues
+- Devnet-only test infrastructure
+- UI/UX improvements
+- Feature requests
 
-We currently do not have a formal bug bounty program, but we appreciate responsible disclosure and will publicly credit researchers (with permission).
+## Audit Status
 
-## Security Best Practices
+> ⚠️ **This smart contract has NOT been independently audited.**
+>
+> While the code follows Solana/Anchor best practices (checked arithmetic,
+> rent-exempt guards, proper PDA validation), it has not undergone a
+> formal third-party security audit. Use at your own risk on devnet.
 
-### For Users
-- Never share your seed phrase
-- Verify transaction details before signing
-- Only use official releases from GitHub
+## Security Measures in Code
 
-### For Contributors
-- No secrets in code
-- Review all transaction building logic
-- Test edge cases thoroughly
+- ✅ All arithmetic uses `checked_*` operations (no panics)
+- ✅ Rent-exempt guards prevent account garbage collection (C1)
+- ✅ Idempotent snooze with `expected_snooze_count` (H1)
+- ✅ On-chain wake proof narrows slash window (H3)
+- ✅ `close = recipient` constraint for safe lamport transfers
+- ✅ PDA seeds include `alarm_id` to prevent collisions
+- ✅ Penalty recipient validated against stored destination
+- ✅ Gitleaks CI prevents secret leakage

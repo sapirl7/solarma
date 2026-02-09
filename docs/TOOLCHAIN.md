@@ -12,10 +12,11 @@ This project uses pinned tool versions for repeatable builds. Source of truth:
 | Anchor CLI | 0.32.1 |
 | Solana CLI | 1.18.26 |
 | Node.js | 18.x (LTS) |
-| Java | 17 |
+| Java | 21 |
 | Kotlin | 1.9.x |
 | Android Gradle Plugin | 8.2.x |
-| compileSdk | 34 |
+| compileSdk | 35 |
+| targetSdk | 35 |
 | minSdk | 26 |
 
 ## Notes

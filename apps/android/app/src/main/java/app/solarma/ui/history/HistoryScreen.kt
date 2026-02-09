@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
+import app.solarma.R
+import androidx.compose.ui.res.stringResource
 import app.solarma.wallet.PendingTransaction
 import java.text.SimpleDateFormat
 import java.util.*
@@ -75,15 +77,17 @@ fun HistoryScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("HISTORY", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                        Text("📊", fontSize = 48.sp)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "No transactions yet",
+                            stringResource(R.string.no_transactions_title),
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextSecondary
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Create an alarm with deposit to see history",
+                                stringResource(R.string.no_transactions_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextMuted
                         )

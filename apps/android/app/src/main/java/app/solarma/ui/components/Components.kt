@@ -22,7 +22,13 @@ import app.solarma.ui.theme.*
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Gradient background for screens.
+ * Full-screen gradient background used as the root container for all Solarma screens.
+ *
+ * Uses [GradientDarkSurface] to create a dark-to-darker vertical gradient
+ * consistent with the Solana brand palette.
+ *
+ * @param modifier optional modifier for the outer [Box]
+ * @param content composable content rendered on top of the gradient
  */
 @Composable
 fun SolarmaBackground(
@@ -33,14 +39,25 @@ fun SolarmaBackground(
         modifier = modifier
             .fillMaxSize()
             .background(
-                brush = Brush.verticalGradient(GradientNight)
+                brush = Brush.verticalGradient(GradientDarkSurface)
             ),
         content = content
     )
 }
 
 /**
- * Premium gradient button.
+ * Premium gradient button with press animation and loading state.
+ *
+ * Draws a horizontal gradient inside a [Button], with a spring scale
+ * animation that shrinks slightly when disabled. Supports an inline
+ * [CircularProgressIndicator] for asynchronous operations.
+ *
+ * @param text label displayed inside the button
+ * @param onClick callback invoked when the button is clicked
+ * @param modifier optional modifier
+ * @param enabled whether the button accepts clicks (default `true`)
+ * @param isLoading show a spinner instead of [text] (default `false`)
+ * @param gradient colors for the horizontal gradient fill
  */
 @Composable
 fun GradientButton(
@@ -49,7 +66,7 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
-    gradient: List<Color> = GradientSunrise
+    gradient: List<Color> = GradientSolanaPrimary
 ) {
     val scale by animateFloatAsState(
         targetValue = if (enabled && !isLoading) 1f else 0.95f,
@@ -100,11 +117,16 @@ fun GradientButton(
 }
 
 /**
- * Pulsing indicator for active alarms.
+ * Animated pulsing dot indicator for active alarms.
+ *
+ * Uses an infinite scale + alpha animation to create a heartbeat effect.
+ *
+ * @param color dot color, defaults to [SolanaGreen]
+ * @param modifier optional modifier
  */
 @Composable
 fun PulsingDot(
-    color: Color = MorningGreen,
+    color: Color = SolanaGreen,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -137,7 +159,14 @@ fun PulsingDot(
 }
 
 /**
- * Animated SOL amount display.
+ * Formatted SOL amount display with the Solana symbol (◎).
+ *
+ * Shows the amount with 4-decimal precision in [SolanaPurple],
+ * followed by a smaller "SOL" suffix in [TextSecondary].
+ *
+ * @param amount SOL value to display
+ * @param modifier optional modifier
+ * @param showSymbol whether to prepend the ◎ symbol (default `true`)
  */
 @Composable
 fun SolAmount(
@@ -152,14 +181,14 @@ fun SolAmount(
         if (showSymbol) {
             Text(
                 text = "◎ ",
-                color = GoldenHour,
+                color = SolanaPurple,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
         }
         Text(
-            text = String.format("%.4f", amount),
-            color = GoldenHour,
+            text = String.format(java.util.Locale.US, "%.4f", amount),
+            color = SolanaPurple,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )

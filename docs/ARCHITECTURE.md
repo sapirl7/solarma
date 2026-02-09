@@ -53,8 +53,9 @@ Solarma is a two-component system:
 
 ### State Machine
 ```
-Created → Claimed (success)
-        ↘ Slashed (failure after deadline)
+Created → Claimed   (wake proof completed, deposit returned)
+        ↘ Slashed   (deadline passed, penalty applied)
+        ↘ Refunded  (emergency refund before alarm, 5% penalty)
 ```
 
 ### Accounts

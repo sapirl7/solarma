@@ -5,8 +5,8 @@ use anchor_lang::prelude::*;
 /// Sink address for burned deposits (Solana incinerator)
 /// https://explorer.solana.com/address/1nc1nerator11111111111111111111111111111111
 pub const BURN_SINK: Pubkey = Pubkey::new_from_array([
-    0, 51, 144, 114, 141, 52, 17, 96, 121, 189, 201, 17, 191, 255, 0, 219,
-    212, 77, 46, 205, 204, 247, 156, 166, 225, 0, 56, 225, 0, 0, 0, 0,
+    0, 51, 144, 114, 141, 52, 17, 96, 121, 189, 201, 17, 191, 255, 0, 219, 212, 77, 46, 205, 204,
+    247, 156, 166, 225, 0, 56, 225, 0, 0, 0, 0,
 ]);
 
 /// Default snooze cost percentage (10% of remaining)

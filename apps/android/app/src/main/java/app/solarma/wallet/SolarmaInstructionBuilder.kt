@@ -18,7 +18,7 @@ class SolarmaInstructionBuilder @Inject constructor() {
         private const val TAG = "Solarma.TxBuilder"
         
         // Program ID - matches declare_id! in lib.rs
-        val PROGRAM_ID = PublicKey("51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1")
+        val PROGRAM_ID = PublicKey("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP")
         
         // Anchor discriminators (first 8 bytes of sha256("global:<instruction_name>"))
         private val DISCRIMINATOR_CREATE_ALARM = byteArrayOf(
@@ -40,6 +40,11 @@ class SolarmaInstructionBuilder @Inject constructor() {
         private val DISCRIMINATOR_EMERGENCY_REFUND = byteArrayOf(
             0xbc.toByte(), 0x49.toByte(), 0x34.toByte(), 0xc3.toByte(),
             0x89.toByte(), 0x46.toByte(), 0xb4.toByte(), 0x93.toByte()
+        )
+        // H3: sha256("global:ack_awake")[0..8]
+        private val DISCRIMINATOR_ACK_AWAKE = byteArrayOf(
+            0xd4.toByte(), 0xca.toByte(), 0x3e.toByte(), 0x92.toByte(),
+            0x0f.toByte(), 0xb7.toByte(), 0xce.toByte(), 0x40.toByte()
         )
     }
     
@@ -122,16 +127,36 @@ class SolarmaInstructionBuilder @Inject constructor() {
     }
     
     /**
+     * H3: Build ack_awake instruction — records wake proof completion on-chain.
+     * Only needs alarm PDA + owner signer (no vault, no system program).
+     */
+    fun buildAckAwake(
+        owner: PublicKey,
+        alarmPda: PublicKey
+    ): SolarmaInstruction {
+        Log.d(TAG, "Building ack_awake: alarm=${alarmPda.toBase58()}")
+        
+        val keys = listOf(
+            AccountMeta(alarmPda, isSigner = false, isWritable = true),
+            AccountMeta(owner, isSigner = true, isWritable = true)
+        )
+        
+        return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_ACK_AWAKE)
+    }
+    
+    /**
      * Build snooze instruction data and accounts.
+     * @param expectedSnoozeCount current snooze count for idempotency guard
      */
     fun buildSnooze(
         owner: PublicKey,
         alarmPda: PublicKey,
-        sinkAddress: PublicKey
+        sinkAddress: PublicKey,
+        expectedSnoozeCount: Int
     ): SolarmaInstruction {
         val vaultPda = deriveVaultPda(alarmPda)
         
-        Log.d(TAG, "Building snooze: alarm=${alarmPda.toBase58()}, vault=${vaultPda.address.toBase58()}, sink=${sinkAddress.toBase58()}")
+        Log.d(TAG, "Building snooze: alarm=${alarmPda.toBase58()}, vault=${vaultPda.address.toBase58()}, sink=${sinkAddress.toBase58()}, expectedCount=$expectedSnoozeCount")
         
         val keys = listOf(
             AccountMeta(alarmPda, isSigner = false, isWritable = true),
@@ -141,7 +166,9 @@ class SolarmaInstructionBuilder @Inject constructor() {
             AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false)
         )
         
-        return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_SNOOZE)
+        // Instruction data: 8-byte discriminator + 1-byte expected_snooze_count
+        val data = DISCRIMINATOR_SNOOZE + byteArrayOf(expectedSnoozeCount.toByte())
+        return SolarmaInstruction(PROGRAM_ID, keys, data)
     }
     
     /**
@@ -292,5 +319,10 @@ data class SolarmaInstruction(
                accounts == other.accounts && 
                data.contentEquals(other.data)
     }
-    override fun hashCode(): Int = data.contentHashCode()
+    override fun hashCode(): Int {
+        var result = programId.hashCode()
+        result = 31 * result + accounts.hashCode()
+        result = 31 * result + data.contentHashCode()
+        return result
+    }
 }

@@ -113,8 +113,14 @@ class AlarmService : Service() {
     
     private fun restoreAlarms() {
         Log.i(TAG, "Restoring alarms after boot")
-        // AlarmScheduler will re-register all pending alarms
-        // This is handled by the repository when initialized
+        serviceScope.launch {
+            try {
+                val missed = alarmRepository.restoreAllAlarms()
+                Log.i(TAG, "Restored alarms, $missed missed")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to restore alarms", e)
+            }
+        }
     }
     
     private fun handleSnooze() {
@@ -123,11 +129,10 @@ class AlarmService : Service() {
         stopAlarmSound()
         stopVibration()
         
-        serviceScope.launch {
-            if (currentAlarmId > 0) {
-                alarmRepository.snooze(currentAlarmId)
-            }
-        }
+        // NOTE: Do NOT call alarmRepository.snooze() here.
+        // AlarmActivity.snoozeAlarm() already handles snooze logic
+        // (reschedule + on-chain transaction). Calling it here too
+        // would double-snooze and double-charge the on-chain penalty.
         
         stopForeground(STOP_FOREGROUND_REMOVE)
         releaseWakeLock()

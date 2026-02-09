@@ -1,0 +1,70 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Sun rays -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,20 L56,28 L52,28Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,88 L56,80 L52,80Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,54 L28,52 L28,56Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M88,54 L80,52 L80,56Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,30 L36,34 L34,36Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,30 L72,34 L74,36Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,78 L36,74 L34,72Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,78 L72,74 L74,72Z" />
+
+    <!-- Alarm clock body (circle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34
+            C43,34 34,43 34,54
+            C34,65 43,74 54,74
+            C65,74 74,65 74,54
+            C74,43 65,34 54,34Z
+            M54,38
+            C62.8,38 70,45.2 70,54
+            C70,62.8 62.8,70 54,70
+            C45.2,70 38,62.8 38,54
+            C38,45.2 45.2,38 54,38Z" />
+
+    <!-- Clock hands -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M53,44 L55,44 L55,54 L53,54Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,53 L54,55 L64,55 L64,53Z" />
+
+    <!-- Alarm bells -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,32 L40,36 L38,38 L34,34Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,32 L68,36 L70,38 L74,34Z" />
+
+    <!-- Alarm feet -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,74 L40,80 L44,80Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,74 L64,80 L68,80Z" />
+</vector>

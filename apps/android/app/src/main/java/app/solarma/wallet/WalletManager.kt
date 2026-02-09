@@ -2,8 +2,9 @@ package app.solarma.wallet
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.net.Uri
 import android.util.Log
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import com.solana.mobilewalletadapter.clientlib.MobileWalletAdapter
 import com.solana.mobilewalletadapter.clientlib.ConnectionIdentity
@@ -31,9 +32,9 @@ class WalletManager @Inject constructor(
         
         // Solarma app identity
         private const val APP_IDENTITY_NAME = "Solarma"
-        private val APP_IDENTITY_URI = Uri.parse("https://solarma.app")
+        private val APP_IDENTITY_URI = "https://solarma.app".toUri()
         // Icon must be relative URI for MWA (relative to identityUri)
-        private val APP_IDENTITY_ICON = Uri.parse("/icon.png")
+        private val APP_IDENTITY_ICON = "/icon.png".toUri()
         
         // SharedPreferences
         private const val PREFS_NAME = "solarma_wallet"
@@ -75,12 +76,12 @@ class WalletManager @Inject constructor(
     }
     
     private fun saveWalletToPrefs(address: String) {
-        prefs.edit().putString(KEY_WALLET_ADDRESS, address).apply()
+        prefs.edit { putString(KEY_WALLET_ADDRESS, address) }
         Log.d(TAG, "Wallet address saved to prefs")
     }
     
     private fun clearWalletPrefs() {
-        prefs.edit().remove(KEY_WALLET_ADDRESS).apply()
+        prefs.edit { remove(KEY_WALLET_ADDRESS) }
         Log.d(TAG, "Wallet prefs cleared")
     }
     

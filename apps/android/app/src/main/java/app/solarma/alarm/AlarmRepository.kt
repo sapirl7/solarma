@@ -83,7 +83,18 @@ class AlarmRepository @Inject constructor(
         val alarm = alarmDao.getById(id) ?: return
         
         if (enabled) {
-            alarmScheduler.schedule(id, alarm.alarmTimeMillis)
+            // If alarm time is in the past, advance to next occurrence
+            var triggerTime = alarm.alarmTimeMillis
+            val now = System.currentTimeMillis()
+            if (triggerTime <= now) {
+                val dayMs = 24 * 60 * 60 * 1000L
+                while (triggerTime <= now) {
+                    triggerTime += dayMs
+                }
+                alarmDao.update(alarm.copy(alarmTimeMillis = triggerTime))
+                Log.i(TAG, "Alarm $id time advanced to $triggerTime (was in past)")
+            }
+            alarmScheduler.schedule(id, triggerTime)
         } else {
             alarmScheduler.cancel(id)
         }
@@ -121,9 +132,17 @@ class AlarmRepository @Inject constructor(
             Log.i(TAG, "Alarm $id failed, streak reset")
         }
         
-        // Disable one-time alarm (for repeating, would update next ring)
+        // Handle one-time alarms
         if (alarm.repeatDays == 0) {
-            alarmDao.setEnabled(id, false)
+            if (success && !alarm.hasDeposit) {
+                // One-time, no deposit: auto-delete
+                alarmScheduler.cancel(id)
+                alarmDao.deleteById(id)
+                Log.i(TAG, "Alarm $id auto-deleted (one-time, no deposit, completed)")
+            } else {
+                // Has deposit: disable until claim/slash resolves
+                alarmDao.setEnabled(id, false)
+            }
         }
     }
     
@@ -251,6 +270,15 @@ class AlarmRepository @Inject constructor(
         }
         alarmDao.update(updated)
         Log.i(TAG, "Alarm $id deposit status updated: $hasDeposit")
+    }
+
+    /**
+     * Delete alarm after on-chain resolution (claim, slash, or refund).
+     */
+    suspend fun deleteResolvedAlarm(id: Long) {
+        alarmScheduler.cancel(id)
+        alarmDao.deleteById(id)
+        Log.i(TAG, "Alarm $id deleted (on-chain resolved)")
     }
 
     /**

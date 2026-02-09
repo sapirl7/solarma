@@ -1,0 +1,3 @@
+# Linguist overrides
+# Prevent pitch deck from skewing language statistics
+solarma_pitch.html linguist-vendored

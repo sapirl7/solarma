@@ -103,7 +103,9 @@ class AlarmScheduler @Inject constructor(
     }
 
     private fun requestCodeFor(alarmId: Long): Int {
-        val hash = (alarmId xor (alarmId ushr 32)).toInt() and 0x7fffffff
-        return REQUEST_CODE_BASE + (hash % REQUEST_CODE_MOD)
+        // Use Room auto-increment ID directly — sequential, no collision
+        // possible for < 2^31 alarms (vs. previous hash-mod approach
+        // that could collide within a 1M range).
+        return alarmId.toInt()
     }
 }

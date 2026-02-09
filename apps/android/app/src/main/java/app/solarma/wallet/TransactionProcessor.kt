@@ -35,43 +35,21 @@ class TransactionProcessor @Inject constructor(
         private const val MAX_RETRIES = 5
         private const val BASE_DELAY_MS = 1000L
     }
-    
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var processingJob: Job? = null
     private val processingMutex = Mutex()
     
     /**
-     * Start processing pending transactions.
+     * Background polling is intentionally disabled.
+     * MWA requires an ActivityResultSender, so transactions can only be
+     * processed via [processPendingTransactionsWithUi] from a foreground Activity.
+     * The previous polling loop called a no-op every 10s, wasting CPU.
      */
     fun start() {
-        if (processingJob?.isActive == true) return
-        
-        processingJob = scope.launch {
-            while (isActive) {
-                if (isNetworkAvailable() && walletManager.isConnected()) {
-                    processPendingTransactions()
-                }
-                delay(10_000) // Check every 10 seconds
-            }
-        }
-        Log.i(TAG, "Transaction processor started")
+        Log.d(TAG, "TransactionProcessor.start() — no-op, use processPendingTransactionsWithUi()")
     }
     
-    /**
-     * Stop processing.
-     */
     fun stop() {
-        processingJob?.cancel()
-        processingJob = null
-        Log.i(TAG, "Transaction processor stopped")
-    }
-    
-    /**
-     * Queue a new transaction.
-     */
-    private suspend fun processPendingTransactions() {
-        // Cannot sign without ActivityResultSender. Skip to avoid false confirmations.
-        Log.d(TAG, "Skipping pending transaction processing: UI approval required")
+        Log.d(TAG, "TransactionProcessor.stop() — no-op")
     }
 
     /**
@@ -167,7 +145,8 @@ class TransactionProcessor @Inject constructor(
                             )
                         }
                         "CLAIM" -> transactionBuilder.buildClaimTransactionByPubkey(owner, alarmPda)
-                        "SNOOZE" -> transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda)
+                        "ACK_AWAKE" -> transactionBuilder.buildAckAwakeTransactionByPubkey(owner, alarmPda)
+                        "SNOOZE" -> transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda, alarm.snoozeCount)
                         "SLASH" -> {
                             val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
                             if (System.currentTimeMillis() < deadlineMillis) {
@@ -269,25 +248,21 @@ class TransactionProcessor @Inject constructor(
                             if (alarm.depositLamports > 0) {
                                 statsDao.addSaved(alarm.depositLamports)
                             }
-                            alarmDao.update(
-                                alarm.copy(
-                                    hasDeposit = false,
-                                    depositLamports = 0,
-                                    onchainPubkey = null
-                                )
-                            )
+                            // Alarm fully resolved — delete from DB
+                            alarmDao.deleteById(alarm.id)
+                            Log.i(TAG, "Alarm ${alarm.id} deleted after successful claim")
+                        }
+                        "ACK_AWAKE" -> {
+                            // H3: Proof recorded on-chain. Claim will follow.
+                            Log.i(TAG, "Alarm ${alarm.id} wake proof acknowledged on-chain")
                         }
                         "SLASH" -> {
                             if (alarm.depositLamports > 0) {
                                 statsDao.addSlashed(alarm.depositLamports)
                             }
-                            alarmDao.update(
-                                alarm.copy(
-                                    hasDeposit = false,
-                                    depositLamports = 0,
-                                    onchainPubkey = null
-                                )
-                            )
+                            // Alarm fully resolved — delete from DB
+                            alarmDao.deleteById(alarm.id)
+                            Log.i(TAG, "Alarm ${alarm.id} deleted after slash")
                         }
                         "EMERGENCY_REFUND" -> {
                             if (alarm.depositLamports > 0) {
@@ -300,13 +275,9 @@ class TransactionProcessor @Inject constructor(
                                     statsDao.addSlashed(penalty)
                                 }
                             }
-                            alarmDao.update(
-                                alarm.copy(
-                                    hasDeposit = false,
-                                    depositLamports = 0,
-                                    onchainPubkey = null
-                                )
-                            )
+                            // Alarm fully resolved — delete from DB
+                            alarmDao.deleteById(alarm.id)
+                            Log.i(TAG, "Alarm ${alarm.id} deleted after emergency refund")
                         }
                         "SNOOZE" -> {
                             val cost = computeSnoozeCost(alarm.depositLamports, alarm.snoozeCount)
@@ -351,7 +322,13 @@ class TransactionProcessor @Inject constructor(
         if (baseCost <= 0) return 0
         val safeCount = snoozeCount.coerceAtMost(30)
         val multiplier = 1L shl safeCount
-        val cost = baseCost * multiplier
+        // Guard against overflow: if baseCost * multiplier exceeds Long range,
+        // the result wraps negative/garbage. Cap at remaining instead.
+        val cost = if (multiplier > 0 && baseCost > Long.MAX_VALUE / multiplier) {
+            remaining  // overflow → cap at total remaining
+        } else {
+            baseCost * multiplier
+        }
         return min(cost, remaining)
     }
 

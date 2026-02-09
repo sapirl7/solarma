@@ -51,6 +51,20 @@ class SlashAlarmWorker @AssistedInject constructor(
         val alarm = alarmRepository.getAlarm(alarmId) ?: return Result.success()
         if (!alarm.hasDeposit) return Result.success()
 
+        // SECURITY: If user already completed wake proof, do not slash
+        val lastTriggered = alarm.lastTriggeredAt ?: alarm.alarmTimeMillis
+        val completed = alarm.lastCompletedAt
+        if (completed != null && completed >= lastTriggered) {
+            Log.i(TAG, "Skipping slash for alarm $alarmId — already completed")
+            return Result.success()
+        }
+
+        // If CLAIM is already queued, user woke up — skip slash
+        if (transactionQueue.hasActive("CLAIM", alarmId)) {
+            Log.i(TAG, "Skipping slash for alarm $alarmId — CLAIM already queued")
+            return Result.success()
+        }
+
         if (!transactionQueue.hasActive("SLASH", alarmId)) {
             transactionQueue.enqueue(type = "SLASH", alarmId = alarmId)
             Log.i(TAG, "Queued slash for alarm $alarmId")

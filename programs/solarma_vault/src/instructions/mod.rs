@@ -1,17 +1,19 @@
 //! Instruction handlers
 
-#![allow(ambiguous_glob_reexports)]
-
-pub mod initialize;
-pub mod create_alarm;
+pub mod ack_awake;
 pub mod claim;
-pub mod snooze;
-pub mod slash;
+pub mod create_alarm;
 pub mod emergency_refund;
+pub mod initialize;
+pub mod slash;
+pub mod snooze;
 
-pub use initialize::*;
-pub use create_alarm::*;
+// Re-export Accounts structs and Anchor-generated types for the #[program] macro.
+// Handler functions have unique names (process_*) so no glob collision occurs.
+pub use ack_awake::*;
 pub use claim::*;
-pub use snooze::*;
-pub use slash::*;
+pub use create_alarm::*;
 pub use emergency_refund::*;
+pub use initialize::*;
+pub use slash::*;
+pub use snooze::*;

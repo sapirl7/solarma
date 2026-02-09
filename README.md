@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Solarma" width="140" />
+  <img src="docs/assets/solarma_logo.png" alt="Solarma" width="140" />
 </p>
 
 <h1 align="center">Solarma</h1>
 
 <p align="center">
-  <strong>Wake-proof alarm with SOL commitment vault</strong><br>
+  <strong>Stake SOL on your alarm. Wake up or lose it.</strong><br>
   <sub>Built for <a href="https://solanamobile.com/seeker">Solana Seeker</a></sub>
 </p>
 
@@ -14,7 +14,10 @@
   <img src="https://img.shields.io/badge/Blockchain-Solana-14F195?style=flat-square&logo=solana" alt="Solana">
   <img src="https://img.shields.io/badge/Smart_Contract-Anchor-9945FF?style=flat-square" alt="Anchor">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square" alt="License"></a>
+  <a href="https://github.com/sapirl7/solarma/actions/workflows/ci.yml"><img src="https://github.com/sapirl7/solarma/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
 </p>
+
+> ⚠️ **Currently on Devnet** — This app uses Solana Devnet test tokens. No real SOL is at risk. Get free test SOL at [faucet.solana.com](https://faucet.solana.com).
 
 <p align="center">
   <a href="#features">Features</a> · 
@@ -92,7 +95,7 @@ flowchart LR
 | 3️⃣ | **Claim** before deadline | Get 100% deposit back |
 | ❌ | **Miss deadline** | Penalty applied (burn/donate/buddy) |
 
-> **Snooze penalty:** 10% → 20% → 40% (doubles each time)
+> **Snooze penalty:** 10% of remaining deposit × 2^n (doubles each use, compounds on shrinking balance)
 
 ---
 
@@ -153,11 +156,11 @@ Quick-select or custom input:
 ## Quick Start
 
 ### Prerequisites
-- Android Studio Hedgehog or later
+- Android Studio Hedgehog or later (JDK 21)
 - Rust stable (see `docs/TOOLCHAIN.md`)
 - Anchor CLI 0.32.1
 - Solana CLI 1.18.26
-- Node.js 18.x (npm)
+- Node.js 18+ (npm)
 
 Canonical versions live in `docs/TOOLCHAIN.md`.
 
@@ -177,9 +180,11 @@ anchor test
 
 ### Using Makefile
 ```bash
-make build        # Build all components
-make test         # Run test suite
-make deploy-dev   # Deploy to devnet
+make build      # Build all components
+make test       # Run test suite
+make lint       # Run linters (clippy + Android lint)
+make audit      # Run security checks
+make clean      # Safe cleanup
 ```
 
 ---
@@ -255,6 +260,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 |-------------|-------------|
 | `initialize` | Create user profile |
 | `create_alarm` | Create alarm and deposit SOL to vault |
+| `ack_awake` | Record wake proof completion on-chain |
 | `claim` | Reclaim deposit after alarm time, before deadline |
 | `snooze` | Extend deadline with 10% penalty (doubles each use) |
 | `emergency_refund` | Cancel before alarm time with 5% penalty |
@@ -262,7 +268,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 **Program ID (Devnet)**
 ```
-51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1
+F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP
 ```
 
 ---

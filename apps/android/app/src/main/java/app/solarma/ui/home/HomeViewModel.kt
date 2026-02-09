@@ -36,7 +36,7 @@ class HomeViewModel @Inject constructor(
     
     private fun observeAlarms() {
         viewModelScope.launch {
-            alarmDao.getEnabledAlarms().collect { alarms ->
+            alarmDao.getAllAlarms().collect { alarms ->
                 _uiState.update { it.copy(alarms = alarms) }
             }
         }
@@ -64,14 +64,17 @@ class HomeViewModel @Inject constructor(
                 when (state) {
                     is WalletConnectionState.Connected -> {
                         _uiState.update { 
-                            it.copy(walletConnected = true)
+                            it.copy(
+                                walletConnected = true,
+                                walletAddress = state.publicKeyBase58
+                            )
                         }
                         // Fetch balance
                         fetchBalance(state.publicKey)
                     }
                     else -> {
                         _uiState.update { 
-                            it.copy(walletConnected = false, walletBalance = null)
+                            it.copy(walletConnected = false, walletBalance = null, walletAddress = null)
                         }
                     }
                 }
@@ -118,15 +121,15 @@ class HomeViewModel @Inject constructor(
     
     /**
      * Delete an alarm.
-     * Returns false if alarm has an onchain deposit (must refund first).
+     * Blocks deletion if alarm has an active onchain deposit.
      */
     fun deleteAlarm(alarmId: Long) {
         viewModelScope.launch {
             val alarm = alarmDao.getById(alarmId)
-            if (alarm?.onchainPubkey != null) {
-                // Alarm has onchain deposit - cannot delete without refund
+            if (alarm?.hasDeposit == true) {
+                // Alarm has active onchain deposit - cannot delete without refund
                 _uiState.update { it.copy(
-                    errorMessage = "Cannot delete alarm with deposit. Cancel and refund first."
+                    errorMessage = "Cannot delete alarm with active deposit. Cancel and refund first."
                 ) }
                 return@launch
             }
@@ -166,6 +169,7 @@ data class HomeUiState(
     val totalWakes: Int = 0,
     val savedSol: Double = 0.0,
     val walletConnected: Boolean = false,
+    val walletAddress: String? = null,
     val walletBalance: Double? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null

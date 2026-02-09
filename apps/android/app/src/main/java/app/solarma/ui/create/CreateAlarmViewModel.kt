@@ -11,7 +11,12 @@ import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.settings.dataStore
 import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.PenaltyRoute
+import app.solarma.wallet.PendingTransaction
+import app.solarma.wallet.PendingTransactionDao
 import app.solarma.wallet.SolarmaTreasury
+import app.solarma.wallet.SolanaRpcClient
+import app.solarma.wallet.WalletConnectionState
+import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,6 +37,9 @@ import javax.inject.Inject
 class CreateAlarmViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
     private val onchainAlarmService: OnchainAlarmService,
+    private val walletManager: WalletManager,
+    private val rpcClient: SolanaRpcClient,
+    private val pendingTransactionDao: PendingTransactionDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     
@@ -40,6 +48,8 @@ class CreateAlarmViewModel @Inject constructor(
         private val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
         private val KEY_QR_CODE = stringPreferencesKey("qr_code")
         private const val MIN_DEPOSIT_SOL = 0.001
+        /** Estimated rent + transaction fees in SOL */
+        private const val ESTIMATED_FEES_SOL = 0.01
     }
     
     private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
@@ -80,6 +90,22 @@ class CreateAlarmViewModel @Inject constructor(
                     if (state.depositAmount < MIN_DEPOSIT_SOL) {
                         _saveState.value = SaveState.Error("Minimum deposit is $MIN_DEPOSIT_SOL SOL")
                         return@launch
+                    }
+                    
+                    // H2: Check clock drift before creating deposit alarms.
+                    // A drifted clock may cause missed claim deadlines.
+                    try {
+                        val driftSec = rpcClient.checkTimeDrift()
+                        if (driftSec != null && kotlin.math.abs(driftSec) > 300) {
+                            Log.w(TAG, "Clock drift detected: ${driftSec}s — deposit alarm may miss deadline")
+                            _saveState.value = SaveState.Error(
+                                "Your device clock is off by ${kotlin.math.abs(driftSec) / 60} minutes " +
+                                "compared to Solana network. Please sync your clock to avoid losing your deposit."
+                            )
+                            return@launch
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Clock drift check failed (non-blocking)", e)
                     }
                 }
                 
@@ -164,6 +190,31 @@ class CreateAlarmViewModel @Inject constructor(
                 
                 Log.i(TAG, "Signing deposit: ${state.depositAmount} SOL, route=${penaltyRoute}")
                 
+                // Pre-check balance before attempting MWA transaction
+                val connState = walletManager.connectionState.value
+                if (connState is WalletConnectionState.Connected) {
+                    val balanceResult = rpcClient.getBalance(connState.publicKeyBase58)
+                    balanceResult.onSuccess { lamports ->
+                        val balanceSol = lamports / 1_000_000_000.0
+                        val requiredSol = state.depositAmount + ESTIMATED_FEES_SOL
+                        if (balanceSol < requiredSol) {
+                            _saveState.value = SaveState.SigningFailed(
+                                alarm.id,
+                                "Insufficient balance: %.4f SOL available, ~%.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com".format(
+                                    balanceSol, requiredSol
+                                )
+                            )
+                            alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
+                            pendingAlarm = null
+                            pendingState = null
+                            return@launch
+                        }
+                    }.onFailure { e ->
+                        // RPC failure is non-blocking — log and proceed to MWA
+                        Log.w(TAG, "Balance pre-check failed, proceeding anyway", e)
+                    }
+                }
+                
                 val result = onchainAlarmService.createOnchainAlarm(
                     activityResultSender = activityResultSender,
                     alarm = alarm,
@@ -178,6 +229,15 @@ class CreateAlarmViewModel @Inject constructor(
                         // Update local alarm with onchain address
                         alarmRepository.updateOnchainAddress(alarm.id, pdaAddress)
                         alarmRepository.recordDeposit(depositLamports)
+                        // Record confirmed transaction for history
+                        pendingTransactionDao.insert(
+                            PendingTransaction(
+                                type = "CREATE_ALARM",
+                                alarmId = alarm.id,
+                                status = "CONFIRMED",
+                                lastAttemptAt = System.currentTimeMillis()
+                            )
+                        )
                         _saveState.value = SaveState.Success(alarm.id)
                     },
                     onFailure = { e ->
@@ -220,9 +280,9 @@ class CreateAlarmViewModel @Inject constructor(
     }
     
     private fun generateOnchainAlarmId(): Long {
-        val now = System.currentTimeMillis()
-        val rand = (0..1023).random()
-        return (now shl 10) or rand.toLong()
+        // Use random Long for on-chain ID. Previous approach (now shl 10 | rand)
+        // truncated top bits, mixed identity with time, and was non-monotonic.
+        return kotlin.random.Random.nextLong(1, Long.MAX_VALUE)
     }
     
     fun resetState() {

@@ -88,16 +88,34 @@ class TransactionBuilder @Inject constructor(
     }
     
     /**
+     * H3: Build ack_awake transaction to record wake proof on-chain.
+     */
+    suspend fun buildAckAwakeTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building ack_awake tx: alarmPda=${alarmPda.toBase58()}")
+
+        val instruction = instructionBuilder.buildAckAwake(
+            owner = owner,
+            alarmPda = alarmPda
+        )
+
+        buildTransaction(owner, instruction)
+    }
+    
+    /**
      * Build snooze transaction.
      */
     suspend fun buildSnoozeTransaction(
         owner: PublicKey,
-        alarmId: Long
+        alarmId: Long,
+        snoozeCount: Int = 0
     ): ByteArray = withContext(Dispatchers.IO) {
         Log.i(TAG, "Building snooze tx: alarmId=$alarmId")
         
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-        buildSnoozeTransactionByPubkey(owner, alarmPda.address)
+        buildSnoozeTransactionByPubkey(owner, alarmPda.address, snoozeCount)
     }
 
     /**
@@ -105,14 +123,16 @@ class TransactionBuilder @Inject constructor(
      */
     suspend fun buildSnoozeTransactionByPubkey(
         owner: PublicKey,
-        alarmPda: PublicKey
+        alarmPda: PublicKey,
+        snoozeCount: Int = 0
     ): ByteArray = withContext(Dispatchers.IO) {
-        Log.i(TAG, "Building snooze tx: alarmPda=${alarmPda.toBase58()}")
+        Log.i(TAG, "Building snooze tx: alarmPda=${alarmPda.toBase58()}, snoozeCount=$snoozeCount")
 
         val instruction = instructionBuilder.buildSnooze(
             owner = owner,
             alarmPda = alarmPda,
-            sinkAddress = BURN_SINK
+            sinkAddress = BURN_SINK,
+            expectedSnoozeCount = snoozeCount
         )
 
         buildTransaction(owner, instruction)
@@ -401,25 +421,13 @@ class TransactionBuilder @Inject constructor(
     }
     
     /**
-     * Decode Base58 string to bytes.
+     * Decode Base58 string to 32 bytes.
+     * Uses sol4k's PublicKey decoder which correctly handles leading zero bytes
+     * (Base58 "1" prefix). The previous BigInteger-based implementation dropped
+     * leading zeros, causing ~1/256 blockhashes to decode incorrectly.
      */
     private fun decodeBase58(input: String): ByteArray {
-        val alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-        var num = java.math.BigInteger.ZERO
-        for (c in input) {
-            num = num.multiply(java.math.BigInteger.valueOf(58))
-                .add(java.math.BigInteger.valueOf(alphabet.indexOf(c).toLong()))
-        }
-        val bytes = num.toByteArray()
-        // Remove leading zero if present and pad to 32 bytes
-        val result = ByteArray(32)
-        val srcStart = if (bytes.isNotEmpty() && bytes[0] == 0.toByte()) 1 else 0
-        val srcLen = bytes.size - srcStart
-        val dstStart = 32 - srcLen
-        if (dstStart >= 0 && srcLen > 0) {
-            bytes.copyInto(result, dstStart, srcStart, bytes.size)
-        }
-        return result
+        return PublicKey(input).toByteArray()
     }
 }
 

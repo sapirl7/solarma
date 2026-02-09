@@ -297,7 +297,13 @@ class SolanaRpcClient @Inject constructor() {
             connection.doOutput = true
             
             val paramsStr = if (params.isEmpty()) "[]" else params
-            val body = """{"jsonrpc":"2.0","id":1,"method":"$method","params":$paramsStr}"""
+            val bodyJson = JSONObject().apply {
+                put("jsonrpc", "2.0")
+                put("id", 1)
+                put("method", method)
+                put("params", org.json.JSONTokener(paramsStr).nextValue())
+            }
+            val body = bodyJson.toString()
             connection.outputStream.write(body.toByteArray())
             
             if (connection.responseCode == 200) {
@@ -327,6 +333,46 @@ class SolanaRpcClient @Inject constructor() {
             throw Exception(message)
         }
         return json.opt("result")
+    }
+    
+    /**
+     * H2: Check clock drift between device and Solana network.
+     * Compares device wall clock with the on-chain block time of the latest slot.
+     * @return drift in seconds (positive = device ahead, negative = device behind),
+     *         or null if RPC call fails.
+     */
+    suspend fun checkTimeDrift(): Long? = withContext(Dispatchers.IO) {
+        try {
+            // Get latest slot
+            val slotResponse = makeRpcCallWithFallback(
+                method = "getSlot",
+                params = """[{"commitment": "confirmed"}]"""
+            )
+            val slot = parseResultValue(slotResponse) as? Number
+                ?: return@withContext null
+            
+            // Get block time for that slot
+            val blockTimeResponse = makeRpcCallWithFallback(
+                method = "getBlockTime",
+                params = "[${slot.toLong()}]"
+            )
+            val blockTimeUnix = parseResultValue(blockTimeResponse) as? Number
+                ?: return@withContext null
+            
+            val deviceTimeUnix = System.currentTimeMillis() / 1000
+            val drift = deviceTimeUnix - blockTimeUnix.toLong()
+            
+            Log.i(TAG, "Time drift: device=$deviceTimeUnix, chain=${blockTimeUnix.toLong()}, drift=${drift}s")
+            
+            if (kotlin.math.abs(drift) > 300) { // 5 minutes
+                Log.w(TAG, "⚠️ Significant time drift detected: ${drift}s. Alarm deadlines may be missed!")
+            }
+            
+            drift
+        } catch (e: Exception) {
+            Log.e(TAG, "checkTimeDrift failed", e)
+            null
+        }
     }
 }
 

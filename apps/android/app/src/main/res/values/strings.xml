@@ -1,3 +1,42 @@
 <resources>
     <string name="app_name">Solarma</string>
+
+    <!-- Header & Banners -->
+    <string name="dev_test_badge">DEV TEST</string>
+    <string name="devnet_banner">⚠️ DEVNET — No real SOL at risk. Test tokens only.</string>
+
+    <!-- Home Screen -->
+    <string name="settings">Settings</string>
+    <string name="get_test_sol">Get Test SOL →</string>
+    <string name="no_alarms_title">No alarms yet</string>
+    <string name="no_alarms_body">Create your first alarm and stake some SOL\nto start building your wake streak!</string>
+    <string name="create_alarm">Create Alarm</string>
+    <string name="delete_alarm">Delete alarm</string>
+    <string name="streak_label">Streak</string>
+    <string name="wakes_label">Wakes</string>
+    <string name="saved_label">Saved</string>
+
+    <!-- Alarm Details Screen -->
+    <string name="alarm_details">Alarm Details</string>
+    <string name="deposit_locked">DEPOSIT LOCKED</string>
+    <string name="status_pending">PENDING</string>
+    <string name="status_active">ACTIVE</string>
+    <string name="label_amount">Amount</string>
+    <string name="label_penalty_route">Penalty Route</string>
+    <string name="label_snoozes">Snoozes</string>
+    <string name="label_deadline">Deadline</string>
+    <string name="label_on_chain">On-chain</string>
+    <string name="pda_copied">PDA copied to clipboard</string>
+    <string name="emergency_refund">EMERGENCY REFUND</string>
+    <string name="emergency_refund_warning">This will return your deposit minus a 5%% penalty. This action cannot be undone.</string>
+    <string name="refund_processing">Processing…</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm_refund">Yes, Refund</string>
+
+    <!-- History Screen -->
+    <string name="no_transactions_title">No transactions yet</string>
+    <string name="no_transactions_body">Create an alarm with deposit to see history</string>
+
+    <!-- Balance Pre-check -->
+    <string name="insufficient_balance">Insufficient balance: %.4f SOL available, ~%.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com</string>
 </resources>

@@ -7,6 +7,8 @@ use anchor_lang::prelude::*;
 pub enum AlarmStatus {
     #[default]
     Created,
+    /// H3: Owner has acknowledged wake proof on-chain
+    Acknowledged,
     Claimed,
     Slashed,
 }
@@ -48,7 +50,7 @@ impl UserProfile {
     pub const SIZE: usize = 8  // discriminator
         + 32  // owner
         + 1 + 32  // Option<[u8; 32]>
-        + 1;  // bump
+        + 1; // bump
 }
 
 /// Alarm PDA
@@ -57,12 +59,12 @@ impl UserProfile {
 pub struct Alarm {
     /// Owner of this alarm
     pub owner: Pubkey,
+    /// Client-assigned alarm identifier (used in PDA seeds)
+    pub alarm_id: u64,
     /// Scheduled alarm time (Unix timestamp)
     pub alarm_time: i64,
     /// Deadline for claiming (Unix timestamp)
     pub deadline: i64,
-    /// Token mint for deposit (None = SOL)
-    pub deposit_mint: Option<Pubkey>,
     /// Initial deposit amount
     pub initial_amount: u64,
     /// Remaining deposit amount
@@ -84,9 +86,9 @@ pub struct Alarm {
 impl Alarm {
     pub const SIZE: usize = 8  // discriminator
         + 32  // owner
+        + 8   // alarm_id
         + 8   // alarm_time
         + 8   // deadline
-        + 1 + 32  // Option<Pubkey> deposit_mint
         + 8   // initial_amount
         + 8   // remaining_amount
         + 1   // penalty_route
@@ -95,7 +97,7 @@ impl Alarm {
         + 1   // status
         + 1   // bump
         + 1   // vault_bump
-        + 32; // padding for future fields
+        + 64; // padding for future fields (e.g. deposit_mint)
 }
 
 /// Vault PDA - holds deposited SOL for an alarm
@@ -110,5 +112,5 @@ pub struct Vault {
 impl Vault {
     pub const SIZE: usize = 8   // discriminator
         + 32  // alarm
-        + 1;  // bump
+        + 1; // bump
 }

@@ -1,15 +1,16 @@
 //! Solarma Vault Program
-//! 
+//!
 //! An onchain commitment vault for the Solarma alarm app.
-//! Users deposit SOL/SPL tokens when setting alarms. They claim back
+//! Users deposit SOL when setting alarms. They claim back
 //! after completing wake proof, or the deposit is slashed after deadline.
 
 use anchor_lang::prelude::*;
 
-declare_id!("51AEPs95Rcqskumd49dGA5xHYPdTwq83E9sPiDxJapW1");
+declare_id!("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
 
 pub mod constants;
 pub mod error;
+pub mod events;
 pub mod instructions;
 pub mod state;
 
@@ -24,7 +25,7 @@ pub mod solarma_vault {
 
     /// Initialize a user profile with optional tag registration
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        instructions::initialize::handler(ctx)
+        instructions::initialize::process_initialize(ctx)
     }
 
     /// Create a new alarm with optional deposit
@@ -37,34 +38,40 @@ pub mod solarma_vault {
         penalty_route: u8,
         penalty_destination: Option<Pubkey>,
     ) -> Result<()> {
-        instructions::create_alarm::handler(
-            ctx, 
+        instructions::create_alarm::process_create_alarm(
+            ctx,
             alarm_id,
-            alarm_time, 
-            deadline, 
+            alarm_time,
+            deadline,
             deposit_amount,
-            penalty_route, 
+            penalty_route,
             penalty_destination,
         )
     }
 
     /// Claim the remaining deposit (before deadline)
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
-        instructions::claim::handler(ctx)
+        instructions::claim::process_claim(ctx)
     }
 
-    /// Snooze the alarm (reduces deposit)
-    pub fn snooze(ctx: Context<Snooze>) -> Result<()> {
-        instructions::snooze::handler(ctx)
+    /// Snooze the alarm (reduces deposit).
+    /// `expected_snooze_count` — current snooze count (idempotency guard).
+    pub fn snooze(ctx: Context<Snooze>, expected_snooze_count: u8) -> Result<()> {
+        instructions::snooze::process_snooze(ctx, expected_snooze_count)
     }
 
     /// Slash the deposit after deadline (permissionless)
     pub fn slash(ctx: Context<Slash>) -> Result<()> {
-        instructions::slash::handler(ctx)
+        instructions::slash::process_slash(ctx)
     }
 
     /// Emergency refund - owner can cancel before alarm time
     pub fn emergency_refund(ctx: Context<EmergencyRefund>) -> Result<()> {
-        instructions::emergency_refund::handler(ctx)
+        instructions::emergency_refund::process_emergency_refund(ctx)
+    }
+
+    /// H3: Record wake proof completion on-chain
+    pub fn ack_awake(ctx: Context<AckAwake>) -> Result<()> {
+        instructions::ack_awake::process_ack_awake(ctx)
     }
 }

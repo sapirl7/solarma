@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.solarma.alarm.AlarmRepository
 import app.solarma.data.local.AlarmEntity
+import app.solarma.wallet.PendingTransaction
 import app.solarma.wallet.PendingTransactionDao
 import app.solarma.wallet.OnchainAlarmService
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
@@ -60,6 +61,15 @@ class AlarmDetailsViewModel @Inject constructor(
                 .onSuccess { signature ->
                     // Update local alarm and stats
                     alarmRepository.recordEmergencyRefund(currentAlarm)
+                    // Record confirmed transaction for history
+                    pendingTransactionDao.insert(
+                        PendingTransaction(
+                            type = "EMERGENCY_REFUND",
+                            alarmId = currentAlarm.id,
+                            status = "CONFIRMED",
+                            lastAttemptAt = System.currentTimeMillis()
+                        )
+                    )
                     _alarm.value = currentAlarm.copy(hasDeposit = false, onchainPubkey = null, depositLamports = 0)
                     _refundState.value = RefundState.Success(signature)
                 }

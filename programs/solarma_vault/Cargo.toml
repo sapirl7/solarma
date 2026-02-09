@@ -29,3 +29,6 @@ blake3 = "=1.5.5"
 solana-program = "2.3.0"
 
 [dev-dependencies]
+
+[profile.release]
+overflow-checks = true

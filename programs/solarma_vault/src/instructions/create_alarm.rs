@@ -1,10 +1,10 @@
 //! Create alarm instruction - with deposit support
 
+use crate::constants::MIN_DEPOSIT_LAMPORTS;
+use crate::error::SolarmaError;
+use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
-use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
-use crate::error::SolarmaError;
-use crate::constants::MIN_DEPOSIT_LAMPORTS;
 
 #[derive(Accounts)]
 #[instruction(alarm_id: u64, alarm_time: i64, deadline: i64, deposit_amount: u64)]
@@ -19,7 +19,7 @@ pub struct CreateAlarm<'info> {
         bump
     )]
     pub alarm: Account<'info, Alarm>,
-    
+
     /// Vault PDA that holds the deposit - INITIALIZED here
     #[account(
         init,
@@ -29,14 +29,14 @@ pub struct CreateAlarm<'info> {
         bump
     )]
     pub vault: Account<'info, Vault>,
-    
+
     #[account(mut)]
     pub owner: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(
+pub fn process_create_alarm(
     ctx: Context<CreateAlarm>,
     alarm_id: u64,
     alarm_time: i64,
@@ -46,27 +46,24 @@ pub fn handler(
     penalty_destination: Option<Pubkey>,
 ) -> Result<()> {
     // Validate penalty route
-    let route = PenaltyRoute::try_from(penalty_route)
-        .map_err(|_| SolarmaError::InvalidPenaltyRoute)?;
-    
+    let route =
+        PenaltyRoute::try_from(penalty_route).map_err(|_| SolarmaError::InvalidPenaltyRoute)?;
+
     // Validate times
     let clock = Clock::get()?;
     require!(
         alarm_time > clock.unix_timestamp,
         SolarmaError::AlarmTimeInPast
     );
-    require!(
-        deadline > alarm_time,
-        SolarmaError::InvalidDeadline
-    );
-    
+    require!(deadline > alarm_time, SolarmaError::InvalidDeadline);
+
     // Validate deposit if provided
     if deposit_amount > 0 {
         require!(
             deposit_amount >= MIN_DEPOSIT_LAMPORTS,
             SolarmaError::DepositTooSmall
         );
-        
+
         // Donate and Buddy routes require destination address
         if route == PenaltyRoute::Donate || route == PenaltyRoute::Buddy {
             require!(
@@ -74,7 +71,7 @@ pub fn handler(
                 SolarmaError::PenaltyDestinationRequired
             );
         }
-        
+
         // Transfer SOL to vault
         system_program::transfer(
             CpiContext::new(
@@ -87,18 +84,18 @@ pub fn handler(
             deposit_amount,
         )?;
     }
-    
+
     // Initialize vault
     let vault = &mut ctx.accounts.vault;
     vault.alarm = ctx.accounts.alarm.key();
     vault.bump = ctx.bumps.vault;
-    
+
     // Initialize alarm
     let alarm = &mut ctx.accounts.alarm;
     alarm.owner = ctx.accounts.owner.key();
+    alarm.alarm_id = alarm_id;
     alarm.alarm_time = alarm_time;
     alarm.deadline = deadline;
-    alarm.deposit_mint = None; // SOL deposit
     alarm.initial_amount = deposit_amount;
     alarm.remaining_amount = deposit_amount;
     alarm.penalty_route = penalty_route;
@@ -107,8 +104,23 @@ pub fn handler(
     alarm.status = AlarmStatus::Created;
     alarm.bump = ctx.bumps.alarm;
     alarm.vault_bump = ctx.bumps.vault;
-    
-    msg!("Alarm {} created: time={}, deadline={}, deposit={}", 
-         alarm_id, alarm_time, deadline, deposit_amount);
+
+    emit!(crate::events::AlarmCreated {
+        owner: ctx.accounts.owner.key(),
+        alarm: ctx.accounts.alarm.key(),
+        alarm_id,
+        alarm_time,
+        deadline,
+        deposit_amount,
+        penalty_route,
+    });
+
+    msg!(
+        "Alarm {} created: time={}, deadline={}, deposit={}",
+        alarm_id,
+        alarm_time,
+        deadline,
+        deposit_amount
+    );
     Ok(())
 }

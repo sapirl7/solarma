@@ -2,6 +2,7 @@ package app.solarma.ui.details
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,17 +15,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.LocalActivityResultSender
+import app.solarma.alarm.AlarmTiming
 import app.solarma.data.local.AlarmEntity
+import app.solarma.ui.components.PenaltyRouteDisplay
+import app.solarma.ui.components.SnoozePenaltyDisplay
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import app.solarma.wakeproof.WakeProofEngine
+import app.solarma.R
+import androidx.compose.ui.res.stringResource
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -283,6 +291,20 @@ fun DepositCard(
     pendingConfirmation: Boolean,
     onRefundClick: () -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    
+    // Deadline = alarm time + grace period (matches on-chain logic)
+    val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+    val deadlineTime = LocalDateTime.ofInstant(
+        Instant.ofEpochMilli(deadlineMillis),
+        ZoneId.systemDefault()
+    )
+    val deadlineFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    
+    // Penalty route info
+    val penaltyInfo = PenaltyRouteDisplay.fromRoute(alarm.penaltyRoute)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -300,7 +322,7 @@ fun DepositCard(
             ) {
                 Column {
                     Text(
-                        text = "DEPOSIT LOCKED",
+                        text = stringResource(R.string.deposit_locked),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
@@ -322,7 +344,7 @@ fun DepositCard(
                     }
                 ) {
                     Text(
-                        text = if (pendingConfirmation) "PENDING" else "ACTIVE",
+                        text = if (pendingConfirmation) stringResource(R.string.status_pending) else stringResource(R.string.status_active),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (pendingConfirmation) SolanaPurple else SolanaGreen,
@@ -331,14 +353,84 @@ fun DepositCard(
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
+            // Deadline and penalty info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Deadline",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted
+                    )
+                    Text(
+                        text = deadlineTime.format(deadlineFormatter),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = WarningAmber
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Penalty",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted
+                    )
+                    Text(
+                        text = penaltyInfo.formatted,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                }
+                if (alarm.snoozeCount > 0) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Snoozed",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                        Text(
+                            text = SnoozePenaltyDisplay.formatDisplay(alarm.snoozeCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = WarningAmber
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // PDA address — tap to copy
             alarm.onchainPubkey?.let { pubkey ->
-                Text(
-                    text = "PDA: ${pubkey.take(8)}...${pubkey.takeLast(8)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Graphite.copy(alpha = 0.5f))
+                        .clickable {
+                            clipboardManager.setText(AnnotatedString(pubkey))
+                            Toast.makeText(context, "PDA copied!", Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "PDA: ${pubkey.take(8)}…${pubkey.takeLast(8)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted
+                    )
+                    Text(
+                        text = "📋 Copy",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SolanaPurple
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))

@@ -107,12 +107,15 @@ class SolarmaInstructionBuilderTest {
         val instruction = builder.buildSnooze(
             owner = owner,
             alarmPda = alarmPda,
-            sinkAddress = sink
+            sinkAddress = sink,
+            expectedSnoozeCount = 0
         )
         
         // Snooze has 5 accounts (alarm, vault, sink, owner, system)
         assertEquals(5, instruction.accounts.size)
         assertEquals(sink, instruction.accounts[2].pubkey)
+        // Data: 8-byte discriminator + 1-byte expected_snooze_count
+        assertEquals(9, instruction.data.size)
     }
     
     @Test

@@ -46,22 +46,31 @@ val GradientDarkSurface = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════
-// LEGACY ALIASES (Backward Compatibility)
-// Map old names to new palette for existing components
+// LEGACY ALIASES — Deprecated, will be removed in a future version
 // ═══════════════════════════════════════════════════════════════
 
 // Background aliases
+@Deprecated("Use DeepBlack directly", ReplaceWith("DeepBlack"))
 val NightSky = DeepBlack
+@Deprecated("Use Graphite directly", ReplaceWith("Graphite"))
 val NightSkyLight = Graphite
+@Deprecated("Use GraphiteSurface directly", ReplaceWith("GraphiteSurface"))
 val NightSkyCard = GraphiteSurface
 
-// Color aliases
+// Color aliases — names are misleading (SunriseOrange is actually green)
+@Deprecated("Misleading name. Use SolanaGreen", ReplaceWith("SolanaGreen"))
 val SunriseOrange = SolanaGreen
+@Deprecated("Misleading name. Use SolanaPurple", ReplaceWith("SolanaPurple"))
 val GoldenHour = SolanaPurple
+@Deprecated("Use SolanaPurple directly", ReplaceWith("SolanaPurple"))
 val DawnPurple = SolanaPurple
+@Deprecated("Use SolanaGreen directly", ReplaceWith("SolanaGreen"))
 val MorningGreen = SolanaGreen
+@Deprecated("Use ErrorCrimson directly", ReplaceWith("ErrorCrimson"))
 val AlertRed = ErrorCrimson
 
 // Gradient aliases
+@Deprecated("Use GradientDarkSurface directly", ReplaceWith("GradientDarkSurface"))
 val GradientNight = GradientDarkSurface
+@Deprecated("Use GradientSolanaPrimary directly", ReplaceWith("GradientSolanaPrimary"))
 val GradientSunrise = GradientSolanaPrimary

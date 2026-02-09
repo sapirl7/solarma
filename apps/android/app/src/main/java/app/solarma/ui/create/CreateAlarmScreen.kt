@@ -4,7 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
@@ -157,7 +157,7 @@ fun CreateAlarmScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = AlarmCardShape,
-                        colors = CardDefaults.cardColors(containerColor = NightSkyCard)
+                        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -177,7 +177,7 @@ fun CreateAlarmScreen(
                             Button(
                                 onClick = {
                                     val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                        data = Uri.parse("package:${context.packageName}")
+                                        data = "package:${context.packageName}".toUri()
                                     }
                                     context.startActivity(intent)
                                 },
@@ -237,7 +237,18 @@ fun CreateAlarmScreen(
                     penaltyRoute = state.penaltyRoute,
                     donationAddress = state.donationAddress,
                     buddyAddress = state.buddyAddress,
-                    onToggle = { state = state.copy(hasDeposit = it) },
+                    onToggle = { enabled ->
+                        // M4: Block deposit creation when exact alarm is unavailable
+                        if (enabled && needsExactAlarmPermission) {
+                            Toast.makeText(
+                                context,
+                                "Exact alarm permission required for deposit alarms. Grant it in Settings.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            state = state.copy(hasDeposit = enabled)
+                        }
+                    },
                     onAmountChange = { state = state.copy(depositAmount = it) },
                     onCustomAmountChange = { state = state.copy(customAmountText = it) },
                     onRouteChange = { state = state.copy(penaltyRoute = it) },
@@ -293,7 +304,7 @@ fun TimeCard(
                 ambientColor = SolanaGreen.copy(alpha = 0.3f)
             ),
         shape = TimePickerShape,
-        colors = CardDefaults.cardColors(containerColor = NightSkyCard)
+        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
     ) {
         Box(
             modifier = Modifier
@@ -376,7 +387,7 @@ fun WakeProofSelector(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = AlarmCardShape,
-            colors = CardDefaults.cardColors(containerColor = NightSkyCard.copy(alpha = 0.7f))
+            colors = CardDefaults.cardColors(containerColor = GraphiteSurface.copy(alpha = 0.7f))
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -407,7 +418,7 @@ fun WakeProofSelector(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = AlarmCardShape,
-                colors = CardDefaults.cardColors(containerColor = NightSkyCard)
+                colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -822,7 +833,7 @@ fun TimePickerDialog(
                     onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
                 }
             ) {
-                Text("OK", color = SunriseOrange)
+                Text("OK", color = SolanaGreen)
             }
         },
         dismissButton = {
@@ -840,7 +851,7 @@ fun TimePickerDialog(
                 )
             )
         },
-        containerColor = NightSkyCard,
+        containerColor = GraphiteSurface,
         shape = AlarmCardShape
     )
 }

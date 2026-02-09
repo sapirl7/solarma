@@ -25,6 +25,7 @@ import app.solarma.ui.settings.SettingsViewModel
 import app.solarma.ui.settings.dataStore
 import app.solarma.wakeproof.NfcScanner
 import app.solarma.wallet.SolanaRpcClient
+import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.TransactionProcessor
 import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
@@ -77,6 +78,12 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var rpcClient: SolanaRpcClient
     
+    @Inject
+    lateinit var onchainAlarmService: OnchainAlarmService
+    
+    @Inject
+    lateinit var alarmDao: app.solarma.data.local.AlarmDao
+    
     // Create ActivityResultSender BEFORE onCreate completes
     private val activityResultSender by lazy {
         ActivityResultSender(this)
@@ -93,6 +100,16 @@ class MainActivity : ComponentActivity() {
             Log.i(TAG, "POST_NOTIFICATIONS permission granted")
         } else {
             Log.w(TAG, "POST_NOTIFICATIONS permission denied")
+        }
+    }
+
+    private val activityRecognitionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.i(TAG, "ACTIVITY_RECOGNITION permission granted")
+        } else {
+            Log.w(TAG, "ACTIVITY_RECOGNITION permission denied — step counter may not work")
         }
     }
     
@@ -141,6 +158,15 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // Request step counter permission at startup (Android 10+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACTIVITY_RECOGNITION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+
         lifecycleScope.launch {
             val prefs = dataStore.data.first()
             val isDevnet = prefs[SettingsViewModel.KEY_IS_DEVNET] ?: true
@@ -161,6 +187,17 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             transactionProcessor.processPendingTransactionsWithUi(activityResultSender)
         }
+        // M3: Sync on-chain alarms from other devices
+        lifecycleScope.launch {
+            try {
+                val synced = onchainAlarmService.syncOnchainAlarms(alarmDao)
+                if (synced > 0) {
+                    android.util.Log.i(TAG, "Synced $synced on-chain alarms from other devices")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "On-chain sync failed (non-blocking)", e)
+            }
+        }
     }
     
     override fun onPause() {
@@ -176,7 +213,12 @@ class MainActivity : ComponentActivity() {
             intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
             intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
             
-            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, android.nfc.Tag::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+            }
             tag?.let {
                 Log.i(TAG, "NFC tag detected: ${it.id.toHexString()}")
                 

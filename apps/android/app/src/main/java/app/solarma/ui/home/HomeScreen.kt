@@ -30,9 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.data.local.AlarmEntity
+import app.solarma.ui.components.PenaltyRouteDisplay
 import app.solarma.ui.components.*
 import app.solarma.ui.theme.*
 import app.solarma.LocalActivityResultSender
+import app.solarma.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -68,13 +72,27 @@ fun HomeScreen(
                                 color = TextPrimary,
                                 letterSpacing = 2.sp
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.dev_test_badge),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = WarningAmber,
+                                letterSpacing = 1.sp,
+                                modifier = Modifier
+                                    .background(
+                                        WarningAmber.copy(alpha = 0.15f),
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     },
                     actions = {
                         IconButton(onClick = onSettingsClick) {
                             Icon(
                                 Icons.Default.Settings, 
-                                contentDescription = "Settings",
+                                contentDescription = stringResource(R.string.settings),
                                 tint = TextSecondary
                             )
                         }
@@ -141,6 +159,7 @@ fun HomeScreen(
                     WalletStatusCard(
                         isConnected = uiState.walletConnected,
                         balance = uiState.walletBalance,
+                        walletAddress = uiState.walletAddress,
                         onConnectClick = { viewModel.connectWallet(activityResultSender) }
                     )
                 }
@@ -237,7 +256,7 @@ fun StatsCard(
                     color = SolanaPurple
                 )
                 StatItem(
-                    value = String.format("%.2f", savedSol),
+                    value = String.format(java.util.Locale.US, "%.2f", savedSol),
                     label = "SOL Saved",
                     emoji = "SAVED",
                     color = SolanaGreen
@@ -280,6 +299,7 @@ fun StatItem(
 fun WalletStatusCard(
     isConnected: Boolean,
     balance: Double?,
+    walletAddress: String? = null,
     onConnectClick: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
@@ -325,6 +345,13 @@ fun WalletStatusCard(
                             fontWeight = FontWeight.Medium,
                             color = if (isConnected) SolanaGreen else TextPrimary
                         )
+                        if (isConnected && walletAddress != null) {
+                            Text(
+                                text = walletAddress.take(4) + ".." + walletAddress.takeLast(4),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
                         if (isConnected && balance != null) {
                             SolAmount(amount = balance, showSymbol = false)
                         }
@@ -341,11 +368,11 @@ fun WalletStatusCard(
                     OutlinedButton(
                         onClick = { uriHandler.openUri("https://faucet.solana.com") },
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = GoldenHour
+                            contentColor = SolanaPurple
                         ),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                             brush = Brush.horizontalGradient(
-                                listOf(GoldenHour, GoldenHour.copy(alpha = 0.5f))
+                                listOf(SolanaPurple, SolanaPurple.copy(alpha = 0.5f))
                             )
                         )
                     ) {
@@ -354,19 +381,20 @@ fun WalletStatusCard(
                 }
             }
             
-            // Devnet testing notice
-            if (showFaucetButton) {
+            // Devnet testing notice — always visible when connected
+            if (isConnected) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(GoldenHour.copy(alpha = 0.1f))
+                        .background(WarningAmber.copy(alpha = 0.12f))
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "⚠️ Beta: Using Devnet test tokens only",
+                        text = stringResource(R.string.devnet_banner),
                         style = MaterialTheme.typography.labelSmall,
-                        color = GoldenHour
+                        fontWeight = FontWeight.SemiBold,
+                        color = WarningAmber
                     )
                 }
             }
@@ -429,6 +457,19 @@ fun AlarmCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
+                // Show deposit amount and penalty route on alarm card
+                if (alarm.hasDeposit && alarm.depositAmount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val penaltyInfo = PenaltyRouteDisplay.fromRoute(alarm.penaltyRoute)
+                        Text(
+                            text = "◎ ${String.format(java.util.Locale.US, "%.2f", alarm.depositAmount)} SOL ${penaltyInfo.emoji}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SolanaPurple
+                        )
+                    }
+                }
             }
             
             Row(
@@ -447,14 +488,6 @@ fun AlarmCard(
                     color = SolanaPurple
                 )
                 
-                // Deposit indicator
-                if (alarm.hasDeposit) {
-                    StatusChip(
-                        text = "◎",
-                        color = GoldenHour
-                    )
-                }
-                
                 // Modern switch
                 Switch(
                     checked = alarm.isEnabled,
@@ -467,17 +500,19 @@ fun AlarmCard(
                     )
                 )
                 
-                // Delete button
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete alarm",
-                        tint = TextMuted,
-                        modifier = Modifier.size(20.dp)
-                    )
+                // Delete button — hide if alarm has onchain deposit
+                if (alarm.onchainPubkey == null) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete alarm",
+                            tint = TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -503,23 +538,50 @@ fun EmptyAlarmsCard(onAddClick: () -> Unit) {
             Text("NO ALARMS", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextMuted)
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "No alarms yet",
+                text = stringResource(R.string.no_alarms_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = TextPrimary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Create your first alarm and stake some SOL\nto start building your wake streak!",
+                text = stringResource(R.string.no_alarms_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(24.dp))
             GradientButton(
-                text = "Create Alarm",
+                text = stringResource(R.string.create_alarm),
                 onClick = onAddClick,
                 modifier = Modifier.width(180.dp)
             )
         }
     }
+}
+
+// ── Previews ──────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun AlarmCardPreview() {
+    val sampleAlarm = AlarmEntity(
+        id = 1,
+        alarmTimeMillis = System.currentTimeMillis() + 3_600_000,
+        label = "Morning Workout",
+        isEnabled = true,
+        wakeProofType = 1,
+        targetSteps = 30,
+        hasDeposit = true,
+        depositAmount = 0.5,
+        penaltyRoute = 0,
+        snoozeCount = 2
+    )
+    AlarmCard(alarm = sampleAlarm, onClick = {})
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun EmptyAlarmsCardPreview() {
+    EmptyAlarmsCard(onAddClick = {})
 }

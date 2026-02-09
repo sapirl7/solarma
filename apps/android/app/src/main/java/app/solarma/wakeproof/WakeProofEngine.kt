@@ -28,7 +28,8 @@ class WakeProofEngine @Inject constructor(
         const val TYPE_QR = 3
     }
     
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var scope: CoroutineScope? = null
+    private var stepCollectionJob: kotlinx.coroutines.Job? = null
     
     private val _progress = MutableStateFlow(WakeProgress())
     val progress: StateFlow<WakeProgress> = _progress.asStateFlow()
@@ -40,8 +41,12 @@ class WakeProofEngine @Inject constructor(
     
     /**
      * Start wake proof challenge for the given alarm.
+     * @param alarm the alarm entity to prove wake for
+     * @param lifecycleScope scope tied to the caller's lifecycle (e.g. Activity.lifecycleScope).
+     *        All coroutines will be cancelled when this scope is cancelled.
      */
-    fun start(alarm: AlarmEntity) {
+    fun start(alarm: AlarmEntity, lifecycleScope: CoroutineScope) {
+        scope = lifecycleScope
         currentAlarm = alarm
         _isComplete.value = false
         
@@ -85,13 +90,25 @@ class WakeProofEngine @Inject constructor(
      * Falls back to manual confirm after 60 seconds if no progress.
      */
     private fun startStepChallenge(targetSteps: Int) {
+        val hasDeposit = currentAlarm?.hasDeposit == true
+        
         if (!stepCounter.isAvailable()) {
-            _progress.value = WakeProgress(
-                type = TYPE_STEPS,
-                message = "Step sensor unavailable. Tap to confirm you're awake.",
-                fallbackActive = true,
-                requiresAction = true
-            )
+            if (hasDeposit) {
+                // SECURITY: Deposit alarms must NOT get a free bypass
+                _progress.value = WakeProgress(
+                    type = TYPE_STEPS,
+                    message = "Step sensor unavailable. Claim your deposit from the app.",
+                    fallbackActive = false,
+                    requiresAction = false
+                )
+            } else {
+                _progress.value = WakeProgress(
+                    type = TYPE_STEPS,
+                    message = "Step sensor unavailable. Tap to confirm you're awake.",
+                    fallbackActive = true,
+                    requiresAction = true
+                )
+            }
             return
         }
         
@@ -106,7 +123,7 @@ class WakeProofEngine @Inject constructor(
         val startTime = System.currentTimeMillis()
         var lastStepCount = 0
         
-        scope.launch {
+        stepCollectionJob = scope?.launch {
             stepCounter.countSteps(targetSteps).collect { stepProgress ->
                 lastStepCount = stepProgress.currentSteps
                 
@@ -123,8 +140,10 @@ class WakeProofEngine @Inject constructor(
                 }
                 
                 // Check for timeout (60 seconds with no progress)
+                // SECURITY: No fallback for deposit alarms
                 if (stepProgress.currentSteps == 0 && 
-                    System.currentTimeMillis() - startTime > 60_000) {
+                    System.currentTimeMillis() - startTime > 60_000 &&
+                    !hasDeposit) {
                     Log.w(TAG, "Step challenge timeout, enabling manual fallback")
                     _progress.value = WakeProgress(
                         type = TYPE_STEPS,
@@ -168,7 +187,7 @@ class WakeProofEngine @Inject constructor(
         // Start listening for NFC
         nfcScanner.startScanning(expectedHash)
         
-        scope.launch {
+        scope?.launch {
             nfcScanner.scanResult.collect { result ->
                 when (result) {
                     is NfcScanResult.Success -> {
@@ -231,9 +250,11 @@ class WakeProofEngine @Inject constructor(
             progressPercent = 1f
         )
         
-        // Cleanup
+        // Cleanup all sensors and flows
         nfcScanner.stopScanning()
         qrScanner.stopScanning()
+        stepCollectionJob?.cancel()
+        stepCollectionJob = null
     }
     
     /**
@@ -242,7 +263,10 @@ class WakeProofEngine @Inject constructor(
     fun stop() {
         nfcScanner.stopScanning()
         qrScanner.stopScanning()
+        stepCollectionJob?.cancel()
+        stepCollectionJob = null
         currentAlarm = null
+        scope = null  // M5: Release lifecycle scope reference
     }
     
     /**
@@ -266,7 +290,7 @@ class WakeProofEngine @Inject constructor(
         // Start QR scanning
         qrScanner.startScanning(expectedCode)
         
-        scope.launch {
+        scope?.launch {
             qrScanner.scanResult.collect { result ->
                 when (result) {
                     is QrScanResult.Success -> {

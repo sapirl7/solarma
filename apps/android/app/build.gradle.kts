@@ -17,8 +17,8 @@ android {
         applicationId = "app.solarma"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 4
+        versionName = "0.2.2"
 
         val devnetRpc = (project.findProperty("SOLANA_RPC_DEVNET") as String?) ?: ""
         val mainnetRpc = (project.findProperty("SOLANA_RPC_MAINNET") as String?) ?: ""
@@ -134,30 +134,30 @@ dependencies {
     implementation(libs.mwa.clientlib)
     
     // Solana primitives (for tx building)
-    implementation("org.sol4k:sol4k:0.5.0")
-    implementation("org.sol4k:tweetnacl:0.1.6")
+    implementation(libs.sol4k)
+    implementation(libs.tweetnacl)
     
     // WorkManager (for boot restore)
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    ksp("androidx.hilt:hilt-compiler:1.2.0")
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
     
     // CameraX (for QR scanning)
-    implementation("androidx.camera:camera-core:1.4.1")
-    implementation("androidx.camera:camera-camera2:1.4.1")
-    implementation("androidx.camera:camera-lifecycle:1.4.1")
-    implementation("androidx.camera:camera-view:1.4.1")
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
     
     // ML Kit Barcode Scanning
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation(libs.mlkit.barcode)
     
     // ZXing for QR code generation
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation(libs.zxing)
     
     // Testing
     testImplementation(libs.junit)
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.espresso)
 }
