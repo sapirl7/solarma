@@ -68,6 +68,7 @@ flowchart LR
     subgraph WAKE["⏰ Wake Up"]
         C{Complete proof?}
         C -->|NFC/QR/Steps| D[✅ Verified]
+        D --> D2[ack_awake]
         C -->|Snooze| E[10% penalty]
         E --> C
     end
@@ -78,7 +79,7 @@ flowchart LR
     end
     
     B --> C
-    D --> F
+    D2 --> F
     C -->|Deadline passed| G
     
     style CREATE fill:#14F195,color:#000

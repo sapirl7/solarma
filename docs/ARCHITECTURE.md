@@ -53,9 +53,9 @@ Solarma is a two-component system:
 
 ### State Machine
 ```
-Created → Claimed   (wake proof completed, deposit returned)
-        ↘ Slashed   (deadline passed, penalty applied)
-        ↘ Refunded  (emergency refund before alarm, 5% penalty)
+Created → Acknowledged → Claimed   (wake proof → ack_awake → claim deposit)
+        ↘ Slashed                   (deadline passed, penalty applied)
+        ↘ Refunded                  (emergency refund before alarm, 5% penalty)
 ```
 
 ### Accounts
@@ -67,8 +67,9 @@ Created → Claimed   (wake proof completed, deposit returned)
 |-------------|--------|-------------|
 | initialize | user | Create user profile PDA |
 | create_alarm | user | Create alarm with deposit |
-| snooze | user | Decrease deposit, extend time |
+| ack_awake | user | Record wake proof completion on-chain |
 | claim | user | Claim remaining deposit |
+| snooze | user | Decrease deposit, extend time |
 | emergency_refund | user | Cancel before alarm time (penalty applies) |
 | slash | permissionless | Transfer deposit after deadline |
 
