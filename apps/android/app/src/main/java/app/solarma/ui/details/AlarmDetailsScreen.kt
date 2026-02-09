@@ -26,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.LocalActivityResultSender
 import app.solarma.alarm.AlarmTiming
 import app.solarma.data.local.AlarmEntity
+import app.solarma.wallet.OnchainParameters
 import app.solarma.ui.components.PenaltyRouteDisplay
 import app.solarma.ui.components.SnoozePenaltyDisplay
 import app.solarma.ui.components.SolarmaBackground
@@ -57,6 +58,7 @@ fun AlarmDetailsScreen(
     
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRefundDialog by remember { mutableStateOf(false) }
+    var showSlashDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(alarmId) {
         viewModel.loadAlarm(alarmId)
@@ -127,13 +129,14 @@ fun AlarmDetailsScreen(
                     
                     // Deposit card (if applicable)
                     if (currentAlarm.hasDeposit) {
-                    DepositCard(
-                        alarm = currentAlarm,
-                        isRefunding = refundState is RefundState.Processing,
-                        pendingConfirmation = pendingCreate,
-                        onRefundClick = { showRefundDialog = true }
-                    )
-                }
+                        DepositCard(
+                            alarm = currentAlarm,
+                            isProcessing = refundState is RefundState.Processing,
+                            pendingConfirmation = pendingCreate,
+                            onRefundClick = { showRefundDialog = true },
+                            onSlashClick = { showSlashDialog = true }
+                        )
+                    }
                     
                     // Actions
                     OutlinedButton(
@@ -168,7 +171,7 @@ fun AlarmDetailsScreen(
             text = { 
                 Text(
                     if (hasDeposit) 
-                        "This alarm has a locked deposit. Please request an Emergency Refund first, then delete the alarm."
+                        "This alarm has a locked deposit. Use Emergency Refund (before alarm time) or Resolve Deposit (after deadline) to release funds first."
                     else 
                         "Are you sure you want to delete this alarm?"
                 )
@@ -208,7 +211,7 @@ fun AlarmDetailsScreen(
             text = { 
                 Text(
                     "Request emergency refund of your deposit?\n\n" +
-                    "Note: A small penalty may apply. Use this only if you can't complete the wake proof."
+                    "Note: A ${OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT}% penalty applies for early cancellation."
                 )
             },
             confirmButton = {
@@ -223,6 +226,36 @@ fun AlarmDetailsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRefundDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    // Slash (resolve expired alarm) dialog
+    if (showSlashDialog) {
+        val penaltyInfo = alarm?.let { PenaltyRouteDisplay.fromRoute(it.penaltyRoute) }
+        AlertDialog(
+            onDismissRequest = { showSlashDialog = false },
+            title = { Text("RESOLVE EXPIRED ALARM") },
+            text = {
+                Text(
+                    "This alarm has expired. Your deposit will be released according to your penalty route: ${penaltyInfo?.formatted ?: "Unknown"}.\n\n" +
+                    "This action is final and cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.requestSlash(activityResultSender)
+                        showSlashDialog = false
+                    }
+                ) {
+                    Text("Resolve", color = WarningAmber)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSlashDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -284,12 +317,22 @@ fun AlarmTimeCard(alarm: AlarmEntity) {
     }
 }
 
+/**
+ * Alarm deposit state for determining available actions.
+ */
+private enum class AlarmDepositPhase {
+    BEFORE_ALARM,   // Can emergency refund
+    GRACE_PERIOD,   // Between alarm and deadline — no action available
+    EXPIRED         // After deadline — can slash/resolve
+}
+
 @Composable
 fun DepositCard(
     alarm: AlarmEntity,
-    isRefunding: Boolean,
+    isProcessing: Boolean,
     pendingConfirmation: Boolean,
-    onRefundClick: () -> Unit
+    onRefundClick: () -> Unit,
+    onSlashClick: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -435,24 +478,69 @@ fun DepositCard(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Button(
-                onClick = onRefundClick,
-                enabled = !isRefunding,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SolanaPurple,
-                    disabledContainerColor = SolanaPurple.copy(alpha = 0.5f)
-                )
-            ) {
-                if (isRefunding) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+            // Determine which action is available
+            val nowMillis = System.currentTimeMillis()
+            val phase = when {
+                nowMillis < alarm.alarmTimeMillis -> AlarmDepositPhase.BEFORE_ALARM
+                nowMillis < deadlineMillis -> AlarmDepositPhase.GRACE_PERIOD
+                else -> AlarmDepositPhase.EXPIRED
+            }
+
+            when (phase) {
+                AlarmDepositPhase.BEFORE_ALARM -> {
+                    Button(
+                        onClick = onRefundClick,
+                        enabled = !isProcessing,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SolanaPurple,
+                            disabledContainerColor = SolanaPurple.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        if (isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (isProcessing) "Processing..." else "EMERGENCY REFUND")
+                    }
                 }
-                Text(if (isRefunding) "Processing..." else "EMERGENCY REFUND")
+                AlarmDepositPhase.GRACE_PERIOD -> {
+                    Text(
+                        text = "⏳ Waiting for deadline (${deadlineTime.format(deadlineFormatter)}) to resolve...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WarningAmber,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                AlarmDepositPhase.EXPIRED -> {
+                    Button(
+                        onClick = onSlashClick,
+                        enabled = !isProcessing,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WarningAmber,
+                            disabledContainerColor = WarningAmber.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        if (isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = if (isProcessing) "Processing..." else "⚠️ RESOLVE EXPIRED DEPOSIT",
+                            color = Color.Black
+                        )
+                    }
+                }
             }
         }
     }

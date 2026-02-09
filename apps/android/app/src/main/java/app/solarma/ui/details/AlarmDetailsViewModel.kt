@@ -102,6 +102,35 @@ class AlarmDetailsViewModel @Inject constructor(
     fun resetRefundState() {
         _refundState.value = RefundState.Idle
     }
+
+    /**
+     * Slash (resolve) expired alarm — releases deposit per penalty route.
+     */
+    fun requestSlash(activityResultSender: ActivityResultSender) {
+        val currentAlarm = _alarm.value ?: return
+        if (!currentAlarm.hasDeposit || currentAlarm.onchainPubkey == null) return
+
+        viewModelScope.launch {
+            _refundState.value = RefundState.Processing
+
+            onchainAlarmService.slashAlarm(activityResultSender, currentAlarm)
+                .onSuccess { signature ->
+                    pendingTransactionDao.insert(
+                        PendingTransaction(
+                            type = "SLASH",
+                            alarmId = currentAlarm.id,
+                            status = "CONFIRMED",
+                            lastAttemptAt = System.currentTimeMillis()
+                        )
+                    )
+                    _alarm.value = currentAlarm.copy(hasDeposit = false, onchainPubkey = null, depositLamports = 0)
+                    _refundState.value = RefundState.Success(signature)
+                }
+                .onFailure { e ->
+                    _refundState.value = RefundState.Error(e.message ?: "Slash failed")
+                }
+        }
+    }
 }
 
 sealed class RefundState {

@@ -245,6 +245,49 @@ class OnchainAlarmService @Inject constructor(
         }
     }
 
+    /**
+     * Slash (resolve) an expired alarm after deadline.
+     * Permissionless — anyone can call this after the deadline passes.
+     */
+    suspend fun slashAlarm(
+        activityResultSender: ActivityResultSender,
+        alarm: AlarmEntity
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val ownerAddress = walletManager.getConnectedWallet()
+                ?: return@withContext Result.failure(Exception("Wallet not connected"))
+
+            Log.i(TAG, "Slashing expired alarm: ${alarm.id}")
+
+            val owner = PublicKey(ownerAddress)
+            val alarmPda = resolveAlarmPda(alarm, owner)
+            val txBytes = transactionBuilder.buildSlashTransactionByPubkey(
+                owner = owner,
+                alarmPda = alarmPda,
+                penaltyRoute = alarm.penaltyRoute,
+                penaltyDestination = alarm.penaltyDestination
+            )
+
+            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val signature = result.getOrElse { e ->
+                Log.e(TAG, "Slash failed", e)
+                return@withContext Result.failure(e)
+            }
+
+            Log.i(TAG, "Slash complete: signature=$signature")
+            when (val confirmation = awaitConfirmation(signature)) {
+                is ConfirmationResult.Confirmed -> Result.success(signature)
+                is ConfirmationResult.Failed ->
+                    Result.failure(Exception("Transaction failed: ${confirmation.error}"))
+                is ConfirmationResult.Pending ->
+                    Result.failure(Exception("Transaction pending confirmation"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Slash failed", e)
+            Result.failure(e)
+        }
+    }
+
     private sealed class ConfirmationResult {
         object Confirmed : ConfirmationResult()
         data class Failed(val error: String) : ConfirmationResult()
