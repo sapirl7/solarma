@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, dev]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   SOLANA_VERSION: "2.3.0"
   ANCHOR_VERSION: "0.32.1"
@@ -54,6 +58,20 @@ jobs:
 
       - name: Cargo test
         run: cargo test
+
+      - name: Code coverage
+        run: |
+          cargo install cargo-tarpaulin --locked
+          cargo tarpaulin --out xml --output-dir .
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: cobertura.xml
+          fail_ci_if_error: false
 
   # Anchor build + integration tests
   anchor:

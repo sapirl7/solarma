@@ -111,5 +111,13 @@ test-results/
 # ===================
 docs/PITCH_DECK.md
 docs/GRANT_APPLICATION.md
+docs/assets/generate_*.py
 docs/demo/
 docs/demo.zip
+
+# ===================
+# Coverage artifacts
+# ===================
+cobertura.xml
+tarpaulin-report.*
+

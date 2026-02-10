@@ -15,6 +15,10 @@
   <img src="https://img.shields.io/badge/Smart_Contract-Anchor-9945FF?style=flat-square" alt="Anchor">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square" alt="License"></a>
   <a href="https://github.com/sapirl7/solarma/actions/workflows/ci.yml"><img src="https://github.com/sapirl7/solarma/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://codecov.io/gh/sapirl7/solarma"><img src="https://codecov.io/gh/sapirl7/solarma/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://github.com/sapirl7/solarma/releases"><img src="https://img.shields.io/github/v/release/sapirl7/solarma?style=flat-square" alt="Release"></a>
+  <img src="https://img.shields.io/github/stars/sapirl7/solarma?style=flat-square" alt="Stars">
+  <img src="https://img.shields.io/github/last-commit/sapirl7/solarma?style=flat-square" alt="Last Commit">
 </p>
 
 > ⚠️ **Currently on Devnet** — This app uses Solana Devnet test tokens. No real SOL is at risk. Get free test SOL at [faucet.solana.com](https://faucet.solana.com).

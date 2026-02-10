@@ -1,1 +1,19 @@
-* @sapirl7
+# Solarma Code Owners
+# Each line: pattern owner(s)
+
+# Smart Contract (Anchor / Rust)
+/programs/ @sapirl7
+
+# Android Application (Kotlin)
+/apps/android/ @sapirl7
+
+# CI & DevOps
+/.github/ @sapirl7
+
+# Documentation
+/docs/ @sapirl7
+*.md @sapirl7
+
+# Build & Config
+Makefile @sapirl7
+*.toml @sapirl7
