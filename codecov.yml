@@ -1,0 +1,21 @@
+codecov:
+  require_ci_to_pass: yes
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+    patch:
+      default:
+        target: 80%
+
+ignore:
+  # Anchor-generated instruction boilerplate (account structs, constraints)
+  # — these can only execute on-chain and are tested via TS integration tests
+  - "programs/solarma_vault/src/instructions/mod.rs"
+  # Event struct definitions (no logic)
+  - "programs/solarma_vault/src/events.rs"
+  # Program entry point (thin delegation layer)
+  - "programs/solarma_vault/src/lib.rs"

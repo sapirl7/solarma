@@ -62,7 +62,10 @@ jobs:
       - name: Code coverage
         run: |
           cargo install cargo-tarpaulin --locked
-          cargo tarpaulin --out xml --output-dir .
+          cargo tarpaulin --out xml --output-dir . \
+            --exclude-files "src/instructions/*" \
+            --exclude-files "src/lib.rs" \
+            --exclude-files "src/events.rs"
         continue-on-error: true
 
       - name: Upload coverage to Codecov

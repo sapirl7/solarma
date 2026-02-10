@@ -11,6 +11,7 @@ declare_id!("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
 pub mod constants;
 pub mod error;
 pub mod events;
+pub mod helpers;
 pub mod instructions;
 pub mod state;
 
