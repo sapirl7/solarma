@@ -23,6 +23,13 @@ const bs58 = requireFromProgram("bs58");
 const PROGRAM_ID = new PublicKey("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
 const SYSTEM_PROGRAM_ID = new PublicKey("11111111111111111111111111111111");
 const BURN_SINK = new PublicKey("1nc1nerator11111111111111111111111111111111");
+const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
+  "ComputeBudget111111111111111111111111111111"
+);
+
+// Must match Android BuildConfig defaults.
+const CU_LIMIT_CRITICAL = 200000;
+const CU_PRICE_MICROLAMPORTS = 1000;
 
 function hex(buf) {
   return Buffer.from(buf).toString("hex");
@@ -90,7 +97,7 @@ function writeCompactU16(value) {
   return Buffer.from(out);
 }
 
-function buildSortedAccountMetas(feePayer, instruction) {
+function buildSortedAccountMetas(feePayer, instructions) {
   const map = new Map(); // base58 -> {pubkey, isSigner, isWritable}
   map.set(feePayer.toBase58(), {
     pubkey: feePayer,
@@ -98,27 +105,29 @@ function buildSortedAccountMetas(feePayer, instruction) {
     isWritable: true,
   });
 
-  for (const meta of instruction.accounts) {
-    const key = meta.pubkey.toBase58();
-    const existing = map.get(key);
-    if (existing) {
-      map.set(key, {
-        pubkey: existing.pubkey,
-        isSigner: existing.isSigner || meta.isSigner,
-        isWritable: existing.isWritable || meta.isWritable,
-      });
-    } else {
-      map.set(key, { ...meta });
+  for (const instruction of instructions) {
+    for (const meta of instruction.accounts) {
+      const key = meta.pubkey.toBase58();
+      const existing = map.get(key);
+      if (existing) {
+        map.set(key, {
+          pubkey: existing.pubkey,
+          isSigner: existing.isSigner || meta.isSigner,
+          isWritable: existing.isWritable || meta.isWritable,
+        });
+      } else {
+        map.set(key, { ...meta });
+      }
     }
-  }
 
-  const programKey = instruction.programId.toBase58();
-  if (!map.has(programKey)) {
-    map.set(programKey, {
-      pubkey: instruction.programId,
-      isSigner: false,
-      isWritable: false,
-    });
+    const programKey = instruction.programId.toBase58();
+    if (!map.has(programKey)) {
+      map.set(programKey, {
+        pubkey: instruction.programId,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
   }
 
   const values = Array.from(map.values());
@@ -141,7 +150,7 @@ function buildSortedAccountMetas(feePayer, instruction) {
   return values;
 }
 
-function buildMessage(blockhashBase58, sortedAccounts, instruction) {
+function buildMessage(blockhashBase58, sortedAccounts, instructions) {
   let numSigners = 0;
   let numReadOnlySigners = 0;
   let numReadOnlyNonSigners = 0;
@@ -155,16 +164,6 @@ function buildMessage(blockhashBase58, sortedAccounts, instruction) {
   }
 
   const accountKeys = sortedAccounts.map((a) => a.pubkey);
-  const programIndex = accountKeys.findIndex(
-    (k) => k.toBase58() === instruction.programId.toBase58()
-  );
-  if (programIndex < 0) throw new Error("program id missing from account keys");
-
-  const compiledAccountIndices = instruction.accounts.map((meta) => {
-    const idx = accountKeys.findIndex((k) => k.toBase58() === meta.pubkey.toBase58());
-    if (idx < 0) throw new Error("instruction account missing from account keys");
-    return idx;
-  });
 
   const pieces = [];
   pieces.push(Buffer.from([numSigners, numReadOnlySigners, numReadOnlyNonSigners]));
@@ -174,14 +173,25 @@ function buildMessage(blockhashBase58, sortedAccounts, instruction) {
   const blockhashBytes = new PublicKey(blockhashBase58).toBuffer();
   pieces.push(blockhashBytes);
 
-  pieces.push(writeCompactU16(1)); // 1 instruction
-  pieces.push(Buffer.from([programIndex]));
+  pieces.push(writeCompactU16(instructions.length));
+  for (const instruction of instructions) {
+    const programIndex = accountKeys.findIndex(
+      (k) => k.toBase58() === instruction.programId.toBase58()
+    );
+    if (programIndex < 0) throw new Error("program id missing from account keys");
 
-  pieces.push(writeCompactU16(compiledAccountIndices.length));
-  pieces.push(Buffer.from(compiledAccountIndices));
+    const compiledAccountIndices = instruction.accounts.map((meta) => {
+      const idx = accountKeys.findIndex((k) => k.toBase58() === meta.pubkey.toBase58());
+      if (idx < 0) throw new Error("instruction account missing from account keys");
+      return idx;
+    });
 
-  pieces.push(writeCompactU16(instruction.data.length));
-  pieces.push(Buffer.from(instruction.data));
+    pieces.push(Buffer.from([programIndex]));
+    pieces.push(writeCompactU16(compiledAccountIndices.length));
+    pieces.push(Buffer.from(compiledAccountIndices));
+    pieces.push(writeCompactU16(instruction.data.length));
+    pieces.push(Buffer.from(instruction.data));
+  }
 
   return Buffer.concat(pieces);
 }
@@ -196,6 +206,29 @@ function instr(programId, accounts, data) {
 
 function meta(pubkey, isSigner, isWritable) {
   return { pubkey, isSigner, isWritable };
+}
+
+function buildSetComputeUnitLimitIx(units) {
+  // ComputeBudgetInstruction::SetComputeUnitLimit { units } => tag=2 + u32 LE.
+  const data = Buffer.alloc(1 + 4);
+  data.writeUInt8(2, 0);
+  data.writeUInt32LE(units >>> 0, 1);
+  return instr(COMPUTE_BUDGET_PROGRAM_ID, [], data);
+}
+
+function buildSetComputeUnitPriceIx(microLamports) {
+  // ComputeBudgetInstruction::SetComputeUnitPrice { micro_lamports } => tag=3 + u64 LE.
+  const data = Buffer.alloc(1 + 8);
+  data.writeUInt8(3, 0);
+  data.writeBigUInt64LE(BigInt(microLamports), 1);
+  return instr(COMPUTE_BUDGET_PROGRAM_ID, [], data);
+}
+
+function criticalIxsPrefix() {
+  const out = [];
+  if (CU_LIMIT_CRITICAL > 0) out.push(buildSetComputeUnitLimitIx(CU_LIMIT_CRITICAL));
+  if (CU_PRICE_MICROLAMPORTS > 0) out.push(buildSetComputeUnitPriceIx(CU_PRICE_MICROLAMPORTS));
+  return out;
 }
 
 function buildCreateAlarmIx({
@@ -308,10 +341,27 @@ function buildSlashIx({ caller, alarmId, penaltyRecipient }) {
   return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
 }
 
+function buildSweepAcknowledgedIx({ owner, alarmId, caller }) {
+  const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
+  const { pda: vaultPda } = deriveVaultPda(alarmPda);
+  const data = Buffer.from(discriminator("sweep_acknowledged"));
+
+  const accounts = [
+    meta(alarmPda, false, true),
+    meta(vaultPda, false, true),
+    meta(owner, false, true),
+    meta(caller, true, false),
+  ];
+
+  return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
+}
+
 function toSnapshotCase(name, feePayer, blockhash, inputs, buildFn) {
   const built = buildFn();
-  const sortedAccounts = buildSortedAccountMetas(feePayer, built.instruction);
-  const message = buildMessage(blockhash, sortedAccounts, built.instruction);
+  const isCritical = new Set(["ack_awake", "claim", "slash", "sweep_acknowledged"]).has(inputs.op);
+  const allIxs = isCritical ? [...criticalIxsPrefix(), built.instruction] : [built.instruction];
+  const sortedAccounts = buildSortedAccountMetas(feePayer, allIxs);
+  const message = buildMessage(blockhash, sortedAccounts, allIxs);
   const tx = buildUnsignedTransaction(message);
 
   const snapshot = {
@@ -447,6 +497,20 @@ function main() {
   );
   cases.push(
     toSnapshotCase(
+      "sweep_acknowledged",
+      owner,
+      blockhash,
+      {
+        op: "sweep_acknowledged",
+        owner: owner.toBase58(),
+        alarmId,
+        caller: owner.toBase58(),
+      },
+      () => buildSweepAcknowledgedIx({ owner, alarmId, caller: owner })
+    )
+  );
+  cases.push(
+    toSnapshotCase(
       "emergency_refund",
       owner,
       blockhash,
@@ -486,6 +550,7 @@ function main() {
       discriminators: {
         create_alarm: hex(discriminator("create_alarm")),
         claim: hex(discriminator("claim")),
+        sweep_acknowledged: hex(discriminator("sweep_acknowledged")),
         snooze: hex(discriminator("snooze")),
         slash: hex(discriminator("slash")),
         emergency_refund: hex(discriminator("emergency_refund")),

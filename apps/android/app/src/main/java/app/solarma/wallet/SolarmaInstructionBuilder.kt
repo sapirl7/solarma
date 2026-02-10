@@ -46,6 +46,12 @@ class SolarmaInstructionBuilder @Inject constructor() {
             0xd4.toByte(), 0xca.toByte(), 0x3e.toByte(), 0x92.toByte(),
             0x0f.toByte(), 0xb7.toByte(), 0xce.toByte(), 0x40.toByte()
         )
+
+        // sha256("global:sweep_acknowledged")[0..8]
+        private val DISCRIMINATOR_SWEEP_ACKNOWLEDGED = byteArrayOf(
+            0x9a.toByte(), 0xd7.toByte(), 0xce.toByte(), 0x2d.toByte(),
+            0xaa.toByte(), 0x2c.toByte(), 0x19.toByte(), 0xae.toByte()
+        )
     }
     
     /**
@@ -215,6 +221,32 @@ class SolarmaInstructionBuilder @Inject constructor() {
         )
 
         return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_SLASH)
+    }
+
+    /**
+     * Build sweep_acknowledged instruction data and accounts.
+     * Permissionless close after claim grace; returns funds to owner.
+     */
+    fun buildSweepAcknowledged(
+        caller: PublicKey,
+        alarmPda: PublicKey,
+        owner: PublicKey
+    ): SolarmaInstruction {
+        val vaultPda = deriveVaultPda(alarmPda)
+
+        Log.d(
+            TAG,
+            "Building sweep_acknowledged: alarm=${alarmPda.toBase58()}, vault=${vaultPda.address.toBase58()}, owner=${owner.toBase58()}, caller=${caller.toBase58()}"
+        )
+
+        val keys = listOf(
+            AccountMeta(alarmPda, isSigner = false, isWritable = true),
+            AccountMeta(vaultPda.address, isSigner = false, isWritable = true),
+            AccountMeta(owner, isSigner = false, isWritable = true),
+            AccountMeta(caller, isSigner = true, isWritable = false)
+        )
+
+        return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_SWEEP_ACKNOWLEDGED)
     }
     
     /**

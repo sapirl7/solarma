@@ -26,6 +26,22 @@ android {
         buildConfigField("String", "SOLANA_RPC_DEVNET", "\"$devnetRpc\"")
         buildConfigField("String", "SOLANA_RPC_MAINNET", "\"$mainnetRpc\"")
 
+        // Priority fees / compute budget for critical transactions (ACK/CLAIM/SLASH/SWEEP).
+        // Values can be overridden via gradle.properties or CI env vars.
+        val cuLimitCritical = (project.findProperty("SOLARMA_CU_LIMIT_CRITICAL") as String?) ?: "200000"
+        val cuPriceMicrolamportsRaw =
+            (project.findProperty("SOLARMA_CU_PRICE_MICROLAMPORTS") as String?) ?: "1000"
+        val cuPriceMicrolamports =
+            if (cuPriceMicrolamportsRaw.endsWith("L")) cuPriceMicrolamportsRaw else "${cuPriceMicrolamportsRaw}L"
+        buildConfigField("int", "SOLARMA_CU_LIMIT_CRITICAL", cuLimitCritical)
+        buildConfigField("long", "SOLARMA_CU_PRICE_MICROLAMPORTS", cuPriceMicrolamports)
+
+        // RPC fan-out send: submit the same signed bytes to multiple endpoints.
+        val rpcFanout = (project.findProperty("SOLARMA_RPC_FANOUT") as String?) ?: "3"
+        val rpcConfirmTimeoutMs = (project.findProperty("SOLARMA_RPC_CONFIRM_TIMEOUT_MS") as String?) ?: "15000"
+        buildConfigField("int", "SOLARMA_RPC_FANOUT", rpcFanout)
+        buildConfigField("long", "SOLARMA_RPC_CONFIRM_TIMEOUT_MS", "${rpcConfirmTimeoutMs}L")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

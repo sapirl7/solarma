@@ -1,10 +1,13 @@
 package app.solarma.wallet
 
+import app.solarma.BuildConfig
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.sol4k.PublicKey
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class TransactionSnapshotTest {
     private fun loadSnapshotRoot(): JSONObject {
@@ -23,6 +26,36 @@ class TransactionSnapshotTest {
 
         val instructionBuilder = SolarmaInstructionBuilder()
         val txBuilder = TransactionBuilder(SolanaRpcClient(), instructionBuilder)
+
+        val computeBudgetProgramId =
+            PublicKey("ComputeBudget111111111111111111111111111111")
+
+        fun setComputeUnitLimit(units: Int): SolarmaInstruction {
+            val data = ByteBuffer.allocate(1 + 4).order(ByteOrder.LITTLE_ENDIAN)
+                .put(2.toByte())
+                .putInt(units)
+                .array()
+            return SolarmaInstruction(computeBudgetProgramId, accounts = emptyList(), data = data)
+        }
+
+        fun setComputeUnitPrice(microLamports: Long): SolarmaInstruction {
+            val data = ByteBuffer.allocate(1 + 8).order(ByteOrder.LITTLE_ENDIAN)
+                .put(3.toByte())
+                .putLong(microLamports)
+                .array()
+            return SolarmaInstruction(computeBudgetProgramId, accounts = emptyList(), data = data)
+        }
+
+        fun criticalPrefix(): List<SolarmaInstruction> {
+            val out = mutableListOf<SolarmaInstruction>()
+            if (BuildConfig.SOLARMA_CU_LIMIT_CRITICAL > 0) {
+                out.add(setComputeUnitLimit(BuildConfig.SOLARMA_CU_LIMIT_CRITICAL))
+            }
+            if (BuildConfig.SOLARMA_CU_PRICE_MICROLAMPORTS > 0) {
+                out.add(setComputeUnitPrice(BuildConfig.SOLARMA_CU_PRICE_MICROLAMPORTS))
+            }
+            return out
+        }
 
         val cases = root.getJSONArray("cases")
         for (i in 0 until cases.length()) {
@@ -126,6 +159,21 @@ class TransactionSnapshotTest {
                     Quad(caller, ix, pda.address, vault.address)
                 }
 
+                "sweep_acknowledged" -> {
+                    val owner = PublicKey(inputs.getString("owner"))
+                    val alarmId = inputs.getLong("alarmId")
+
+                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                    val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                    val ix = instructionBuilder.buildSweepAcknowledged(
+                        caller = owner,
+                        alarmPda = pda.address,
+                        owner = owner
+                    )
+                    Quad(owner, ix, pda.address, vault.address)
+                }
+
                 else -> error("Unknown snapshot op '$op' in case '$name'")
             }
 
@@ -151,8 +199,10 @@ class TransactionSnapshotTest {
             assertEquals("$name: dataHex", expectedIx.getString("dataHex"), instruction.data.toHex())
 
             val expectedTxHex = c.getString("txHex")
+            val isCritical = op == "ack_awake" || op == "claim" || op == "slash" || op == "sweep_acknowledged"
+            val instructions = if (isCritical) criticalPrefix() + instruction else listOf(instruction)
             val actualTxHex =
-                txBuilder.buildUnsignedTransactionForSnapshot(feePayer, instruction, blockhash).toHex()
+                txBuilder.buildUnsignedTransactionForSnapshot(feePayer, instructions, blockhash).toHex()
             assertEquals("$name: txHex", expectedTxHex, actualTxHex)
         }
     }
@@ -164,4 +214,3 @@ class TransactionSnapshotTest {
         val vaultPda: PublicKey?
     )
 }
-
