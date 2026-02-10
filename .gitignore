@@ -68,7 +68,7 @@ programs/solarma_vault/target/
 programs/solarma_vault/.anchor/
 programs/solarma_vault/test-ledger/
 programs/target/
-programs/Cargo.lock
+# Cargo.lock is committed for reproducible builds (as per Rust best practices for binaries)
 test-ledger/
 !package-lock.json
 
