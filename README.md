@@ -49,11 +49,17 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/screenshot_home.jpg" alt="Home Screen" width="180" />
-  <img src="docs/assets/screenshot_setup.jpg" alt="Alarm Setup" width="180" />
-  <img src="docs/assets/screenshot_create.jpg" alt="Deposit & Penalty" width="180" />
-  <img src="docs/assets/screenshot_details.jpg" alt="Alarm Details" width="180" />
-  <img src="docs/assets/screenshot_wakeup.jpg" alt="Wake Up" width="180" />
+  <img src="docs/assets/screenshot_home.jpg" alt="Home Screen" width="200" />
+  <img src="docs/assets/screenshot_setup.jpg" alt="Alarm Setup" width="200" />
+  <img src="docs/assets/screenshot_create.jpg" alt="Deposit & Penalty" width="200" />
+  <img src="docs/assets/screenshot_buddy.jpg" alt="Buddy Mode" width="200" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshot_details.jpg" alt="Alarm Details" width="200" />
+  <img src="docs/assets/screenshot_transactions.jpg" alt="Transaction History" width="200" />
+  <img src="docs/assets/screenshot_wakeup.jpg" alt="Wake Up" width="200" />
+  <img src="docs/assets/screenshot_settings.jpg" alt="Settings" width="200" />
 </p>
 
 ---
