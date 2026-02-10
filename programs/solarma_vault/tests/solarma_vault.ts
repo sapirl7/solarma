@@ -998,12 +998,12 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Wait for deadline to pass (alarmTime+5+5 = ~10 sec from now + buffer)
+            // Wait for deadline to pass
             await new Promise(resolve => setTimeout(resolve, 7000));
 
             const buddyBalanceBefore = await provider.connection.getBalance(buddy.publicKey);
 
-            const tx = await program.methods
+            await program.methods
                 .slash()
                 .accounts({
                     alarm,
@@ -1012,9 +1012,7 @@ describe("solarma_vault", () => {
                     caller: owner.publicKey,
                     systemProgram: SystemProgram.programId,
                 })
-                .transaction();
-
-            await provider.sendAndConfirm(tx, [], { commitment: "confirmed" });
+                .rpc();
 
             const buddyBalanceAfter = await provider.connection.getBalance(buddy.publicKey);
             expect(buddyBalanceAfter).to.be.greaterThan(buddyBalanceBefore);
