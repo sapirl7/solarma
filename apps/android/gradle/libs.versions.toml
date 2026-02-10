@@ -28,7 +28,7 @@ tweetnacl = "0.1.6"
 # Third-party
 mlkit-barcode = "17.3.0"
 zxing = "4.3.0"
-mockito-kotlin = "5.2.1"
+mockito-kotlin = "6.2.3"
 
 [libraries]
 # Compose
