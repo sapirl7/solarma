@@ -1,28 +1,105 @@
 version: 2
+
 updates:
-  # Android/Gradle
+  # ── Android / Gradle ──────────────────────────────────
   - package-ecosystem: "gradle"
     directory: "/apps/android"
     schedule:
       interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 5
-  
-  # Anchor/Node
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "android"
+    groups:
+      android-libs:
+        patterns:
+          - "androidx.*"
+          - "com.google.*"
+        update-types:
+          - "minor"
+          - "patch"
+      android-di:
+        patterns:
+          - "com.google.dagger*"
+          - "hilt*"
+        update-types:
+          - "minor"
+          - "patch"
+    # MWA SDK major bumps need manual review
+    ignore:
+      - dependency-name: "com.solanamobile:mobile-wallet-adapter-clientlib-ktx"
+        update-types: ["version-update:semver-major"]
+
+  # ── Anchor / Node (test infra) ────────────────────────
   - package-ecosystem: "npm"
     directory: "/programs/solarma_vault"
     schedule:
       interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 5
-  
-  # Rust/Cargo
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "javascript"
+    groups:
+      test-deps:
+        patterns:
+          - "mocha"
+          - "chai"
+          - "ts-mocha"
+          - "typescript"
+          - "ts-node"
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+      anchor-sdk:
+        patterns:
+          - "@coral-xyz/*"
+          - "@solana/*"
+          - "@project-serum/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Rust / Cargo (smart contract) ─────────────────────
   - package-ecosystem: "cargo"
     directory: "/programs/solarma_vault"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 3
-  
-  # GitHub Actions
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "rust"
+    groups:
+      anchor-framework:
+        patterns:
+          - "anchor-*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Critical: never auto-bump Solana or Anchor majors
+    ignore:
+      - dependency-name: "solana-program"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "anchor-lang"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "anchor-spl"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"
