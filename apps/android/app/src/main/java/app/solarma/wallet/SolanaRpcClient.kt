@@ -3,7 +3,11 @@ package app.solarma.wallet
 import android.util.Log
 import app.solarma.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.selects.select
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -244,6 +248,123 @@ class SolanaRpcClient @Inject constructor() {
             Result.failure(e)
         }
     }
+
+    /**
+     * Fan-out submit the SAME signed transaction bytes to multiple RPC endpoints and consider it
+     * successful on first confirmed signature.
+     *
+     * This improves propagation and reduces "single RPC is flaky" failures near deadlines.
+     */
+    suspend fun sendAndConfirmTransactionFanout(
+        signedTx: ByteArray,
+        fanout: Int = BuildConfig.SOLARMA_RPC_FANOUT,
+        confirmTimeoutMs: Long = BuildConfig.SOLARMA_RPC_CONFIRM_TIMEOUT_MS
+    ): Result<String> = coroutineScope {
+        val endpoints = endpointsForFanout(fanout.coerceAtLeast(1))
+        if (endpoints.isEmpty()) return@coroutineScope Result.failure(Exception("No RPC endpoints configured"))
+
+        val base64Tx = android.util.Base64.encodeToString(signedTx, android.util.Base64.NO_WRAP)
+
+        val inFlight = endpoints.map { endpoint ->
+            async(Dispatchers.IO) {
+                try {
+                    val sig = sendTransactionToEndpoint(endpoint, base64Tx)
+                    endpointFailureCount.remove(endpoint)
+                    endpointLastFailedAt.remove(endpoint)
+                    endpoint to Result.success(sig)
+                } catch (e: Exception) {
+                    markEndpointFailed(endpoint)
+                    endpoint to Result.failure(e)
+                }
+            }
+        }.toMutableList()
+
+        val errors = mutableListOf<String>()
+        var signature: String? = null
+
+        while (inFlight.isNotEmpty() && signature == null) {
+            val completed = select<Pair<String, Result<String>>> {
+                inFlight.forEach { d ->
+                    d.onAwait { it }
+                }
+            }
+            inFlight.removeAll { it.isCompleted }
+
+            val (endpoint, result) = completed
+            result.onSuccess { sig ->
+                signature = sig
+            }.onFailure { e ->
+                errors.add("Endpoint $endpoint failed: ${e.message}")
+            }
+        }
+
+        if (signature == null) {
+            inFlight.forEach { it.cancel() }
+            return@coroutineScope Result.failure(Exception("All RPC endpoints failed:\n${errors.joinToString("\n")}"))
+        }
+
+        // Wait for confirmation via normal fallback query path.
+        val confirmed = awaitConfirmedSignature(signature!!, confirmTimeoutMs)
+        inFlight.forEach { it.cancel() }
+        confirmed.map { signature!! }
+    }
+
+    private fun endpointsForFanout(fanout: Int): List<String> {
+        val now = System.currentTimeMillis()
+        val preferred = mutableListOf<String>()
+        val cooledDown = mutableListOf<String>()
+
+        for (endpoint in currentEndpoints.distinct()) {
+            val lastFailed = endpointLastFailedAt[endpoint]
+            val failures = endpointFailureCount[endpoint] ?: 0
+            val cooldown = (BASE_BACKOFF_MS * (1L shl failures.coerceAtMost(6)))
+                .coerceAtMost(MAX_BACKOFF_MS)
+            val inCooldown = lastFailed != null && now - lastFailed < cooldown
+            if (inCooldown) cooledDown.add(endpoint) else preferred.add(endpoint)
+        }
+
+        val ordered = preferred + cooledDown
+        return ordered.take(fanout)
+    }
+
+    private fun markEndpointFailed(endpoint: String) {
+        val now = System.currentTimeMillis()
+        val failures = (endpointFailureCount[endpoint] ?: 0) + 1
+        endpointFailureCount[endpoint] = failures.coerceAtMost(10)
+        endpointLastFailedAt[endpoint] = now
+    }
+
+    private fun sendTransactionToEndpoint(endpoint: String, base64Tx: String): String {
+        val response = makeRpcCall(
+            rpcUrl = endpoint,
+            method = "sendTransaction",
+            params = """["$base64Tx", {"encoding": "base64"}]"""
+        )
+        val result = parseResultValue(response)
+        val signature = result as? String ?: ""
+        if (signature.isNotEmpty() && signature.length >= 64) {
+            return signature
+        }
+        throw Exception("Invalid signature in response: $response")
+    }
+
+    private suspend fun awaitConfirmedSignature(signature: String, timeoutMs: Long): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val startedAt = System.currentTimeMillis()
+            while (System.currentTimeMillis() - startedAt < timeoutMs) {
+                val status = getSignatureStatus(signature).getOrNull()
+                if (status != null) {
+                    if (status.err != null) {
+                        return@withContext Result.failure(Exception(status.err))
+                    }
+                    val confirmed = status.confirmationStatus == "confirmed" ||
+                        status.confirmationStatus == "finalized"
+                    if (confirmed) return@withContext Result.success(Unit)
+                }
+                delay(500)
+            }
+            Result.failure(Exception("Timeout waiting for confirmation"))
+        }
     
     /**
      * Make RPC call with automatic fallback to next endpoint on failure.

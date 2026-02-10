@@ -13,7 +13,7 @@ data class PendingTransaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     
-    /** Transaction type: CREATE_ALARM, CLAIM, SNOOZE, SLASH */
+    /** Transaction type: CREATE_ALARM, ACK_AWAKE, CLAIM, SNOOZE, SLASH, EMERGENCY_REFUND, ... */
     val type: String,
     
     /** Serialized transaction bytes (Base64) - legacy field, no longer used */
@@ -33,6 +33,9 @@ data class PendingTransaction(
     
     /** Last attempt timestamp */
     val lastAttemptAt: Long? = null,
+
+    /** Last sent signature (Base58) if available */
+    val lastSignature: String? = null,
     
     /** Transaction status: PENDING, SENDING, CONFIRMED, FAILED */
     val status: String = "PENDING"
@@ -65,6 +68,15 @@ interface PendingTransactionDao {
     @Query("UPDATE pending_transactions SET status = :status, lastError = :error, lastAttemptAt = :timestamp WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, error: String?, timestamp: Long)
 
+    @Query("UPDATE pending_transactions SET status = :status, lastError = :error, lastAttemptAt = :timestamp, lastSignature = :signature WHERE id = :id")
+    suspend fun updateStatusWithSignature(
+        id: Long,
+        status: String,
+        error: String?,
+        timestamp: Long,
+        signature: String?
+    )
+
     @Query("UPDATE pending_transactions SET retryCount = retryCount + 1 WHERE id = :id")
     suspend fun incrementRetry(id: Long)
 
@@ -79,6 +91,9 @@ interface PendingTransactionDao {
 
     @Query("SELECT COUNT(*) FROM pending_transactions WHERE type = :type AND alarmId = :alarmId AND status IN ('PENDING','SENDING')")
     fun observeActiveCount(type: String, alarmId: Long): Flow<Int>
+
+    @Query("SELECT * FROM pending_transactions WHERE type = :type AND alarmId = :alarmId ORDER BY createdAt DESC LIMIT 1")
+    fun observeLatestByTypeAndAlarm(type: String, alarmId: Long): Flow<PendingTransaction?>
 }
 
 /**

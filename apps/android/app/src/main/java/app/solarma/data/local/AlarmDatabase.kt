@@ -125,7 +125,7 @@ interface AlarmDao {
  */
 @Database(
     entities = [AlarmEntity::class, PendingTransaction::class, StatsEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class SolarmaDatabase : RoomDatabase() {
@@ -161,6 +161,12 @@ abstract class SolarmaDatabase : RoomDatabase() {
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE alarms ADD COLUMN snoozeCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_transactions ADD COLUMN lastSignature TEXT")
             }
         }
     }
