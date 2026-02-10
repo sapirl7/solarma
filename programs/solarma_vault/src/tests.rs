@@ -131,12 +131,10 @@ mod unit_tests {
 
     #[test]
     fn test_snooze_cost_at_max_u64() {
-        // Should return None on overflow
-        let result = helpers::snooze_cost(u64::MAX, 63);
-        // If it doesn't overflow, it should cap at remaining
-        match result {
-            Some(v) => assert!(v <= u64::MAX),
-            None => {} // overflow is fine
+        // u64::MAX * 10 will overflow in checked_mul → should return None.
+        // If somehow it doesn't, it must cap at remaining.
+        if let Some(v) = helpers::snooze_cost(u64::MAX, 63) {
+            assert!(v > 0, "non-zero cost expected when result is Some");
         }
     }
 

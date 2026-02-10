@@ -2,114 +2,211 @@
 
 Thank you for your interest in contributing! Solarma is a community-driven project for the Solana Seeker ecosystem.
 
-## Getting Started
+## Table of Contents
 
-### Prerequisites
-- **Android**: Android Studio Hedgehog (2023.1.1)+ with Kotlin 1.9+
-- **Rust**: rustup with stable toolchain
-- **Solana**: Solana CLI 1.18.26 and Anchor CLI 0.32.1
-- **Node**: Node.js 18+ with npm
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Development Workflow](#development-workflow)
+- [Coding Standards](#coding-standards)
+- [Testing](#testing)
+- [Submitting Changes](#submitting-changes)
+- [Security](#security)
 
-See `docs/TOOLCHAIN.md` for the canonical version list.
-
-### Setup Development Environment
-
-```bash
-# Clone the repo
-git clone https://github.com/sapirl7/solarma.git
-cd solarma
-
-# Install Anchor dependencies
-cd programs/solarma_vault
-npm install
-
-# Build smart contract
-anchor build
-
-# Run tests
-anchor test
-
-# For Android, open apps/android in Android Studio
-```
-
-## Development Workflow
-
-### Branch Naming
-- `feature/<description>` — New features
-- `fix/<description>` — Bug fixes
-- `chore/<description>` — Maintenance tasks
-
-### Commit Messages
-Follow [Conventional Commits](https://conventionalcommits.org/):
-```
-feat: add streak rewards to home screen
-fix: resolve claim timing edge case
-chore: update Anchor to 0.32.1
-test: add TransactionQueue unit tests
-```
-
-### Pull Request Process
-1. Fork and create feature branch
-2. Write tests for new functionality
-3. Ensure all tests pass locally
-4. Update documentation if needed
-5. Open PR with clear description
-6. Wait for review
-
-## Code Style
-
-### Kotlin (Android)
-- Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
-- Use Compose for UI
-- Add KDoc for public APIs
-
-### Rust (Anchor)
-- Format with `cargo fmt`
-- Lint with `cargo clippy`
-- Document public functions
-
-### TypeScript (Tests)
-- Format with Prettier
-- Add type annotations
-
-## Running Tests
-
-### Android Unit Tests
-```bash
-cd apps/android
-./gradlew testDebugUnitTest
-```
-
-### Anchor Integration Tests
-```bash
-cd programs/solarma_vault
-anchor test
-```
-
-### Full Test Suite
-```bash
-make test
-```
-
-### Security Checks
-```bash
-make audit
-```
-Requires `cargo-audit` and `cargo-deny`. See `docs/SECURITY_CHECKS.md`.
-
-## Architecture Guidelines
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for:
-- Component responsibilities
-- Data flow patterns
-- State management
-
-## Questions?
-
-- Open an issue for bugs or features
-- See [discussions](https://github.com/sapirl7/solarma/discussions) for questions
-- Join our Discord (coming soon)
+---
 
 ## Code of Conduct
 
-Be respectful and inclusive. See `CODE_OF_CONDUCT.md` (Contributor Covenant).
+By participating, you agree to uphold a welcoming, inclusive environment. Be respectful, assume good intent, and focus on constructive feedback.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version | Install |
+|------|---------|---------|
+| **Rust** | stable (latest) | [rustup.rs](https://rustup.rs) |
+| **Anchor CLI** | 0.32.1 | `avm install 0.32.1` |
+| **Solana CLI** | 2.3.0 (Agave) | [release.anza.xyz](https://release.anza.xyz) |
+| **Node.js** | 20+ | [nodejs.org](https://nodejs.org) |
+| **JDK** | 21 | [Adoptium](https://adoptium.net) |
+| **Android Studio** | Hedgehog+ | [developer.android.com](https://developer.android.com/studio) |
+
+Canonical versions: [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md).
+
+### Fork & Clone
+
+```bash
+git clone https://github.com/<you>/solarma.git
+cd solarma
+git remote add upstream https://github.com/sapirl7/solarma.git
+```
+
+### Build & Verify
+
+```bash
+# Smart contract
+cd programs/solarma_vault
+cargo fmt --check && cargo clippy --all-targets -- -D warnings
+cargo test          # 66 unit tests
+anchor test         # 65 integration tests
+
+# Android
+cd apps/android
+./gradlew assembleDebug
+./gradlew ktlintCheck
+```
+
+---
+
+## Project Structure
+
+```
+solarma/
+├── programs/solarma_vault/        # Anchor smart contract (Rust)
+│   ├── src/
+│   │   ├── instructions/          # On-chain instruction handlers
+│   │   ├── helpers.rs             # Pure business logic (unit-testable)
+│   │   ├── state.rs               # Account data structures & enums
+│   │   ├── constants.rs           # Protocol constants
+│   │   ├── error.rs               # Custom error codes
+│   │   ├── events.rs              # Event definitions for indexers
+│   │   └── tests.rs               # Unit tests
+│   └── tests/solarma_vault.ts     # Integration tests
+├── apps/android/                  # Native Android app (Kotlin + Compose)
+│   ├── app/src/main/              # Application source
+│   └── app/src/androidTest/       # Instrumented tests
+├── docs/                          # Documentation & assets
+└── .github/workflows/ci.yml       # CI pipeline
+```
+
+---
+
+## Development Workflow
+
+### Branch Strategy
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable — always deployable, protected |
+| `gh-pages` | GitHub Pages (pitch deck) |
+| `feature/*` | Feature branches (from `main`) |
+| `fix/*` | Bug fixes (from `main`) |
+
+### Flow
+
+```
+fork → branch → code + tests → fmt + clippy → push → PR → CI ✅ → review → squash merge
+```
+
+---
+
+## Coding Standards
+
+### Rust (Smart Contract)
+
+- **`cargo fmt`** — mandatory (CI enforced)
+- **`cargo clippy -- -D warnings`** — zero warnings policy
+- **Arithmetic** — all math must use `checked_*` operations; no panics on-chain
+- **Documentation** — public functions require `///` doc comments
+- **Naming** — `snake_case` functions, `PascalCase` types
+
+### Kotlin (Android)
+
+- **ktlint** — mandatory (CI enforced via Gradle plugin)
+- **Architecture** — MVVM with Hilt dependency injection
+- **Compose** — follow Compose best practices (`remember`, `LaunchedEffect`)
+
+### Commit Messages
+
+[Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>(<scope>): <description>
+```
+
+| Type | When |
+|------|------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `test` | Adding or updating tests |
+| `docs` | Documentation only |
+| `refactor` | Code change that doesn't fix bug or add feature |
+| `style` | Formatting, no code change |
+| `chore` | Build, CI, deps |
+| `ci` | CI configuration |
+
+**Scopes**: `vault`, `android`, `ci`, `docs`, `deps`
+
+**Examples**:
+```
+feat(vault): add SPL token support for deposits
+fix(android): resolve MWA timeout on Seeker device
+test(vault): add overflow edge cases for snooze cost
+```
+
+---
+
+## Testing
+
+### What to Test
+
+| Change | Required Tests |
+|--------|---------------|
+| New helper function | Unit test in `tests.rs` |
+| New instruction | Integration test in `solarma_vault.ts` |
+| New UI screen | Instrumented test in `androidTest/` |
+| Edge case fix | Regression test with boundary values |
+
+### Running Tests
+
+```bash
+# Smart contract unit tests (fast, no validator)
+cargo test
+
+# Integration tests (starts local validator)
+anchor test
+
+# Coverage report
+cargo tarpaulin --out html
+
+# Android
+./gradlew test                    # Unit tests
+./gradlew connectedAndroidTest    # Instrumented (needs device/emulator)
+```
+
+---
+
+## Submitting Changes
+
+### PR Checklist
+
+- [ ] `cargo fmt --check` passes
+- [ ] `cargo clippy --all-targets -- -D warnings` — zero warnings
+- [ ] `cargo test` — all tests pass
+- [ ] `anchor test` — all tests pass (if contract changed)
+- [ ] `./gradlew ktlintCheck` passes (if Android changed)
+- [ ] New code includes tests
+- [ ] PR description explains **what** and **why**
+
+### Review Process
+
+1. All PRs require **one approval**
+2. CI must be green before merge
+3. Squash merge for clean history
+
+---
+
+## Security
+
+**Do NOT open public issues for security vulnerabilities.**
+
+See [SECURITY.md](SECURITY.md) for responsible disclosure process.
+
+---
+
+<p align="center">
+  <sub>Thank you for helping make Solarma better 🌞</sub>
+</p>
