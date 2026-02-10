@@ -27,15 +27,15 @@ pub struct UserProfile {
 ```rust
 pub struct Alarm {
     pub owner: Pubkey,           // 32 bytes
+    pub alarm_id: u64,           // 8 bytes - client-assigned id (PDA seed)
     pub alarm_time: i64,         // 8 bytes - Unix timestamp
     pub deadline: i64,           // 8 bytes - Unix timestamp
-    pub deposit_mint: Option<Pubkey>, // 33 bytes (SOL = None)
     pub initial_amount: u64,     // 8 bytes - lamports
     pub remaining_amount: u64,   // 8 bytes - lamports
     pub penalty_route: u8,       // 1 byte - 0=Burn, 1=Donate, 2=Buddy
     pub penalty_destination: Option<Pubkey>, // 33 bytes
     pub snooze_count: u8,        // 1 byte
-    pub status: AlarmStatus,     // 1 byte - Created/Claimed/Slashed
+    pub status: AlarmStatus,     // 1 byte - Created/Acknowledged/Claimed/Slashed
     pub bump: u8,                // 1 byte
     pub vault_bump: u8,          // 1 byte
 }
@@ -97,7 +97,7 @@ Returns deposit to owner. Must be after `alarm_time` and before `deadline`.
 
 **Errors:**
 - `TooEarly` - Called before alarm_time
-- `InvalidAlarmState` - Not in Created status
+- `InvalidAlarmState` - Not in Created or Acknowledged status
 
 #### snooze
 Deducts 10% from remaining deposit and doubles each use (10% → 20% → 40%...),
@@ -112,7 +112,7 @@ extends alarm_time and deadline by 5 minutes.
 
 **Errors:**
 - `TooEarly` - Called before alarm_time
-- `MaxSnoozeReached` - Already snoozed 10 times
+- `MaxSnoozesReached` - Already snoozed 10 times
 - `InsufficientDeposit` - <10% remaining
 
 #### slash
@@ -141,6 +141,18 @@ Owner cancels alarm before it rings. 5% fee applies.
 
 **Errors:**
 - `TooLateForRefund` - Called after alarm_time
+
+#### ack_awake (H3)
+Records wake proof completion on-chain by transitioning `Created -> Acknowledged`.
+
+**Accounts:**
+1. `alarm` (mut) - Alarm account
+2. `owner` (signer, mut) - Must match alarm.owner
+
+**Errors:**
+- `TooEarly` - Called before alarm_time
+- `DeadlinePassed` - Called at/after deadline
+- `InvalidAlarmState` - Not in Created status
 
 ### Constants
 

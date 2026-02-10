@@ -1,0 +1,311 @@
+{
+  "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+  "systemProgramId": "11111111111111111111111111111111",
+  "burnSink": "1nc1nerator11111111111111111111111111111111",
+  "blockhash": "8qbHbw2BbbTHBW1sbeqakYXVKRQM8Ne7pLK7m6CVfeR",
+  "fixedKeys": {
+    "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+    "buddy": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx"
+  },
+  "constants": {
+    "discriminators": {
+      "create_alarm": "dd93baeece9b33a8",
+      "claim": "3ec6d6c1d59f6cd2",
+      "snooze": "1502bd7156943a0f",
+      "slash": "cc8d12a108b15c8e",
+      "emergency_refund": "bc4934c38946b493",
+      "ack_awake": "d4ca3e920fb7ce40"
+    }
+  },
+  "cases": [
+    {
+      "name": "create_alarm_burn",
+      "inputs": {
+        "op": "create_alarm",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42,
+        "alarmTime": 1700000000,
+        "deadline": 1700001800,
+        "depositLamports": 100000000,
+        "penaltyRoute": 0,
+        "penaltyDestination": null
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+        "vaultPda": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "dd93baeece9b33a82a0000000000000000f153650000000008f853650000000000e1f505000000000000"
+      },
+      "txHex": "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000205090909090909090909090909090909090909090909090909090909090909090928221d74acf3399b7a70a458fc4fdb5c2f230fe72b61b879b4de14b5f7d2af7c4b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5f0000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf500202020202020202020202020202020202020202020202020202020202020202010404020100032add93baeece9b33a82a0000000000000000f153650000000008f853650000000000e1f505000000000000"
+    },
+    {
+      "name": "create_alarm_buddy",
+      "inputs": {
+        "op": "create_alarm",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 43,
+        "alarmTime": 1700000000,
+        "deadline": 1700001800,
+        "depositLamports": 100000000,
+        "penaltyRoute": 2,
+        "penaltyDestination": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx"
+      },
+      "derived": {
+        "alarmPda": "HPtXCJdCJfTE4qNTYGPTC2mCwdw5LT1oWVCKUMPgaZQM",
+        "vaultPda": "AXMHwagg8fVsNBdZYbeKDrZQmmimMhhLAMYBhViqQ7uH"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "HPtXCJdCJfTE4qNTYGPTC2mCwdw5LT1oWVCKUMPgaZQM",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "AXMHwagg8fVsNBdZYbeKDrZQmmimMhhLAMYBhViqQ7uH",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "dd93baeece9b33a82b0000000000000000f153650000000008f853650000000000e1f5050000000002010707070707070707070707070707070707070707070707070707070707070707"
+      },
+      "txHex": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100020509090909090909090909090909090909090909090909090909090909090909098d7f8d0ac1828a1c0b3b447e5d6fc8dccd8315c457576bf4ce8fa247c44b28e8f39805ed3dbff61b6cca5787fef2b791e3ea19e16b91376b605a8354298ec2a20000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf500202020202020202020202020202020202020202020202020202020202020202010404020100034add93baeece9b33a82b0000000000000000f153650000000008f853650000000000e1f5050000000002010707070707070707070707070707070707070707070707070707070707070707"
+    },
+    {
+      "name": "ack_awake",
+      "inputs": {
+        "op": "ack_awake",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          }
+        ],
+        "dataHex": "d4ca3e920fb7ce40"
+      },
+      "txHex": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100010309090909090909090909090909090909090909090909090909090909090909094b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5fd10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf500202020202020202020202020202020202020202020202020202020202020202010202010008d4ca3e920fb7ce40"
+    },
+    {
+      "name": "snooze",
+      "inputs": {
+        "op": "snooze",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42,
+        "expectedSnoozeCount": 0
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+        "vaultPda": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "1nc1nerator11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "1502bd7156943a0f00"
+      },
+      "txHex": "0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010002060909090909090909090909090909090909090909090909090909090909090909003390728d34116079bdc911bfff00dbd44d2ecdccf79ca6e10038e10000000028221d74acf3399b7a70a458fc4fdb5c2f230fe72b61b879b4de14b5f7d2af7c4b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5f0000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf5002020202020202020202020202020202020202020202020202020202020202020105050302010004091502bd7156943a0f00"
+    },
+    {
+      "name": "claim",
+      "inputs": {
+        "op": "claim",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+        "vaultPda": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "3ec6d6c1d59f6cd2"
+      },
+      "txHex": "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000205090909090909090909090909090909090909090909090909090909090909090928221d74acf3399b7a70a458fc4fdb5c2f230fe72b61b879b4de14b5f7d2af7c4b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5f0000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf50020202020202020202020202020202020202020202020202020202020202020201040402010003083ec6d6c1d59f6cd2"
+    },
+    {
+      "name": "emergency_refund",
+      "inputs": {
+        "op": "emergency_refund",
+        "owner": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+        "vaultPda": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "1nc1nerator11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "bc4934c38946b493"
+      },
+      "txHex": "0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010002060909090909090909090909090909090909090909090909090909090909090909003390728d34116079bdc911bfff00dbd44d2ecdccf79ca6e10038e10000000028221d74acf3399b7a70a458fc4fdb5c2f230fe72b61b879b4de14b5f7d2af7c4b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5f0000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf500202020202020202020202020202020202020202020202020202020202020202010505030201000408bc4934c38946b493"
+    },
+    {
+      "name": "slash_burn",
+      "inputs": {
+        "op": "slash",
+        "caller": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+        "alarmId": 42,
+        "penaltyRecipient": "1nc1nerator11111111111111111111111111111111"
+      },
+      "derived": {
+        "alarmPda": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+        "vaultPda": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV"
+      },
+      "instruction": {
+        "programId": "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+        "accounts": [
+          {
+            "pubkey": "63nhsXBjMvThrVVzxYrs1XDqxpSPVw12jL2V7iATSxYv",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "3hfUorFS3cHa3XxvVVwPWtQM5XDNQwENWxf5N8ise6TV",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "1nc1nerator11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": true
+          },
+          {
+            "pubkey": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+            "isSigner": true,
+            "isWritable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "isSigner": false,
+            "isWritable": false
+          }
+        ],
+        "dataHex": "cc8d12a108b15c8e"
+      },
+      "txHex": "0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010002060909090909090909090909090909090909090909090909090909090909090909003390728d34116079bdc911bfff00dbd44d2ecdccf79ca6e10038e10000000028221d74acf3399b7a70a458fc4fdb5c2f230fe72b61b879b4de14b5f7d2af7c4b014651fda7bf1316cabd4bc44ea16fca41a43b06f590e38b87028445523f5f0000000000000000000000000000000000000000000000000000000000000000d10db7fbe0d49e7b5046f3017d4d30674d4484fc0e032b65cb18dee0f70dcf500202020202020202020202020202020202020202020202020202020202020202010505030201000408cc8d12a108b15c8e"
+    }
+  ]
+}

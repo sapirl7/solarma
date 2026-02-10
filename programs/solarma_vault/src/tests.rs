@@ -730,6 +730,394 @@ mod unit_tests {
     }
 }
 
+#[cfg(test)]
+mod fuzz_tests {
+    use super::*;
+
+    #[derive(Clone, Copy, Debug)]
+    enum TimeKind {
+        BeforeAlarm,
+        AtAlarm,
+        Between,
+        AtDeadline,
+        AfterDeadline,
+    }
+
+    #[derive(Clone, Debug)]
+    enum Op {
+        Ack,
+        Snooze { expected_snooze_count: u8 },
+        Claim,
+        Slash,
+        Refund,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct ModelAlarm {
+        status: AlarmStatus,
+        alarm_time: i64,
+        deadline: i64,
+        initial_amount: u64,
+        remaining_amount: u64,
+        snooze_count: u8,
+        rent_minimum: u64,
+        vault_lamports: u64,
+        vault_closed: bool,
+    }
+
+    impl ModelAlarm {
+        fn new(alarm_time: i64, deadline: i64, deposit: u64, rent_minimum: u64) -> Self {
+            Self {
+                status: AlarmStatus::Created,
+                alarm_time,
+                deadline,
+                initial_amount: deposit,
+                remaining_amount: deposit,
+                snooze_count: 0,
+                rent_minimum,
+                vault_lamports: rent_minimum.saturating_add(deposit),
+                vault_closed: false,
+            }
+        }
+
+        fn is_terminal(&self) -> bool {
+            matches!(self.status, AlarmStatus::Claimed | AlarmStatus::Slashed)
+        }
+
+        fn assert_invariants(&self) {
+            assert!(
+                self.deadline > self.alarm_time,
+                "deadline must be > alarm_time"
+            );
+
+            assert!(
+                self.remaining_amount <= self.initial_amount,
+                "remaining cannot exceed initial"
+            );
+
+            assert!(
+                self.snooze_count <= MAX_SNOOZE_COUNT,
+                "snooze_count must be <= MAX_SNOOZE_COUNT"
+            );
+
+            if !self.vault_closed {
+                assert!(
+                    self.vault_lamports >= self.rent_minimum,
+                    "vault must stay rent-exempt while open"
+                );
+                let available = self.vault_lamports.saturating_sub(self.rent_minimum);
+                assert!(
+                    available >= self.remaining_amount,
+                    "vault available must cover remaining"
+                );
+            }
+
+            if self.is_terminal() {
+                assert!(self.vault_closed, "terminal implies vault closed");
+                assert_eq!(self.remaining_amount, 0, "terminal implies remaining == 0");
+                assert_eq!(
+                    self.vault_lamports, 0,
+                    "closed vault implies 0 lamports in model"
+                );
+            }
+
+            if self.vault_closed {
+                assert!(self.is_terminal(), "vault_closed implies terminal status");
+            }
+        }
+
+        fn apply(&mut self, op: Op, now: i64) -> Result<(), ()> {
+            if self.is_terminal() || self.vault_closed {
+                return Err(());
+            }
+
+            match op {
+                Op::Ack => {
+                    if self.status != AlarmStatus::Created {
+                        return Err(());
+                    }
+                    if !(now >= self.alarm_time && now < self.deadline) {
+                        return Err(());
+                    }
+                    self.status = AlarmStatus::Acknowledged;
+                    Ok(())
+                }
+                Op::Snooze {
+                    expected_snooze_count,
+                } => {
+                    if self.status != AlarmStatus::Created {
+                        return Err(());
+                    }
+                    if !(now >= self.alarm_time && now < self.deadline) {
+                        return Err(());
+                    }
+                    if self.snooze_count >= MAX_SNOOZE_COUNT {
+                        return Err(());
+                    }
+                    if expected_snooze_count != self.snooze_count {
+                        return Err(());
+                    }
+
+                    let cost =
+                        helpers::snooze_cost(self.remaining_amount, self.snooze_count).ok_or(())?;
+                    if cost == 0 {
+                        return Err(());
+                    }
+
+                    let available = self.vault_lamports.saturating_sub(self.rent_minimum);
+                    let final_cost = cost.min(available);
+                    if final_cost == 0 {
+                        return Err(());
+                    }
+
+                    self.vault_lamports = self.vault_lamports.checked_sub(final_cost).ok_or(())?;
+                    self.remaining_amount =
+                        self.remaining_amount.checked_sub(final_cost).ok_or(())?;
+
+                    self.snooze_count = self.snooze_count.checked_add(1).ok_or(())?;
+                    self.alarm_time = self
+                        .alarm_time
+                        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
+                        .ok_or(())?;
+                    self.deadline = self
+                        .deadline
+                        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
+                        .ok_or(())?;
+
+                    Ok(())
+                }
+                Op::Claim => {
+                    if !(self.status == AlarmStatus::Created
+                        || self.status == AlarmStatus::Acknowledged)
+                    {
+                        return Err(());
+                    }
+                    if !(now >= self.alarm_time && now < self.deadline) {
+                        return Err(());
+                    }
+                    self.status = AlarmStatus::Claimed;
+                    self.remaining_amount = 0;
+                    self.vault_closed = true;
+                    self.vault_lamports = 0;
+                    Ok(())
+                }
+                Op::Slash => {
+                    if !(self.status == AlarmStatus::Created
+                        || self.status == AlarmStatus::Acknowledged)
+                    {
+                        return Err(());
+                    }
+                    if now < self.deadline {
+                        return Err(());
+                    }
+                    self.status = AlarmStatus::Slashed;
+                    self.remaining_amount = 0;
+                    self.vault_closed = true;
+                    self.vault_lamports = 0;
+                    Ok(())
+                }
+                Op::Refund => {
+                    if self.status != AlarmStatus::Created {
+                        return Err(());
+                    }
+                    if now >= self.alarm_time {
+                        return Err(());
+                    }
+
+                    let penalty = helpers::emergency_penalty(self.remaining_amount).ok_or(())?;
+                    let final_penalty = helpers::cap_at_rent_exempt(
+                        penalty,
+                        self.vault_lamports,
+                        self.rent_minimum,
+                    );
+                    self.vault_lamports =
+                        self.vault_lamports.checked_sub(final_penalty).ok_or(())?;
+
+                    self.status = AlarmStatus::Claimed;
+                    self.remaining_amount = 0;
+                    self.vault_closed = true;
+                    self.vault_lamports = 0;
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct XorShift64 {
+        state: u64,
+    }
+
+    impl XorShift64 {
+        fn new(seed: u64) -> Self {
+            // Avoid the all-zero state.
+            Self {
+                state: if seed == 0 {
+                    0xdead_beef_cafe_f00d
+                } else {
+                    seed
+                },
+            }
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            let mut x = self.state;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.state = x;
+            x
+        }
+
+        fn next_u8(&mut self) -> u8 {
+            (self.next_u64() & 0xff) as u8
+        }
+
+        fn gen_range_u64(&mut self, start: u64, end_inclusive: u64) -> u64 {
+            if start >= end_inclusive {
+                return start;
+            }
+            let span = end_inclusive - start + 1;
+            start + (self.next_u64() % span)
+        }
+
+        fn gen_range_i64(&mut self, start: i64, end_inclusive: i64) -> i64 {
+            if start >= end_inclusive {
+                return start;
+            }
+            let span = (end_inclusive - start + 1) as u64;
+            start + (self.next_u64() % span) as i64
+        }
+
+        fn pick_time_kind(&mut self) -> TimeKind {
+            match self.next_u64() % 5 {
+                0 => TimeKind::BeforeAlarm,
+                1 => TimeKind::AtAlarm,
+                2 => TimeKind::Between,
+                3 => TimeKind::AtDeadline,
+                _ => TimeKind::AfterDeadline,
+            }
+        }
+
+        fn pick_op(&mut self) -> Op {
+            match self.next_u64() % 5 {
+                0 => Op::Ack,
+                1 => Op::Snooze {
+                    expected_snooze_count: self.next_u8(),
+                },
+                2 => Op::Claim,
+                3 => Op::Slash,
+                _ => Op::Refund,
+            }
+        }
+    }
+
+    fn pick_now(kind: TimeKind, alarm_time: i64, deadline: i64) -> i64 {
+        match kind {
+            TimeKind::BeforeAlarm => alarm_time.saturating_sub(1),
+            TimeKind::AtAlarm => alarm_time,
+            TimeKind::Between => {
+                let candidate = alarm_time.saturating_add(1);
+                if candidate < deadline {
+                    candidate
+                } else {
+                    alarm_time
+                }
+            }
+            TimeKind::AtDeadline => deadline,
+            TimeKind::AfterDeadline => deadline.saturating_add(1),
+        }
+    }
+
+    #[test]
+    fn fuzz_windows_partition_time_axis() {
+        let mut rng = XorShift64::new(1);
+        for _ in 0..10_000 {
+            let alarm_time = rng.gen_range_i64(10_000, 1_000_000_000);
+            let gap = rng.gen_range_i64(1, 100_000);
+            let deadline = alarm_time.saturating_add(gap);
+            if deadline <= alarm_time {
+                continue;
+            }
+
+            let now = rng.gen_range_i64(0, 1_100_000_000);
+
+            let refund = helpers::is_refund_window(alarm_time, now);
+            let claim = helpers::is_claim_window(alarm_time, deadline, now);
+            let slash = helpers::is_slash_window(deadline, now);
+
+            let sum = (refund as u8) + (claim as u8) + (slash as u8);
+            assert_eq!(sum, 1, "windows must partition time axis");
+            assert_eq!(helpers::is_snooze_window(alarm_time, deadline, now), claim);
+        }
+    }
+
+    #[test]
+    fn fuzz_cap_at_rent_exempt_is_safe() {
+        let mut rng = XorShift64::new(2);
+        for _ in 0..50_000 {
+            let desired = rng.next_u64();
+            let current = rng.next_u64();
+            let min_balance = rng.next_u64();
+
+            let capped = helpers::cap_at_rent_exempt(desired, current, min_balance);
+            assert!(capped <= desired);
+
+            let available = current.saturating_sub(min_balance);
+            assert!(capped <= available);
+
+            if current >= min_balance {
+                assert!(current - capped >= min_balance);
+            }
+        }
+    }
+
+    #[test]
+    fn fuzz_state_machine_preserves_invariants() {
+        for seed in 1u64..=2_000 {
+            let mut rng = XorShift64::new(seed);
+
+            let deposit = if rng.next_u64().is_multiple_of(4) {
+                0u64
+            } else {
+                rng.gen_range_u64(MIN_DEPOSIT_LAMPORTS, 10_000_000_000)
+            };
+            let rent_minimum = rng.gen_range_u64(1, 5_000_000);
+
+            let alarm_time = rng.gen_range_i64(10_000, 1_000_000_000);
+            let gap = rng.gen_range_i64(2, 100_000);
+            let deadline = alarm_time.saturating_add(gap);
+            if deadline <= alarm_time {
+                continue;
+            }
+
+            let mut m = ModelAlarm::new(alarm_time, deadline, deposit, rent_minimum);
+            m.assert_invariants();
+
+            let steps = (rng.next_u64() % 41) as usize;
+            for _ in 0..steps {
+                let op = rng.pick_op();
+                let tk = rng.pick_time_kind();
+                let now = pick_now(tk, m.alarm_time, m.deadline);
+
+                let before = m.clone();
+                let res = m.apply(op, now);
+
+                if res.is_err() {
+                    assert_eq!(m, before, "invalid ops must not mutate state");
+                }
+
+                if matches!(before.status, AlarmStatus::Claimed | AlarmStatus::Slashed) {
+                    assert!(res.is_err());
+                    assert_eq!(m, before);
+                }
+
+                m.assert_invariants();
+            }
+        }
+    }
+}
+
 /// Integration test scenarios (require local validator)
 /// Run with: anchor test
 #[cfg(feature = "test-bpf")]

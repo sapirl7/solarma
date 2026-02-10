@@ -85,6 +85,11 @@ anchor deploy --provider.cluster devnet
 - Android: logcat with tag `Solarma`
 - Anchor: Transaction explorer (Solscan, Solana Explorer)
 
+### Quick Event Report (No Server)
+```bash
+node scripts/monitor_program_events.cjs --limit 200
+```
+
 ### Key Metrics
 - Alarm fire rate
 - Wake proof completion rate

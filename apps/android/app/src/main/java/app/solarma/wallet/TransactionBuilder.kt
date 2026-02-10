@@ -251,6 +251,27 @@ class TransactionBuilder @Inject constructor(
         Log.d(TAG, "Final TX hex: ${tx.joinToString("") { "%02x".format(it) }}")
         return tx
     }
+
+    /**
+     * Build an unsigned transaction deterministically using a caller-provided blockhash.
+     *
+     * This exists to enable "transaction snapshot tests" that validate:
+     * - program id
+     * - account metas and ordering
+     * - compiled instruction indices
+     * - message/transaction serialization
+     *
+     * It does NOT touch the network (no RPC calls).
+     */
+    internal fun buildUnsignedTransactionForSnapshot(
+        feePayer: PublicKey,
+        instruction: SolarmaInstruction,
+        recentBlockhash: String
+    ): ByteArray {
+        val sortedAccounts = buildSortedAccountMetas(feePayer, instruction)
+        val message = buildMessage(recentBlockhash, sortedAccounts, instruction)
+        return buildUnsignedTransaction(message)
+    }
     
     /**
      * Account info for sorting and header computation
