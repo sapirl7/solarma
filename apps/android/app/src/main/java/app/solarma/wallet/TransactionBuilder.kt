@@ -25,6 +25,9 @@ class TransactionBuilder @Inject constructor(
         private val COMPUTE_BUDGET_PROGRAM_ID =
             PublicKey("ComputeBudget111111111111111111111111111111")
 
+        private val ATTESTATION_PUBKEY_BYTES =
+            decodeBase58ToBytes("2iXtA8oeZqUU5pofxK971TCEvFGfems2AcDRaZHKD2pQ")
+
         // Burn sink address (matches BURN_SINK in constants.rs)
         val BURN_SINK = PublicKey("1nc1nerator11111111111111111111111111111111")
     }
@@ -134,6 +137,51 @@ class TransactionBuilder @Inject constructor(
         )
 
         val instructions = computeBudgetInstructionsForCriticalTx() + instruction
+        buildTransaction(owner, instructions)
+    }
+
+    /**
+     * Optional: Build ack_awake_attested transaction.
+     * Prepends ComputeBudget instructions, then Ed25519 verify, then the program instruction.
+     */
+    suspend fun buildAckAwakeAttestedTransactionByPubkey(
+        owner: PublicKey,
+        alarmPda: PublicKey,
+        nonce: Long,
+        expTs: Long,
+        proofType: Int,
+        proofHash: ByteArray,
+        permitSignature: ByteArray,
+        cluster: String = PermitMessage.DEFAULT_CLUSTER
+    ): ByteArray = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Building ack_awake_attested tx: alarmPda=${alarmPda.toBase58()}, nonce=$nonce")
+
+        val message = PermitMessage.buildAck(
+            cluster = cluster,
+            programId = SolarmaInstructionBuilder.PROGRAM_ID,
+            alarmPda = alarmPda,
+            owner = owner,
+            nonce = nonce,
+            expTs = expTs,
+            proofType = proofType,
+            proofHash = proofHash
+        )
+        val edIx = Ed25519InstructionBuilder.buildVerify(
+            publicKeyBytes = ATTESTATION_PUBKEY_BYTES,
+            signatureBytes = permitSignature,
+            messageBytes = message
+        )
+
+        val programIx = instructionBuilder.buildAckAwakeAttested(
+            owner = owner,
+            alarmPda = alarmPda,
+            nonce = nonce,
+            expTs = expTs,
+            proofType = proofType.toByte(),
+            proofHash = proofHash
+        )
+
+        val instructions = computeBudgetInstructionsForCriticalTx() + listOf(edIx, programIx)
         buildTransaction(owner, instructions)
     }
     

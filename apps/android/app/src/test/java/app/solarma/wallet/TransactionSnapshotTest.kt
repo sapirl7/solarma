@@ -64,7 +64,7 @@ class TransactionSnapshotTest {
             val inputs = c.getJSONObject("inputs")
             val op = inputs.getString("op")
 
-            val (feePayer, instruction, derivedAlarmPda, derivedVaultPda) = when (op) {
+            val (feePayer, instruction, preInstructions, derivedAlarmPda, derivedVaultPda) = when (op) {
                 "create_alarm" -> {
                     val owner = PublicKey(inputs.getString("owner"))
                     val alarmId = inputs.getLong("alarmId")
@@ -88,7 +88,7 @@ class TransactionSnapshotTest {
                         penaltyRoute = penaltyRoute,
                         penaltyDestination = penaltyDestination
                     )
-                    Quad(owner, ix, pda.address, vault.address)
+                    Quad(owner, ix, emptyList(), pda.address, vault.address)
                 }
 
                 "ack_awake" -> {
@@ -97,7 +97,46 @@ class TransactionSnapshotTest {
 
                     val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
                     val ix = instructionBuilder.buildAckAwake(owner = owner, alarmPda = pda.address)
-                    Quad(owner, ix, pda.address, null)
+                    Quad(owner, ix, emptyList(), pda.address, null)
+                }
+
+                "ack_awake_attested" -> {
+                    val owner = PublicKey(inputs.getString("owner"))
+                    val alarmId = inputs.getLong("alarmId")
+                    val nonce = inputs.getLong("nonce")
+                    val expTs = inputs.getLong("expTs")
+                    val proofType = inputs.getInt("proofType")
+                    val proofHashHex = inputs.getString("proofHashHex")
+                    val signatureBase58 = inputs.getString("signatureBase58")
+
+                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                    val proofHash = decodeHexToBytesOrNull(proofHashHex)
+                        ?: error("Invalid proofHashHex in snapshot inputs")
+                    val message = PermitMessage.buildAck(
+                        cluster = PermitMessage.DEFAULT_CLUSTER,
+                        programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                        alarmPda = pda.address,
+                        owner = owner,
+                        nonce = nonce,
+                        expTs = expTs,
+                        proofType = proofType,
+                        proofHash = proofHash
+                    )
+                    val sigBytes = decodeBase58ToBytes(signatureBase58)
+                    val edIx = Ed25519InstructionBuilder.buildVerify(
+                        publicKeyBytes = decodeBase58ToBytes("2iXtA8oeZqUU5pofxK971TCEvFGfems2AcDRaZHKD2pQ"),
+                        signatureBytes = sigBytes,
+                        messageBytes = message
+                    )
+                    val ix = instructionBuilder.buildAckAwakeAttested(
+                        owner = owner,
+                        alarmPda = pda.address,
+                        nonce = nonce,
+                        expTs = expTs,
+                        proofType = proofType.toByte(),
+                        proofHash = proofHash
+                    )
+                    Quad(owner, ix, listOf(edIx), pda.address, null)
                 }
 
                 "snooze" -> {
@@ -114,7 +153,7 @@ class TransactionSnapshotTest {
                         sinkAddress = TransactionBuilder.BURN_SINK,
                         expectedSnoozeCount = expected
                     )
-                    Quad(owner, ix, pda.address, vault.address)
+                    Quad(owner, ix, emptyList(), pda.address, vault.address)
                 }
 
                 "claim" -> {
@@ -125,7 +164,7 @@ class TransactionSnapshotTest {
                     val vault = instructionBuilder.deriveVaultPda(pda.address)
 
                     val ix = instructionBuilder.buildClaim(owner = owner, alarmPda = pda.address)
-                    Quad(owner, ix, pda.address, vault.address)
+                    Quad(owner, ix, emptyList(), pda.address, vault.address)
                 }
 
                 "emergency_refund" -> {
@@ -140,7 +179,7 @@ class TransactionSnapshotTest {
                         alarmPda = pda.address,
                         sinkAddress = TransactionBuilder.BURN_SINK
                     )
-                    Quad(owner, ix, pda.address, vault.address)
+                    Quad(owner, ix, emptyList(), pda.address, vault.address)
                 }
 
                 "slash" -> {
@@ -156,7 +195,7 @@ class TransactionSnapshotTest {
                         alarmPda = pda.address,
                         penaltyRecipient = recipient
                     )
-                    Quad(caller, ix, pda.address, vault.address)
+                    Quad(caller, ix, emptyList(), pda.address, vault.address)
                 }
 
                 "sweep_acknowledged" -> {
@@ -171,7 +210,7 @@ class TransactionSnapshotTest {
                         alarmPda = pda.address,
                         owner = owner
                     )
-                    Quad(owner, ix, pda.address, vault.address)
+                    Quad(owner, ix, emptyList(), pda.address, vault.address)
                 }
 
                 else -> error("Unknown snapshot op '$op' in case '$name'")
@@ -199,8 +238,13 @@ class TransactionSnapshotTest {
             assertEquals("$name: dataHex", expectedIx.getString("dataHex"), instruction.data.toHex())
 
             val expectedTxHex = c.getString("txHex")
-            val isCritical = op == "ack_awake" || op == "claim" || op == "slash" || op == "sweep_acknowledged"
-            val instructions = if (isCritical) criticalPrefix() + instruction else listOf(instruction)
+            val isCritical = op == "ack_awake" ||
+                op == "ack_awake_attested" ||
+                op == "claim" ||
+                op == "slash" ||
+                op == "sweep_acknowledged"
+            val instructions =
+                (if (isCritical) criticalPrefix() else emptyList()) + preInstructions + instruction
             val actualTxHex =
                 txBuilder.buildUnsignedTransactionForSnapshot(feePayer, instructions, blockhash).toHex()
             assertEquals("$name: txHex", expectedTxHex, actualTxHex)
@@ -210,6 +254,7 @@ class TransactionSnapshotTest {
     private data class Quad(
         val feePayer: PublicKey,
         val instruction: SolarmaInstruction,
+        val preInstructions: List<SolarmaInstruction>,
         val alarmPda: PublicKey,
         val vaultPda: PublicKey?
     )

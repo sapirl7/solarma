@@ -42,6 +42,10 @@ android {
         buildConfigField("int", "SOLARMA_RPC_FANOUT", rpcFanout)
         buildConfigField("long", "SOLARMA_RPC_CONFIRM_TIMEOUT_MS", "${rpcConfirmTimeoutMs}L")
 
+        // Optional: attestation server (permit signing for ack_awake_attested).
+        val attestationUrl = (project.findProperty("SOLARMA_ATTESTATION_SERVER_URL") as String?) ?: ""
+        buildConfigField("String", "SOLARMA_ATTESTATION_SERVER_URL", "\"$attestationUrl\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -7,6 +7,7 @@ import android.util.Log
 import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.StatsEntity
 import app.solarma.data.local.StatsDao
+import app.solarma.wakeproof.WakeProofEngine
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlin.math.min
 import java.math.BigInteger
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,6 +30,7 @@ class TransactionProcessor @Inject constructor(
     private val walletManager: WalletManager,
     private val transactionBuilder: TransactionBuilder,
     private val rpcClient: SolanaRpcClient,
+    private val attestationClient: AttestationClient,
     private val alarmDao: AlarmDao,
     private val statsDao: StatsDao
 ) {
@@ -72,6 +75,12 @@ class TransactionProcessor @Inject constructor(
             if (pending.isEmpty()) return
 
             for (tx in pending) {
+                var cachedAttestedSigBytes: ByteArray? = null
+                var cachedAttestedExpTs: Long? = null
+                var cachedAttestedNonce: Long? = null
+                var cachedAttestedProofType: Int? = null
+                var cachedAttestedProofHash: ByteArray? = null
+
                 if (tx.retryCount >= MAX_RETRIES) {
                     transactionDao.updateStatus(tx.id, "FAILED", "Max retries exceeded", System.currentTimeMillis())
                     Log.w(TAG, "Transaction ${tx.id} failed after max retries")
@@ -211,6 +220,101 @@ class TransactionProcessor @Inject constructor(
                                 transactionBuilder.buildAckAwakeTransactionByPubkey(owner, alarmPda)
                             }
 
+                            "ACK_AWAKE_ATTESTED" -> {
+                                val deadlineMillis =
+                                    alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+                                if (nowMillis < alarm.alarmTimeMillis) {
+                                    transactionDao.updateStatus(
+                                        tx.id,
+                                        "PENDING",
+                                        "Too early to ACK",
+                                        nowMillis
+                                    )
+                                    Log.d(TAG, "ACK_AWAKE_ATTESTED skipped until alarm time for alarm ${alarm.id}")
+                                    return null
+                                }
+                                if (nowMillis >= deadlineMillis) {
+                                    transactionDao.updateStatus(
+                                        tx.id,
+                                        "FAILED",
+                                        "ACK window expired",
+                                        nowMillis
+                                    )
+                                    Log.w(TAG, "ACK_AWAKE_ATTESTED missed deadline for alarm ${alarm.id}")
+                                    return null
+                                }
+                                if (app.solarma.BuildConfig.SOLARMA_ATTESTATION_SERVER_URL.isBlank()) {
+                                    transactionDao.updateStatus(
+                                        tx.id,
+                                        "FAILED",
+                                        "Attestation server not configured",
+                                        nowMillis
+                                    )
+                                    return null
+                                }
+
+                                val proofType = alarm.wakeProofType
+                                val proofHash = computeProofHashForAttestation(alarm)
+                                if (proofHash == null) {
+                                    transactionDao.updateStatus(
+                                        tx.id,
+                                        "FAILED",
+                                        "Missing wake proof data for attestation",
+                                        nowMillis
+                                    )
+                                    return null
+                                }
+
+                                val nonce = tx.createdAt
+                                val expTs = cachedAttestedExpTs ?: ((System.currentTimeMillis() / 1000L) + 120L)
+
+                                if (cachedAttestedSigBytes == null ||
+                                    cachedAttestedNonce != nonce ||
+                                    cachedAttestedExpTs != expTs ||
+                                    cachedAttestedProofType != proofType ||
+                                    cachedAttestedProofHash?.contentEquals(proofHash) != true
+                                ) {
+                                    val proofHashHex = bytesToHexLower(proofHash)
+                                    val sigBase58 = attestationClient.requestAckPermit(
+                                        cluster = PermitMessage.DEFAULT_CLUSTER,
+                                        programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58(),
+                                        alarmPda = alarmPda.toBase58(),
+                                        owner = owner.toBase58(),
+                                        nonce = nonce,
+                                        expTs = expTs,
+                                        proofType = proofType,
+                                        proofHashHex = proofHashHex
+                                    ).getOrThrow()
+
+                                    val sigBytes = decodeBase58ToBytes(sigBase58)
+                                    if (sigBytes.size != 64) {
+                                        transactionDao.updateStatus(
+                                            tx.id,
+                                            "FAILED",
+                                            "Invalid attestation signature length",
+                                            nowMillis
+                                        )
+                                        return null
+                                    }
+
+                                    cachedAttestedSigBytes = sigBytes
+                                    cachedAttestedNonce = nonce
+                                    cachedAttestedExpTs = expTs
+                                    cachedAttestedProofType = proofType
+                                    cachedAttestedProofHash = proofHash
+                                }
+
+                                transactionBuilder.buildAckAwakeAttestedTransactionByPubkey(
+                                    owner = owner,
+                                    alarmPda = alarmPda,
+                                    nonce = nonce,
+                                    expTs = expTs,
+                                    proofType = proofType,
+                                    proofHash = proofHash,
+                                    permitSignature = cachedAttestedSigBytes!!
+                                )
+                            }
+
                             "CLAIM" -> {
                                 val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
                                 val claimUntilMillis =
@@ -338,6 +442,10 @@ class TransactionProcessor @Inject constructor(
 
                     val confirmTimeoutMs = when (tx.type) {
                         "ACK_AWAKE" -> {
+                            val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+                            (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(2_000L)
+                        }
+                        "ACK_AWAKE_ATTESTED" -> {
                             val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
                             (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(2_000L)
                         }
@@ -514,6 +622,10 @@ class TransactionProcessor @Inject constructor(
                 Log.i(TAG, "Alarm ${alarm.id} wake proof acknowledged on-chain")
             }
 
+            "ACK_AWAKE_ATTESTED" -> {
+                Log.i(TAG, "Alarm ${alarm.id} wake proof acknowledged on-chain (attested)")
+            }
+
             "SLASH" -> {
                 if (alarm.depositLamports > 0) {
                     statsDao.addSlashed(alarm.depositLamports)
@@ -574,6 +686,36 @@ class TransactionProcessor @Inject constructor(
     private suspend fun ensureStatsRow() {
         if (statsDao.getStatsOnce() == null) {
             statsDao.insert(StatsEntity())
+        }
+    }
+
+    private fun sha256(bytes: ByteArray): ByteArray {
+        return MessageDigest.getInstance("SHA-256").digest(bytes)
+    }
+
+    private fun computeProofHashForAttestation(alarm: app.solarma.data.local.AlarmEntity): ByteArray? {
+        return when (alarm.wakeProofType) {
+            WakeProofEngine.TYPE_NFC -> {
+                val decoded = decodeHexToBytesOrNull(alarm.tagHash) ?: return null
+                if (decoded.size != 32) return null
+                decoded
+            }
+            WakeProofEngine.TYPE_QR -> {
+                val code = alarm.qrCode ?: return null
+                sha256(code.toByteArray(Charsets.UTF_8))
+            }
+            WakeProofEngine.TYPE_STEPS -> {
+                // Steps proof doesn't have a compact "proof payload" today; we hash a stable description
+                // so the server can attest to the same value deterministically.
+                val completedAt = alarm.lastCompletedAt ?: 0L
+                val s = "steps|${alarm.id}|${alarm.targetSteps}|$completedAt"
+                sha256(s.toByteArray(Charsets.UTF_8))
+            }
+            else -> {
+                val completedAt = alarm.lastCompletedAt ?: 0L
+                val s = "none|${alarm.id}|$completedAt"
+                sha256(s.toByteArray(Charsets.UTF_8))
+            }
         }
     }
 }

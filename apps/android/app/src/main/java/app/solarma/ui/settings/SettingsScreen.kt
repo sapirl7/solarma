@@ -302,6 +302,24 @@ fun SettingsScreen(
                         subtitle = "Recommended: disabled",
                         onClick = onBatteryOptimization
                     )
+
+                    HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
+
+                    SettingsRow(
+                        icon = Icons.Outlined.Security,
+                        title = "Attested Mode (beta)",
+                        subtitle = "Requires a server-signed permit for ACK",
+                        trailingContent = {
+                            Switch(
+                                checked = uiState.attestedMode,
+                                onCheckedChange = { viewModel.setAttestedMode(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = SolanaGreen,
+                                    checkedTrackColor = SolanaGreen.copy(alpha = 0.3f)
+                                )
+                            )
+                        }
+                    )
                 }
             }
 

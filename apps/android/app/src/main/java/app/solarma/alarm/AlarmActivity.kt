@@ -43,10 +43,13 @@ import app.solarma.ui.components.QrCameraPreview
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import androidx.work.WorkManager
+import app.solarma.ui.settings.SettingsViewModel
+import app.solarma.ui.settings.dataStore
 
 /**
  * Full-screen alarm activity shown over lock screen.
@@ -349,11 +352,14 @@ class AlarmActivity : ComponentActivity() {
     private fun queueAckAwake(alarm: AlarmEntity) {
         lifecycleScope.launch {
             try {
+                val prefs = dataStore.data.first()
+                val attested = prefs[SettingsViewModel.KEY_ATTESTED_MODE] ?: false
+                val type = if (attested) "ACK_AWAKE_ATTESTED" else "ACK_AWAKE"
                 val queueId = transactionQueue.enqueue(
-                    type = "ACK_AWAKE",
+                    type = type,
                     alarmId = alarm.id
                 )
-                Log.i(TAG, "ACK_AWAKE queued: queueId=$queueId, alarmId=${alarm.id}")
+                Log.i(TAG, "$type queued: queueId=$queueId, alarmId=${alarm.id}")
             } catch (e: Exception) {
                 // Non-blocking: if ack fails, claim can still proceed
                 Log.w(TAG, "Failed to queue ack_awake (non-critical)", e)

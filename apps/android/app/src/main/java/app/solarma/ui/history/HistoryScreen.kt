@@ -124,6 +124,7 @@ fun TransactionCard(tx: PendingTransaction) {
             Triple("DEP", title, SolanaPurple)
         }
         "ACK_AWAKE" -> Triple("ACK", "Wake ACK", SolanaPurple)
+        "ACK_AWAKE_ATTESTED" -> Triple("ACK+", "Wake ACK (attested)", SolanaPurple)
         "CLAIM" -> Triple("CLM", "Claim", SolanaGreen)
         "SNOOZE" -> Triple("SNZ", "Snooze Penalty", WarningAmber)
         "SLASH" -> Triple("SLS", "Slashed", ErrorCrimson)

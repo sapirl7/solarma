@@ -221,6 +221,9 @@ SOLARMA_CU_PRICE_MICROLAMPORTS=1000
 # Optional: RPC fan-out send (same signed bytes submitted to multiple endpoints)
 SOLARMA_RPC_FANOUT=3
 SOLARMA_RPC_CONFIRM_TIMEOUT_MS=15000
+
+# Optional: attestation server (Attested Mode ACK permits)
+SOLARMA_ATTESTATION_SERVER_URL=https://your-attestation.example.com
 ```
 
 Do not commit real keys.

@@ -19,13 +19,24 @@ const requireFromProgram = createRequire(
 );
 const { PublicKey } = requireFromProgram("@solana/web3.js");
 const bs58 = requireFromProgram("bs58");
+const { ed25519 } = requireFromProgram("@noble/curves/ed25519");
 
 const PROGRAM_ID = new PublicKey("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
 const SYSTEM_PROGRAM_ID = new PublicKey("11111111111111111111111111111111");
+const SYSVAR_INSTRUCTIONS_ID = new PublicKey(
+  "Sysvar1nstructions1111111111111111111111111"
+);
 const BURN_SINK = new PublicKey("1nc1nerator11111111111111111111111111111111");
 const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
   "ComputeBudget111111111111111111111111111111"
 );
+const ED25519_PROGRAM_ID = new PublicKey(
+  "Ed25519SigVerify111111111111111111111111111"
+);
+
+const ATTESTATION_CLUSTER = "devnet";
+const ATTESTATION_SEED = new Uint8Array(32).fill(42);
+const ATTESTATION_PUBKEY_BYTES = ed25519.getPublicKey(ATTESTATION_SEED);
 
 // Must match Android BuildConfig defaults.
 const CU_LIMIT_CRITICAL = 200000;
@@ -76,6 +87,14 @@ function deriveAlarmPda(owner, alarmId) {
 function deriveVaultPda(alarmPda) {
   const [pda, bump] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), alarmPda.toBuffer()],
+    PROGRAM_ID
+  );
+  return { pda, bump };
+}
+
+function derivePermitNoncePda(alarmPda, nonce) {
+  const [pda, bump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("permit"), alarmPda.toBuffer(), u64le(nonce)],
     PROGRAM_ID
   );
   return { pda, bump };
@@ -231,6 +250,48 @@ function criticalIxsPrefix() {
   return out;
 }
 
+function buildEd25519VerifyIx({ publicKeyBytes, signatureBytes, messageBytes }) {
+  // Data layout matches @solana/web3.js Ed25519Program.createInstructionWithPublicKey (1 signature).
+  const pubkeyOffset = 16;
+  const signatureOffset = 48;
+  const messageOffset = 112;
+  const data = Buffer.alloc(messageOffset + messageBytes.length);
+
+  data.writeUInt8(1, 0); // num_signatures
+  data.writeUInt8(0, 1); // padding
+
+  data.writeUInt16LE(signatureOffset, 2);
+  data.writeUInt16LE(0xffff, 4);
+  data.writeUInt16LE(pubkeyOffset, 6);
+  data.writeUInt16LE(0xffff, 8);
+  data.writeUInt16LE(messageOffset, 10);
+  data.writeUInt16LE(messageBytes.length, 12);
+  data.writeUInt16LE(0xffff, 14);
+
+  Buffer.from(publicKeyBytes).copy(data, pubkeyOffset);
+  Buffer.from(signatureBytes).copy(data, signatureOffset);
+  Buffer.from(messageBytes).copy(data, messageOffset);
+
+  return instr(ED25519_PROGRAM_ID, [], data);
+}
+
+function buildAckPermitMessage({ programId, alarmPda, owner, nonce, expTs, proofType, proofHash }) {
+  const proofHex = Buffer.from(proofHash).toString("hex");
+  const parts = [
+    "solarma",
+    "ack",
+    ATTESTATION_CLUSTER,
+    programId.toBase58(),
+    alarmPda.toBase58(),
+    owner.toBase58(),
+    String(nonce),
+    String(expTs),
+    String(proofType),
+    proofHex,
+  ];
+  return Buffer.from(parts.join("|"), "utf8");
+}
+
 function buildCreateAlarmIx({
   owner,
   alarmId,
@@ -288,6 +349,45 @@ function buildAckAwakeIx({ owner, alarmId }) {
   ];
 
   return { alarmPda, instruction: instr(PROGRAM_ID, accounts, data) };
+}
+
+function buildAckAwakeAttestedIxs({ owner, alarmId, nonce, expTs, proofType, proofHash, signatureBytes }) {
+  const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
+  const { pda: permitNoncePda } = derivePermitNoncePda(alarmPda, nonce);
+
+  const messageBytes = buildAckPermitMessage({
+    programId: PROGRAM_ID,
+    alarmPda,
+    owner,
+    nonce,
+    expTs,
+    proofType,
+    proofHash,
+  });
+  const edIx = buildEd25519VerifyIx({
+    publicKeyBytes: ATTESTATION_PUBKEY_BYTES,
+    signatureBytes,
+    messageBytes,
+  });
+
+  const data = Buffer.concat([
+    discriminator("ack_awake_attested"),
+    u64le(nonce),
+    i64le(expTs),
+    Buffer.from([proofType & 0xff]),
+    Buffer.from(proofHash),
+  ]);
+
+  const accounts = [
+    meta(alarmPda, false, true),
+    meta(owner, true, true),
+    meta(permitNoncePda, false, true),
+    meta(SYSVAR_INSTRUCTIONS_ID, false, false),
+    meta(SYSTEM_PROGRAM_ID, false, false),
+  ];
+
+  const programIx = instr(PROGRAM_ID, accounts, data);
+  return { alarmPda, permitNoncePda, preInstructions: [edIx], instruction: programIx };
 }
 
 function buildSnoozeIx({ owner, alarmId, expectedSnoozeCount }) {
@@ -358,8 +458,15 @@ function buildSweepAcknowledgedIx({ owner, alarmId, caller }) {
 
 function toSnapshotCase(name, feePayer, blockhash, inputs, buildFn) {
   const built = buildFn();
-  const isCritical = new Set(["ack_awake", "claim", "slash", "sweep_acknowledged"]).has(inputs.op);
-  const allIxs = isCritical ? [...criticalIxsPrefix(), built.instruction] : [built.instruction];
+  const isCritical = new Set([
+    "ack_awake",
+    "ack_awake_attested",
+    "claim",
+    "slash",
+    "sweep_acknowledged",
+  ]).has(inputs.op);
+  const pre = built.preInstructions || [];
+  const allIxs = isCritical ? [...criticalIxsPrefix(), ...pre, built.instruction] : [...pre, built.instruction];
   const sortedAccounts = buildSortedAccountMetas(feePayer, allIxs);
   const message = buildMessage(blockhash, sortedAccounts, allIxs);
   const tx = buildUnsignedTransaction(message);
@@ -468,6 +575,51 @@ function main() {
       () => buildAckAwakeIx({ owner, alarmId })
     )
   );
+  {
+    const nonce = 123;
+    const expTs = alarmTime + 60;
+    const proofType = 2;
+    const proofHash = Buffer.alloc(32, 9);
+    const messageBytes = buildAckPermitMessage({
+      programId: PROGRAM_ID,
+      alarmPda: deriveAlarmPda(owner, alarmId).pda,
+      owner,
+      nonce,
+      expTs,
+      proofType,
+      proofHash,
+    });
+    const signatureBytes = ed25519.sign(messageBytes, ATTESTATION_SEED);
+    const signatureBase58 = bs58.encode(Buffer.from(signatureBytes));
+
+    cases.push(
+      toSnapshotCase(
+        "ack_awake_attested",
+        owner,
+        blockhash,
+        {
+          op: "ack_awake_attested",
+          owner: owner.toBase58(),
+          alarmId,
+          nonce,
+          expTs,
+          proofType,
+          proofHashHex: hex(proofHash),
+          signatureBase58,
+        },
+        () =>
+          buildAckAwakeAttestedIxs({
+            owner,
+            alarmId,
+            nonce,
+            expTs,
+            proofType,
+            proofHash,
+            signatureBytes,
+          })
+      )
+    );
+  }
   cases.push(
     toSnapshotCase(
       "snooze",
@@ -555,6 +707,7 @@ function main() {
         slash: hex(discriminator("slash")),
         emergency_refund: hex(discriminator("emergency_refund")),
         ack_awake: hex(discriminator("ack_awake")),
+        ack_awake_attested: hex(discriminator("ack_awake_attested")),
       },
     },
     cases,

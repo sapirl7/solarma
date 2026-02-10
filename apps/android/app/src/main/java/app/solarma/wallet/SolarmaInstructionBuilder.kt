@@ -47,6 +47,12 @@ class SolarmaInstructionBuilder @Inject constructor() {
             0x0f.toByte(), 0xb7.toByte(), 0xce.toByte(), 0x40.toByte()
         )
 
+        // sha256("global:ack_awake_attested")[0..8]
+        private val DISCRIMINATOR_ACK_AWAKE_ATTESTED = byteArrayOf(
+            0xff.toByte(), 0x97.toByte(), 0x4f.toByte(), 0x47.toByte(),
+            0xb0.toByte(), 0x59.toByte(), 0x15.toByte(), 0x91.toByte()
+        )
+
         // sha256("global:sweep_acknowledged")[0..8]
         private val DISCRIMINATOR_SWEEP_ACKNOWLEDGED = byteArrayOf(
             0x9a.toByte(), 0xd7.toByte(), 0xce.toByte(), 0x2d.toByte(),
@@ -148,6 +154,44 @@ class SolarmaInstructionBuilder @Inject constructor() {
         )
         
         return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_ACK_AWAKE)
+    }
+
+    /**
+     * Optional: Build ack_awake_attested instruction — requires an Ed25519 verify instruction in-tx.
+     */
+    fun buildAckAwakeAttested(
+        owner: PublicKey,
+        alarmPda: PublicKey,
+        nonce: Long,
+        expTs: Long,
+        proofType: Byte,
+        proofHash: ByteArray
+    ): SolarmaInstruction {
+        require(proofHash.size == 32) { "proofHash must be 32 bytes" }
+
+        val permitNoncePda = derivePermitNoncePda(alarmPda, nonce)
+
+        Log.d(
+            TAG,
+            "Building ack_awake_attested: alarm=${alarmPda.toBase58()}, nonce=$nonce, expTs=$expTs, permitNonce=${permitNoncePda.address.toBase58()}"
+        )
+
+        val keys = listOf(
+            AccountMeta(alarmPda, isSigner = false, isWritable = true),
+            AccountMeta(owner, isSigner = true, isWritable = true),
+            AccountMeta(permitNoncePda.address, isSigner = false, isWritable = true),
+            AccountMeta(SYSVAR_INSTRUCTIONS_ID, isSigner = false, isWritable = false),
+            AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false)
+        )
+
+        val buffer = ByteBuffer.allocate(8 + 8 + 8 + 1 + 32).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(DISCRIMINATOR_ACK_AWAKE_ATTESTED)
+        buffer.putLong(nonce)
+        buffer.putLong(expTs)
+        buffer.put(proofType)
+        buffer.put(proofHash)
+
+        return SolarmaInstruction(PROGRAM_ID, keys, buffer.array())
     }
     
     /**
@@ -258,6 +302,12 @@ class SolarmaInstructionBuilder @Inject constructor() {
         val seeds = listOf("alarm".toByteArray(), owner.bytes(), idBytes)
         return findProgramDerivedAddress(seeds, PROGRAM_ID)
     }
+
+    fun derivePermitNoncePda(alarmPda: PublicKey, nonce: Long): PdaResult {
+        val nonceBytes = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(nonce).array()
+        val seeds = listOf("permit".toByteArray(), alarmPda.bytes(), nonceBytes)
+        return findProgramDerivedAddress(seeds, PROGRAM_ID)
+    }
     
     /**
      * Derive vault PDA from alarm PDA.
@@ -318,6 +368,11 @@ class SolarmaInstructionBuilder @Inject constructor() {
  * System program ID.
  */
 val SYSTEM_PROGRAM_ID = PublicKey("11111111111111111111111111111111")
+
+/**
+ * Instructions sysvar (required for ack_awake_attested validation).
+ */
+val SYSVAR_INSTRUCTIONS_ID = PublicKey("Sysvar1nstructions1111111111111111111111111")
 
 /**
  * Program Derived Address result.

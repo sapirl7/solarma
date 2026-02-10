@@ -37,6 +37,7 @@ class SettingsViewModel @Inject constructor(
         val KEY_DEFAULT_STEPS = intPreferencesKey("default_steps")
         val KEY_DEFAULT_DEPOSIT = stringPreferencesKey("default_deposit")
         val KEY_DEFAULT_PENALTY = intPreferencesKey("default_penalty")
+        val KEY_ATTESTED_MODE = booleanPreferencesKey("attested_mode")
     }
     
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -57,7 +58,8 @@ class SettingsViewModel @Inject constructor(
                     isDevnet = prefs[KEY_IS_DEVNET] ?: true,
                     defaultSteps = prefs[KEY_DEFAULT_STEPS] ?: 50,
                     defaultDepositSol = prefs[KEY_DEFAULT_DEPOSIT]?.toDoubleOrNull() ?: 0.1,
-                    defaultPenalty = prefs[KEY_DEFAULT_PENALTY] ?: 0
+                    defaultPenalty = prefs[KEY_DEFAULT_PENALTY] ?: 0,
+                    attestedMode = prefs[KEY_ATTESTED_MODE] ?: false
                 )
 
                 val isDevnet = prefs[KEY_IS_DEVNET] ?: true
@@ -108,6 +110,15 @@ class SettingsViewModel @Inject constructor(
     
     fun setVibration(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(vibrationEnabled = enabled)
+    }
+
+    fun setAttestedMode(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(attestedMode = enabled)
+        viewModelScope.launch {
+            context.dataStore.edit { prefs ->
+                prefs[KEY_ATTESTED_MODE] = enabled
+            }
+        }
     }
     
     fun setDefaultSteps(steps: Int) {
@@ -231,6 +242,9 @@ data class SettingsUiState(
     val defaultSteps: Int = 50,
     val defaultDepositSol: Double = 0.1,
     val defaultPenalty: Int = 0, // 0=burn, 1=donate, 2=buddy
+
+    // Optional: server-signed permit required for ACK (beta)
+    val attestedMode: Boolean = false,
     
     // Wake Proof
     val nfcTagRegistered: Boolean = false,

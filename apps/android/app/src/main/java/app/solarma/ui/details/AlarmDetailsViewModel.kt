@@ -64,7 +64,12 @@ class AlarmDetailsViewModel @Inject constructor(
 
         ackJob?.cancel()
         ackJob = viewModelScope.launch {
-            pendingTransactionDao.observeLatestByTypeAndAlarm("ACK_AWAKE", id).collect { tx ->
+            combine(
+                pendingTransactionDao.observeLatestByTypeAndAlarm("ACK_AWAKE", id),
+                pendingTransactionDao.observeLatestByTypeAndAlarm("ACK_AWAKE_ATTESTED", id)
+            ) { a, b ->
+                listOfNotNull(a, b).maxByOrNull { it.createdAt }
+            }.collect { tx ->
                 _ackTx.value = tx
             }
         }
