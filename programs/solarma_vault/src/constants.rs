@@ -40,3 +40,28 @@ pub const CLAIM_GRACE_SECONDS: i64 = 120;
 /// (the configured `penalty_destination`) may call `slash`. After it expires,
 /// slash becomes permissionless again.
 pub const BUDDY_ONLY_SECONDS: i64 = 120;
+
+// ============================================================================
+// Attestation (optional)
+// ============================================================================
+
+/// Expected cluster label embedded in attestation permits.
+///
+/// This is an application-level value, not an on-chain sysvar. Update it when
+/// deploying the same program id to a different cluster.
+pub const ATTESTATION_CLUSTER: &str = "devnet";
+
+/// Domain separator for signed permits.
+pub const ATTESTATION_DOMAIN: &str = "solarma";
+
+/// Permit action name for ACK.
+pub const ATTESTATION_ACTION_ACK: &str = "ack";
+
+/// Expected Ed25519 public key of the attestation signer.
+///
+/// For local development/tests this is a deterministic key. Before production
+/// deployment, replace with your real server key and rotate via redeploy.
+pub const ATTESTATION_PUBKEY: Pubkey = Pubkey::new_from_array([
+    25, 127, 107, 35, 225, 108, 133, 50, 198, 171, 200, 56, 250, 205, 94, 167, 137, 190, 12, 118,
+    178, 146, 3, 52, 3, 155, 250, 139, 61, 54, 141, 97,
+]);

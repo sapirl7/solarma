@@ -76,6 +76,19 @@ pub mod solarma_vault {
         instructions::ack_awake::process_ack_awake(ctx)
     }
 
+    /// Optional: Record wake proof completion using a server-signed permit (Ed25519 verified in-tx).
+    pub fn ack_awake_attested(
+        ctx: Context<AckAwakeAttested>,
+        nonce: u64,
+        exp_ts: i64,
+        proof_type: u8,
+        proof_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::ack_awake_attested::process_ack_awake_attested(
+            ctx, nonce, exp_ts, proof_type, proof_hash,
+        )
+    }
+
     /// Permissionlessly return funds to owner if ACKed but never claimed within grace.
     pub fn sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()> {
         instructions::sweep_acknowledged::process_sweep_acknowledged(ctx)

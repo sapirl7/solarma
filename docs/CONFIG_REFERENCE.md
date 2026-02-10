@@ -9,6 +9,7 @@ Optional overrides (comma-separated endpoints):
 |----------|-------------|
 | `SOLANA_RPC_DEVNET` | Override Devnet RPC endpoints |
 | `SOLANA_RPC_MAINNET` | Override Mainnet RPC endpoints |
+| `SOLARMA_ATTESTATION_SERVER_URL` | Optional attestation server base URL (Attested Mode ACK permits) |
 
 Set in `~/.gradle/gradle.properties` or project `gradle.properties`.
 
@@ -63,3 +64,4 @@ solarma_vault = "PROGRAM_ID_HERE"
 | `default_penalty` | 0=Burn, 1=Donate, 2=Buddy |
 | `nfc_tag_hash` | Stored NFC tag hash (local only) |
 | `qr_code` | Stored QR code (local only) |
+| `attested_mode` | If true, queue `ACK_AWAKE_ATTESTED` instead of `ACK_AWAKE` |

@@ -1,6 +1,7 @@
 //! Instruction handlers
 
 pub mod ack_awake;
+pub mod ack_awake_attested;
 pub mod claim;
 pub mod create_alarm;
 pub mod emergency_refund;
@@ -12,6 +13,7 @@ pub mod sweep_acknowledged;
 // Re-export Accounts structs and Anchor-generated types for the #[program] macro.
 // Handler functions have unique names (process_*) so no glob collision occurs.
 pub use ack_awake::*;
+pub use ack_awake_attested::*;
 pub use claim::*;
 pub use create_alarm::*;
 pub use emergency_refund::*;

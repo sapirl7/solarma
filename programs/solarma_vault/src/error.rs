@@ -60,4 +60,22 @@ pub enum SolarmaError {
 
     #[msg("Buddy-only slash window active: only the buddy may slash")]
     BuddyOnlySlashWindow,
+
+    // ---------------------------------------------------------------------
+    // Attestation (optional)
+    // ---------------------------------------------------------------------
+    #[msg("Permit expired")]
+    PermitExpired,
+
+    #[msg("Missing Ed25519 verify instruction")]
+    MissingEd25519Verify,
+
+    #[msg("Invalid Ed25519 verify instruction")]
+    InvalidEd25519Verify,
+
+    #[msg("Attestation pubkey mismatch")]
+    AttestationPubkeyMismatch,
+
+    #[msg("Permit message mismatch")]
+    InvalidPermitMessage,
 }

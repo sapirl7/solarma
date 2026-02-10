@@ -114,3 +114,21 @@ impl Vault {
         + 32  // alarm
         + 1; // bump
 }
+
+/// Permit nonce PDA - marks an attestation permit nonce as used (anti-replay).
+#[account]
+pub struct PermitNonce {
+    /// Owner who paid for this nonce account (for debugging).
+    pub owner: Pubkey,
+    /// Unix timestamp after which the permit is invalid.
+    pub expires_at: i64,
+    /// PDA bump.
+    pub bump: u8,
+}
+
+impl PermitNonce {
+    pub const SIZE: usize = 8  // discriminator
+        + 32 // owner
+        + 8  // expires_at
+        + 1; // bump
+}

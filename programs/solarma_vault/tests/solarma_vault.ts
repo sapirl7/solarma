@@ -2,7 +2,17 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { SolarmaVault } from "../target/types/solarma_vault";
 import { expect } from "chai";
-import { SystemProgram, Transaction, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction } from "@solana/web3.js";
+import {
+    SystemProgram,
+    Transaction,
+    Keypair,
+    LAMPORTS_PER_SOL,
+    PublicKey,
+    sendAndConfirmTransaction,
+    Ed25519Program,
+    SYSVAR_INSTRUCTIONS_PUBKEY,
+} from "@solana/web3.js";
+import { ed25519 } from "@noble/curves/ed25519";
 
 describe("solarma_vault", () => {
     const provider = anchor.AnchorProvider.env();
@@ -54,6 +64,17 @@ describe("solarma_vault", () => {
     function deriveVaultPda(alarmPubkey: PublicKey): [PublicKey, number] {
         return PublicKey.findProgramAddressSync(
             [Buffer.from("vault"), alarmPubkey.toBuffer()],
+            program.programId
+        );
+    }
+
+    function derivePermitNoncePda(alarmPubkey: PublicKey, nonce: anchor.BN): [PublicKey, number] {
+        return PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("permit"),
+                alarmPubkey.toBuffer(),
+                Buffer.from(nonce.toArrayLike(Buffer, "le", 8)),
+            ],
             program.programId
         );
     }
@@ -1375,6 +1396,386 @@ describe("solarma_vault", () => {
                 expect.fail("Should have thrown InvalidAlarmState");
             } catch (err: any) {
                 expect(err.message).to.include("InvalidAlarmState");
+            }
+        });
+    });
+
+    // =========================================================================
+    // ACK AWAKE ATTESTED (optional)
+    // =========================================================================
+    describe("Ack Awake Attested (optional)", () => {
+        const ATTESTATION_CLUSTER = "devnet";
+        const ATTESTATION_SEED = new Uint8Array(32).fill(42);
+        const ATTESTATION_PUBKEY = ed25519.getPublicKey(ATTESTATION_SEED);
+
+        function buildPermitMessage(args: {
+            programId: PublicKey;
+            alarmPda: PublicKey;
+            owner: PublicKey;
+            nonce: anchor.BN;
+            expTs: anchor.BN;
+            proofType: number;
+            proofHash: Uint8Array;
+        }): Uint8Array {
+            const proofHex = Buffer.from(args.proofHash).toString("hex");
+            const parts = [
+                "solarma",
+                "ack",
+                ATTESTATION_CLUSTER,
+                args.programId.toBase58(),
+                args.alarmPda.toBase58(),
+                args.owner.toBase58(),
+                args.nonce.toString(),
+                args.expTs.toString(),
+                String(args.proofType),
+                proofHex,
+            ];
+            return Buffer.from(parts.join("|"), "utf8");
+        }
+
+        it("Accepts a valid permit and marks nonce used (Created → Acknowledged)", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 1800;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await warpForwardSlots(25);
+
+            const nonce = new anchor.BN(1);
+            const expTs = new anchor.BN((await getCurrentTimestamp()) + 60);
+            const proofType = 1;
+            const proofHash = new Uint8Array(32).fill(9);
+
+            const message = buildPermitMessage({
+                programId: program.programId,
+                alarmPda: alarm,
+                owner: owner.publicKey,
+                nonce,
+                expTs,
+                proofType,
+                proofHash,
+            });
+            const signature = ed25519.sign(message, ATTESTATION_SEED);
+
+            const edIx = Ed25519Program.createInstructionWithPublicKey({
+                publicKey: ATTESTATION_PUBKEY,
+                message,
+                signature,
+            });
+
+            const [permitNonce] = derivePermitNoncePda(alarm, nonce);
+            const ix = await program.methods
+                .ackAwakeAttested(nonce, expTs, proofType, Array.from(proofHash))
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                    permitNonce,
+                    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                    systemProgram: SystemProgram.programId,
+                })
+                .instruction();
+
+            const tx = new Transaction().add(edIx).add(ix);
+            await provider.sendAndConfirm(tx);
+
+            const alarmAccount = await program.account.alarm.fetch(alarm);
+            expect(alarmAccount.status).to.deep.equal({ acknowledged: {} });
+
+            const nonceAccount = await program.account.permitNonce.fetch(permitNonce);
+            expect(nonceAccount.owner.toString()).to.equal(owner.publicKey.toString());
+        });
+
+        it("FAILS: missing ed25519 verify instruction", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 1800;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await warpForwardSlots(25);
+
+            const nonce = new anchor.BN(2);
+            const expTs = new anchor.BN((await getCurrentTimestamp()) + 60);
+            const proofType = 1;
+            const proofHash = new Uint8Array(32).fill(1);
+
+            const [permitNonce] = derivePermitNoncePda(alarm, nonce);
+            const ix = await program.methods
+                .ackAwakeAttested(nonce, expTs, proofType, Array.from(proofHash))
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                    permitNonce,
+                    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                    systemProgram: SystemProgram.programId,
+                })
+                .instruction();
+
+            const tx = new Transaction().add(ix);
+            try {
+                await provider.sendAndConfirm(tx);
+                expect.fail("Should have failed MissingEd25519Verify");
+            } catch (err: any) {
+                expect(err.message).to.include("MissingEd25519Verify");
+            }
+        });
+
+        it("FAILS: wrong attestation pubkey (ed25519 verify passes, program rejects)", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 1800;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await warpForwardSlots(25);
+
+            const wrongSeed = new Uint8Array(32).fill(43);
+            const wrongPubkey = ed25519.getPublicKey(wrongSeed);
+
+            const nonce = new anchor.BN(3);
+            const expTs = new anchor.BN((await getCurrentTimestamp()) + 60);
+            const proofType = 1;
+            const proofHash = new Uint8Array(32).fill(2);
+
+            const message = buildPermitMessage({
+                programId: program.programId,
+                alarmPda: alarm,
+                owner: owner.publicKey,
+                nonce,
+                expTs,
+                proofType,
+                proofHash,
+            });
+            const signature = ed25519.sign(message, wrongSeed);
+
+            const edIx = Ed25519Program.createInstructionWithPublicKey({
+                publicKey: wrongPubkey,
+                message,
+                signature,
+            });
+
+            const [permitNonce] = derivePermitNoncePda(alarm, nonce);
+            const ix = await program.methods
+                .ackAwakeAttested(nonce, expTs, proofType, Array.from(proofHash))
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                    permitNonce,
+                    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                    systemProgram: SystemProgram.programId,
+                })
+                .instruction();
+
+            const tx = new Transaction().add(edIx).add(ix);
+            try {
+                await provider.sendAndConfirm(tx);
+                expect.fail("Should have failed AttestationPubkeyMismatch");
+            } catch (err: any) {
+                expect(err.message).to.include("AttestationPubkeyMismatch");
+            }
+        });
+
+        it("FAILS: expired permit", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 1800;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await warpForwardSlots(25);
+
+            const nonce = new anchor.BN(4);
+            const expTs = new anchor.BN(1); // in the past for local validator
+            const proofType = 1;
+            const proofHash = new Uint8Array(32).fill(3);
+
+            const message = buildPermitMessage({
+                programId: program.programId,
+                alarmPda: alarm,
+                owner: owner.publicKey,
+                nonce,
+                expTs,
+                proofType,
+                proofHash,
+            });
+            const signature = ed25519.sign(message, ATTESTATION_SEED);
+
+            const edIx = Ed25519Program.createInstructionWithPublicKey({
+                publicKey: ATTESTATION_PUBKEY,
+                message,
+                signature,
+            });
+
+            const [permitNonce] = derivePermitNoncePda(alarm, nonce);
+            const ix = await program.methods
+                .ackAwakeAttested(nonce, expTs, proofType, Array.from(proofHash))
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                    permitNonce,
+                    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                    systemProgram: SystemProgram.programId,
+                })
+                .instruction();
+
+            const tx = new Transaction().add(edIx).add(ix);
+            try {
+                await provider.sendAndConfirm(tx);
+                expect.fail("Should have failed PermitExpired");
+            } catch (err: any) {
+                expect(err.message).to.include("PermitExpired");
+            }
+        });
+
+        it("FAILS: replay nonce", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 1800;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await warpForwardSlots(25);
+
+            const nonce = new anchor.BN(5);
+            const expTs = new anchor.BN((await getCurrentTimestamp()) + 60);
+            const proofType = 1;
+            const proofHash = new Uint8Array(32).fill(4);
+
+            const message = buildPermitMessage({
+                programId: program.programId,
+                alarmPda: alarm,
+                owner: owner.publicKey,
+                nonce,
+                expTs,
+                proofType,
+                proofHash,
+            });
+            const signature = ed25519.sign(message, ATTESTATION_SEED);
+
+            const edIx = Ed25519Program.createInstructionWithPublicKey({
+                publicKey: ATTESTATION_PUBKEY,
+                message,
+                signature,
+            });
+
+            const [permitNonce] = derivePermitNoncePda(alarm, nonce);
+            const ix = await program.methods
+                .ackAwakeAttested(nonce, expTs, proofType, Array.from(proofHash))
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                    permitNonce,
+                    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                    systemProgram: SystemProgram.programId,
+                })
+                .instruction();
+
+            const tx1 = new Transaction().add(edIx).add(ix);
+            await provider.sendAndConfirm(tx1);
+
+            // Second attempt with the same nonce must fail (PDA already initialized).
+            const tx2 = new Transaction().add(edIx).add(ix);
+            try {
+                await provider.sendAndConfirm(tx2);
+                expect.fail("Should have failed replay nonce");
+            } catch (err: any) {
+                expect(err.message).to.match(/already in use|AccountAlreadyInitialized/i);
             }
         });
     });
