@@ -21,7 +21,7 @@ camerax = "1.5.3"
 coroutines = "1.10.1"
 
 # Solana
-mwa = "2.0.3"
+mwa = "2.1.0"
 sol4k = "0.7.0"
 tweetnacl = "0.1.6"
 
