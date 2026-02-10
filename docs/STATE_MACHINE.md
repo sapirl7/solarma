@@ -18,14 +18,22 @@ Let `now = Clock::get()?.unix_timestamp`:
 - Refund window: `now < alarm_time`
   - `emergency_refund` is allowed.
 - Active window: `alarm_time <= now < deadline`
-  - `ack_awake`, `snooze`, `claim` are allowed (subject to status/authority).
-- Slash window: `now >= deadline`
-  - `slash` is allowed (subject to status/routing).
+  - `ack_awake`, `snooze` are allowed (subject to status/authority).
+- Post-deadline ACK flow (only when `status == Acknowledged`)
+  - Claim grace: `deadline <= now <= deadline + CLAIM_GRACE_SECONDS`
+    - `claim` is allowed (owner only).
+  - Sweep: `now > deadline + CLAIM_GRACE_SECONDS`
+    - `sweep_acknowledged` is allowed (permissionless).
+- Slash window (only when `status == Created`): `now >= deadline`
+  - `slash` is allowed (subject to routing; Buddy has a short buddy-only window).
 
 Boundary conditions (important for tests):
 
-- At `now == alarm_time`: `claim/ack_awake/snooze` are allowed.
-- At `now == deadline`: `slash` is allowed, `claim/ack_awake/snooze` are not.
+- At `now == alarm_time`: `ack_awake/snooze` are allowed.
+- At `now == deadline`: `ack_awake/snooze` are not allowed. `slash` is allowed
+  for `Created` alarms, and `claim` is allowed for `Acknowledged` alarms.
+- At `now == deadline + CLAIM_GRACE_SECONDS`: `claim` is still allowed for
+  acknowledged alarms, sweep is not.
 
 ## Transitions (Mermaid)
 
@@ -37,11 +45,10 @@ stateDiagram-v2
 
     Created --> Created: snooze(expected_snooze_count)\n(now >= alarm_time && now < deadline)\n(owner, snooze_count < MAX)\n(expected == snooze_count)\n(+time, -deposit)
 
-    Created --> Claimed: claim\n(now >= alarm_time && now < deadline)\n(owner, close vault -> owner)
-    Acknowledged --> Claimed: claim\n(now >= alarm_time && now < deadline)\n(owner, close vault -> owner)
+    Acknowledged --> Claimed: claim\n(now >= alarm_time && now <= deadline + CLAIM_GRACE_SECONDS)\n(owner, close vault -> owner)
+    Acknowledged --> Claimed: sweep_acknowledged\n(now > deadline + CLAIM_GRACE_SECONDS)\n(anyone, close vault -> owner)
 
     Created --> Slashed: slash\n(now >= deadline)\n(anyone, close vault -> penalty_recipient)
-    Acknowledged --> Slashed: slash\n(now >= deadline)\n(anyone, close vault -> penalty_recipient)
 
     Created --> Claimed: emergency_refund\n(now < alarm_time)\n(owner, penalty -> BURN_SINK,\nclose vault -> owner)
 
@@ -63,6 +70,10 @@ stateDiagram-v2
 - `claim`
   - Closes the vault to the owner (returns deposit + rent).
   - Sets status to `Claimed` and clears `remaining_amount`.
+- `sweep_acknowledged`
+  - Permissionlessly closes the vault to the owner after grace expires
+    (returns deposit + rent).
+  - Sets status to `Claimed` and clears `remaining_amount`.
 - `slash`
   - Validates penalty recipient based on route.
   - Closes the vault to the penalty recipient (transfers deposit + rent).
@@ -71,4 +82,3 @@ stateDiagram-v2
   - Charges a percent penalty to `BURN_SINK` (rent-guarded).
   - Closes the vault to the owner.
   - Sets status to `Claimed` and clears `remaining_amount`.
-

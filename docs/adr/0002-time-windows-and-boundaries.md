@@ -4,6 +4,10 @@
 **Date:** 2026-01-28  
 **Author:** sapirl7
 
+> Note (2026-02-10): This ADR's "no grace after deadline" stance is superseded
+> by ADR-0007 for the specific case where the owner ACKed on-chain before the
+> deadline.
+
 ## Context
 
 The alarm lifecycle divides time into three non-overlapping windows. The

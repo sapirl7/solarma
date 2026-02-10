@@ -104,10 +104,13 @@ flowchart LR
 |------|--------|--------|
 | 1️⃣ | **Create alarm** with SOL deposit | Funds locked in vault |
 | 2️⃣ | **Wake up** and complete verification | Prove you're awake |
-| 3️⃣ | **Claim** before deadline | Get 100% deposit back |
+| 3️⃣ | **ACK** on-chain, then **CLAIM** (until `deadline + CLAIM_GRACE_SECONDS`) | Get 100% deposit back |
 | ❌ | **Miss deadline** | Penalty applied (burn/donate/buddy) |
 
 > **Snooze penalty:** 10% of remaining deposit × 2^n (doubles each use, compounds on shrinking balance)
+
+If you ACKed in time but missed claiming (e.g., bad RPC), anyone can call
+`sweep_acknowledged` after grace to return funds back to the owner.
 
 ---
 
