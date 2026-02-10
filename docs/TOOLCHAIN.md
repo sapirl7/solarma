@@ -10,8 +10,8 @@ This project uses pinned tool versions for repeatable builds. Source of truth:
 |-----------|---------|
 | Rust | stable (see `rust-toolchain.toml`) |
 | Anchor CLI | 0.32.1 |
-| Solana CLI | 1.18.26 |
-| Node.js | 18.x (LTS) |
+| Solana CLI | 2.3.0 (Agave) |
+| Node.js | 20.x (LTS) |
 | Java | 21 |
 | Kotlin | 1.9.x |
 | Android Gradle Plugin | 8.2.x |
@@ -21,4 +21,4 @@ This project uses pinned tool versions for repeatable builds. Source of truth:
 
 ## Notes
 - Use `avm install 0.32.1 && avm use 0.32.1` for Anchor.
-- Solana CLI should match the version in `Anchor.toml` to avoid build/runtime drift.
+- Solana CLI 2.3.0 (Agave) must match `Anchor.toml`. Install via `agave-install init 2.3.0`.
