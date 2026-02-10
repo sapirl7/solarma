@@ -163,11 +163,7 @@ pub fn snooze_time_extension(
 /// Cap a deduction at what's available above rent-exempt minimum.
 ///
 /// Returns the actual deductible amount.
-pub fn cap_at_rent_exempt(
-    desired: u64,
-    current_lamports: u64,
-    min_balance: u64,
-) -> u64 {
+pub fn cap_at_rent_exempt(desired: u64, current_lamports: u64, min_balance: u64) -> u64 {
     let available = current_lamports.saturating_sub(min_balance);
     desired.min(available)
 }

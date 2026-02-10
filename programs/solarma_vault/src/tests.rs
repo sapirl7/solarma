@@ -217,19 +217,21 @@ mod unit_tests {
     fn test_validate_alarm_params_valid() {
         let now = 1_000_000;
         assert!(helpers::validate_alarm_params(
-            now + 3600,      // alarm in 1 hour
-            now + 7200,      // deadline in 2 hours
+            now + 3600, // alarm in 1 hour
+            now + 7200, // deadline in 2 hours
             now,
-            1_000_000_000,   // 1 SOL
-            0,               // Burn
+            1_000_000_000, // 1 SOL
+            0,             // Burn
             false,
-        ).is_ok());
+        )
+        .is_ok());
     }
 
     #[test]
     fn test_validate_alarm_time_in_past() {
         let now = 1_000_000;
-        let result = helpers::validate_alarm_params(now - 1, now + 7200, now, 1_000_000_000, 0, false);
+        let result =
+            helpers::validate_alarm_params(now - 1, now + 7200, now, 1_000_000_000, 0, false);
         assert_eq!(result, Err("alarm_time_in_past"));
     }
 
@@ -244,17 +246,26 @@ mod unit_tests {
     fn test_validate_invalid_deadline() {
         let now = 1_000_000;
         // deadline == alarm_time
-        let result = helpers::validate_alarm_params(now + 3600, now + 3600, now, 1_000_000_000, 0, false);
+        let result =
+            helpers::validate_alarm_params(now + 3600, now + 3600, now, 1_000_000_000, 0, false);
         assert_eq!(result, Err("invalid_deadline"));
         // deadline < alarm_time
-        let result = helpers::validate_alarm_params(now + 3600, now + 1800, now, 1_000_000_000, 0, false);
+        let result =
+            helpers::validate_alarm_params(now + 3600, now + 1800, now, 1_000_000_000, 0, false);
         assert_eq!(result, Err("invalid_deadline"));
     }
 
     #[test]
     fn test_validate_deposit_too_small() {
         let now = 1_000_000;
-        let result = helpers::validate_alarm_params(now + 3600, now + 7200, now, MIN_DEPOSIT_LAMPORTS - 1, 0, false);
+        let result = helpers::validate_alarm_params(
+            now + 3600,
+            now + 7200,
+            now,
+            MIN_DEPOSIT_LAMPORTS - 1,
+            0,
+            false,
+        );
         assert_eq!(result, Err("deposit_too_small"));
     }
 
@@ -268,7 +279,8 @@ mod unit_tests {
     #[test]
     fn test_validate_invalid_penalty_route() {
         let now = 1_000_000;
-        let result = helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 5, false);
+        let result =
+            helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 5, false);
         assert_eq!(result, Err("invalid_penalty_route"));
     }
 
@@ -276,25 +288,51 @@ mod unit_tests {
     fn test_validate_buddy_route_needs_destination() {
         let now = 1_000_000;
         // Buddy route (2) without destination
-        let result = helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 2, false);
+        let result =
+            helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 2, false);
         assert_eq!(result, Err("penalty_destination_required"));
         // With destination
-        assert!(helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 2, true).is_ok());
+        assert!(helpers::validate_alarm_params(
+            now + 3600,
+            now + 7200,
+            now,
+            1_000_000_000,
+            2,
+            true
+        )
+        .is_ok());
     }
 
     #[test]
     fn test_validate_donate_route_needs_destination() {
         let now = 1_000_000;
-        let result = helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 1, false);
+        let result =
+            helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 1, false);
         assert_eq!(result, Err("penalty_destination_required"));
-        assert!(helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 1, true).is_ok());
+        assert!(helpers::validate_alarm_params(
+            now + 3600,
+            now + 7200,
+            now,
+            1_000_000_000,
+            1,
+            true
+        )
+        .is_ok());
     }
 
     #[test]
     fn test_validate_burn_route_no_destination_ok() {
         let now = 1_000_000;
         // Burn route (0) doesn't need destination
-        assert!(helpers::validate_alarm_params(now + 3600, now + 7200, now, 1_000_000_000, 0, false).is_ok());
+        assert!(helpers::validate_alarm_params(
+            now + 3600,
+            now + 7200,
+            now,
+            1_000_000_000,
+            0,
+            false
+        )
+        .is_ok());
     }
 
     // =========================================================================
@@ -419,7 +457,9 @@ mod unit_tests {
         let burn_sink = [1u8; 32];
         let charity = [5u8; 32];
 
-        assert!(helpers::validate_penalty_recipient(1, &charity, &burn_sink, Some(&charity)).is_ok());
+        assert!(
+            helpers::validate_penalty_recipient(1, &charity, &burn_sink, Some(&charity)).is_ok()
+        );
         assert_eq!(
             helpers::validate_penalty_recipient(1, &charity, &burn_sink, None),
             Err("penalty_destination_not_set")
@@ -588,9 +628,9 @@ mod unit_tests {
         let deposit = 1_000_000_000u64;
 
         // 1. Create alarm
-        assert!(helpers::validate_alarm_params(
-            alarm_time, deadline, now, deposit, 0, false
-        ).is_ok());
+        assert!(
+            helpers::validate_alarm_params(alarm_time, deadline, now, deposit, 0, false).is_ok()
+        );
 
         // 2. Before alarm: refund window is open, claim/snooze/slash closed
         assert!(helpers::is_refund_window(alarm_time, now));
@@ -632,8 +672,11 @@ mod unit_tests {
 
             // Extend time
             let (new_a, new_d) = helpers::snooze_time_extension(
-                current_alarm, current_deadline, DEFAULT_SNOOZE_EXTENSION_SECONDS
-            ).unwrap();
+                current_alarm,
+                current_deadline,
+                DEFAULT_SNOOZE_EXTENSION_SECONDS,
+            )
+            .unwrap();
             current_alarm = new_a;
             current_deadline = new_d;
         }
@@ -682,9 +725,9 @@ mod unit_tests {
     fn test_emergency_penalty_at_boundary() {
         // 1 lamport
         assert_eq!(helpers::emergency_penalty(1), Some(0)); // 1 * 5 / 100 = 0
-        // 20 lamports
+                                                            // 20 lamports
         assert_eq!(helpers::emergency_penalty(20), Some(1)); // 20 * 5 / 100 = 1
-        // 19 lamports
+                                                             // 19 lamports
         assert_eq!(helpers::emergency_penalty(19), Some(0)); // 19 * 5 / 100 = 0
     }
 }
