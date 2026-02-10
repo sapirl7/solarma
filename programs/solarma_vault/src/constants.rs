@@ -28,3 +28,15 @@ pub const DEFAULT_GRACE_PERIOD: i64 = 1800;
 /// Default snooze extension (in seconds)
 /// Default: 5 minutes = 300 seconds
 pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300;
+
+/// Claim grace window after `alarm.deadline` (in seconds).
+///
+/// If the owner ACKed in time, they may still claim up to `deadline + CLAIM_GRACE_SECONDS`.
+pub const CLAIM_GRACE_SECONDS: i64 = 120;
+
+/// Buddy-only slash window after `alarm.deadline` (in seconds).
+///
+/// Only applies when `penalty_route == Buddy`. During this window, only the buddy
+/// (the configured `penalty_destination`) may call `slash`. After it expires,
+/// slash becomes permissionless again.
+pub const BUDDY_ONLY_SECONDS: i64 = 120;

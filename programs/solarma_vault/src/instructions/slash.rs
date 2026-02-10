@@ -1,6 +1,6 @@
-//! Slash instruction - transfer deposit after deadline (permissionless)
+//! Slash instruction - transfer deposit after deadline (Buddy route has an initial buddy-only window)
 
-use crate::constants::BURN_SINK;
+use crate::constants::{BUDDY_ONLY_SECONDS, BURN_SINK};
 use crate::error::SolarmaError;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
@@ -9,8 +9,8 @@ use anchor_lang::prelude::*;
 pub struct Slash<'info> {
     #[account(
         mut,
-        // H3: Allow slash from both Created and Acknowledged states
-        constraint = (alarm.status == AlarmStatus::Created || alarm.status == AlarmStatus::Acknowledged) @ SolarmaError::InvalidAlarmState
+        // H4: ACK makes slash impossible.
+        constraint = alarm.status == AlarmStatus::Created @ SolarmaError::InvalidAlarmState
     )]
     pub alarm: Account<'info, Alarm>,
 
@@ -50,6 +50,20 @@ pub fn process_slash(ctx: Context<Slash>) -> Result<()> {
     // Validate penalty recipient based on route
     let route = PenaltyRoute::try_from(alarm.penalty_route)
         .map_err(|_| SolarmaError::InvalidPenaltyRoute)?;
+
+    // Buddy-only window: for a short period after deadline, only the buddy may slash.
+    if route == PenaltyRoute::Buddy {
+        let buddy = alarm
+            .penalty_destination
+            .ok_or(SolarmaError::PenaltyDestinationNotSet)?;
+        let buddy_only_until = alarm
+            .deadline
+            .checked_add(BUDDY_ONLY_SECONDS)
+            .ok_or(SolarmaError::Overflow)?;
+        if clock.unix_timestamp < buddy_only_until {
+            require!(caller_key == buddy, SolarmaError::BuddyOnlySlashWindow);
+        }
+    }
 
     match route {
         PenaltyRoute::Burn => {

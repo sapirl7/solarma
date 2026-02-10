@@ -4,8 +4,9 @@
 //! the pure business logic in `helpers.rs`, and all edge cases.
 
 use crate::constants::{
-    DEFAULT_GRACE_PERIOD, DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT,
-    EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
+    BUDDY_ONLY_SECONDS, CLAIM_GRACE_SECONDS, DEFAULT_GRACE_PERIOD,
+    DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT,
+    MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
 };
 use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, UserProfile, Vault};
@@ -46,7 +47,7 @@ mod unit_tests {
         assert_ne!(s, AlarmStatus::Created);
         assert_ne!(s, AlarmStatus::Claimed);
 
-        // Acknowledged is non-terminal (can transition to Claimed or Slashed)
+        // Acknowledged is non-terminal (can transition to Claimed)
         let s = AlarmStatus::Acknowledged;
         assert_ne!(s, AlarmStatus::Created);
     }
@@ -563,6 +564,16 @@ mod unit_tests {
         assert_eq!(DEFAULT_GRACE_PERIOD, 1800); // 30 minutes
     }
 
+    #[test]
+    fn test_claim_grace_seconds() {
+        assert_eq!(CLAIM_GRACE_SECONDS, 120);
+    }
+
+    #[test]
+    fn test_buddy_only_seconds() {
+        assert_eq!(BUDDY_ONLY_SECONDS, 120);
+    }
+
     // =========================================================================
     // Overflow safety
     // =========================================================================
@@ -741,6 +752,8 @@ mod fuzz_tests {
         Between,
         AtDeadline,
         AfterDeadline,
+        AtGraceDeadline,
+        AfterGrace,
     }
 
     #[derive(Clone, Debug)]
@@ -748,6 +761,7 @@ mod fuzz_tests {
         Ack,
         Snooze { expected_snooze_count: u8 },
         Claim,
+        Sweep,
         Slash,
         Refund,
     }
@@ -887,12 +901,25 @@ mod fuzz_tests {
                     Ok(())
                 }
                 Op::Claim => {
-                    if !(self.status == AlarmStatus::Created
-                        || self.status == AlarmStatus::Acknowledged)
-                    {
+                    if self.status != AlarmStatus::Acknowledged {
                         return Err(());
                     }
-                    if !(now >= self.alarm_time && now < self.deadline) {
+                    let grace_deadline = self.deadline.checked_add(CLAIM_GRACE_SECONDS).ok_or(())?;
+                    if !(now >= self.alarm_time && now <= grace_deadline) {
+                        return Err(());
+                    }
+                    self.status = AlarmStatus::Claimed;
+                    self.remaining_amount = 0;
+                    self.vault_closed = true;
+                    self.vault_lamports = 0;
+                    Ok(())
+                }
+                Op::Sweep => {
+                    if self.status != AlarmStatus::Acknowledged {
+                        return Err(());
+                    }
+                    let grace_deadline = self.deadline.checked_add(CLAIM_GRACE_SECONDS).ok_or(())?;
+                    if now <= grace_deadline {
                         return Err(());
                     }
                     self.status = AlarmStatus::Claimed;
@@ -902,9 +929,7 @@ mod fuzz_tests {
                     Ok(())
                 }
                 Op::Slash => {
-                    if !(self.status == AlarmStatus::Created
-                        || self.status == AlarmStatus::Acknowledged)
-                    {
+                    if self.status != AlarmStatus::Created {
                         return Err(());
                     }
                     if now < self.deadline {
@@ -990,29 +1015,33 @@ mod fuzz_tests {
         }
 
         fn pick_time_kind(&mut self) -> TimeKind {
-            match self.next_u64() % 5 {
+            match self.next_u64() % 7 {
                 0 => TimeKind::BeforeAlarm,
                 1 => TimeKind::AtAlarm,
                 2 => TimeKind::Between,
                 3 => TimeKind::AtDeadline,
-                _ => TimeKind::AfterDeadline,
+                4 => TimeKind::AfterDeadline,
+                5 => TimeKind::AtGraceDeadline,
+                _ => TimeKind::AfterGrace,
             }
         }
 
         fn pick_op(&mut self) -> Op {
-            match self.next_u64() % 5 {
+            match self.next_u64() % 6 {
                 0 => Op::Ack,
                 1 => Op::Snooze {
                     expected_snooze_count: self.next_u8(),
                 },
                 2 => Op::Claim,
-                3 => Op::Slash,
+                3 => Op::Sweep,
+                4 => Op::Slash,
                 _ => Op::Refund,
             }
         }
     }
 
     fn pick_now(kind: TimeKind, alarm_time: i64, deadline: i64) -> i64 {
+        let grace_deadline = deadline.saturating_add(CLAIM_GRACE_SECONDS);
         match kind {
             TimeKind::BeforeAlarm => alarm_time.saturating_sub(1),
             TimeKind::AtAlarm => alarm_time,
@@ -1026,7 +1055,41 @@ mod fuzz_tests {
             }
             TimeKind::AtDeadline => deadline,
             TimeKind::AfterDeadline => deadline.saturating_add(1),
+            TimeKind::AtGraceDeadline => grace_deadline,
+            TimeKind::AfterGrace => grace_deadline.saturating_add(1),
         }
+    }
+
+    #[test]
+    fn test_claim_grace_and_sweep_boundaries() {
+        let alarm_time = 1_000i64;
+        let deadline = 2_000i64;
+        let grace_deadline = deadline + CLAIM_GRACE_SECONDS;
+
+        let mut base = ModelAlarm::new(alarm_time, deadline, MIN_DEPOSIT_LAMPORTS, 1_000);
+        assert!(base.apply(Op::Ack, alarm_time).is_ok());
+        assert_eq!(base.status, AlarmStatus::Acknowledged);
+
+        // Claim is valid at deadline (after ACK).
+        let mut m = base.clone();
+        assert!(m.apply(Op::Claim, deadline).is_ok());
+
+        // Claim is valid at the inclusive grace deadline.
+        let mut m = base.clone();
+        assert!(m.apply(Op::Claim, grace_deadline).is_ok());
+
+        // Claim is invalid after grace.
+        let mut m = base.clone();
+        assert!(m.apply(Op::Claim, grace_deadline + 1).is_err());
+
+        // Sweep is invalid at grace deadline, valid strictly after.
+        let mut m = base.clone();
+        assert!(m.apply(Op::Sweep, grace_deadline).is_err());
+        assert!(m.apply(Op::Sweep, grace_deadline + 1).is_ok());
+
+        // ACK makes slash impossible.
+        let mut m = base.clone();
+        assert!(m.apply(Op::Slash, deadline).is_err());
     }
 
     #[test]

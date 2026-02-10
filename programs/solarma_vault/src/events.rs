@@ -77,3 +77,14 @@ pub struct WakeAcknowledged {
     pub alarm_id: u64,
     pub timestamp: i64,
 }
+
+/// Emitted when an acknowledged alarm is swept after the claim grace window.
+#[event]
+pub struct AlarmSwept {
+    pub owner: Pubkey,
+    pub alarm: Pubkey,
+    pub alarm_id: u64,
+    pub returned_amount: u64,
+    pub caller: Pubkey,
+    pub timestamp: i64,
+}

@@ -50,7 +50,7 @@ pub mod solarma_vault {
         )
     }
 
-    /// Claim the remaining deposit (before deadline)
+    /// Claim the remaining deposit (requires ACK; allowed until `deadline + CLAIM_GRACE_SECONDS`)
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::claim::process_claim(ctx)
     }
@@ -61,7 +61,7 @@ pub mod solarma_vault {
         instructions::snooze::process_snooze(ctx, expected_snooze_count)
     }
 
-    /// Slash the deposit after deadline (permissionless)
+    /// Slash the deposit after deadline (Buddy route has an initial buddy-only window)
     pub fn slash(ctx: Context<Slash>) -> Result<()> {
         instructions::slash::process_slash(ctx)
     }
@@ -74,5 +74,10 @@ pub mod solarma_vault {
     /// H3: Record wake proof completion on-chain
     pub fn ack_awake(ctx: Context<AckAwake>) -> Result<()> {
         instructions::ack_awake::process_ack_awake(ctx)
+    }
+
+    /// Permissionlessly return funds to owner if ACKed but never claimed within grace.
+    pub fn sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()> {
+        instructions::sweep_acknowledged::process_sweep_acknowledged(ctx)
     }
 }

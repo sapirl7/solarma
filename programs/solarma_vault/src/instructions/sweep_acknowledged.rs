@@ -1,4 +1,4 @@
-//! Claim instruction - return deposit to user after ACK, up to `deadline + CLAIM_GRACE_SECONDS`
+//! SweepAcknowledged instruction - permissionlessly close an ACKed alarm after claim grace.
 
 use crate::constants::CLAIM_GRACE_SECONDS;
 use crate::error::SolarmaError;
@@ -6,11 +6,10 @@ use crate::state::{Alarm, AlarmStatus, Vault};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct Claim<'info> {
+pub struct SweepAcknowledged<'info> {
     #[account(
         mut,
         has_one = owner,
-        // H4: Claim is only allowed after an on-chain ACK.
         constraint = alarm.status == AlarmStatus::Acknowledged @ SolarmaError::InvalidAlarmState
     )]
     pub alarm: Account<'info, Alarm>,
@@ -24,55 +23,54 @@ pub struct Claim<'info> {
     )]
     pub vault: Account<'info, Vault>,
 
+    /// Owner receives the swept funds (deposit + rent).
+    /// CHECK: Verified by `alarm.has_one(owner)`.
     #[account(mut)]
-    pub owner: Signer<'info>,
+    pub owner: UncheckedAccount<'info>,
 
-    pub system_program: Program<'info, System>,
+    /// Anyone can trigger a sweep once grace expires.
+    pub caller: Signer<'info>,
 }
 
-pub fn process_claim(ctx: Context<Claim>) -> Result<()> {
+pub fn process_sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()> {
     let alarm_key = ctx.accounts.alarm.key();
+    let caller_key = ctx.accounts.caller.key();
     let owner_key = ctx.accounts.owner.key();
     let alarm = &mut ctx.accounts.alarm;
     let clock = Clock::get()?;
-
-    // CRITICAL: Cannot claim BEFORE alarm time (wake proof not complete)
-    require!(
-        clock.unix_timestamp >= alarm.alarm_time,
-        SolarmaError::TooEarly
-    );
 
     let grace_deadline = alarm
         .deadline
         .checked_add(CLAIM_GRACE_SECONDS)
         .ok_or(SolarmaError::Overflow)?;
 
-    // CRITICAL: Cannot claim AFTER deadline + grace
+    // Sweep is only allowed strictly after the grace deadline.
     require!(
-        clock.unix_timestamp <= grace_deadline,
-        SolarmaError::ClaimGraceExpired
+        clock.unix_timestamp > grace_deadline,
+        SolarmaError::ClaimGraceNotExpired
     );
 
-    // The `close = owner` constraint automatically transfers all lamports
-    // (rent + remaining deposit) back to owner when vault account is closed
     let vault_lamports = ctx.accounts.vault.to_account_info().lamports();
 
-    emit!(crate::events::AlarmClaimed {
+    emit!(crate::events::AlarmSwept {
         owner: owner_key,
         alarm: alarm_key,
         alarm_id: alarm.alarm_id,
         returned_amount: vault_lamports,
+        caller: caller_key,
+        timestamp: clock.unix_timestamp,
     });
 
-    msg!(
-        "Claimed {} lamports back to owner (deposit + rent)",
-        vault_lamports
-    );
-
-    // Mark as claimed (terminal state)
+    // Terminalize with the same status as a normal claim.
     alarm.status = AlarmStatus::Claimed;
     alarm.remaining_amount = 0;
 
-    msg!("Alarm claimed successfully by {}", owner_key);
+    msg!(
+        "Swept alarm {} back to owner {} ({} lamports)",
+        alarm.alarm_id,
+        owner_key,
+        vault_lamports
+    );
+
     Ok(())
 }

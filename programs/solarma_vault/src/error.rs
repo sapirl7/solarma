@@ -51,4 +51,13 @@ pub enum SolarmaError {
 
     #[msg("Cannot request refund after alarm time has passed")]
     TooLateForRefund,
+
+    #[msg("Claim grace window has expired")]
+    ClaimGraceExpired,
+
+    #[msg("Claim grace window has not expired yet")]
+    ClaimGraceNotExpired,
+
+    #[msg("Buddy-only slash window active: only the buddy may slash")]
+    BuddyOnlySlashWindow,
 }
