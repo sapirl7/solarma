@@ -13,6 +13,7 @@ import app.solarma.ui.details.AlarmDetailsScreen
 import app.solarma.ui.history.HistoryScreen
 import app.solarma.ui.home.HomeScreen
 import app.solarma.ui.onboarding.OnboardingScreen
+import app.solarma.ui.settings.BatteryOptimizationScreen
 import app.solarma.ui.settings.SettingsScreen
 
 private const val PREFS_NAME = "solarma_prefs"
@@ -84,6 +85,13 @@ fun SolarmaNavHost(
         
         composable(Screen.Settings.route) {
             SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onBatteryOptimization = { navController.navigate(Screen.BatteryOptimization.route) }
+            )
+        }
+
+        composable(Screen.BatteryOptimization.route) {
+            BatteryOptimizationScreen(
                 onBack = { navController.popBackStack() }
             )
         }
@@ -102,5 +110,5 @@ sealed class Screen(val route: String) {
     }
     object History : Screen("history")
     object Settings : Screen("settings")
+    object BatteryOptimization : Screen("battery_optimization")
 }
-

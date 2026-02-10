@@ -44,7 +44,8 @@ import app.solarma.BuildConfig
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onBatteryOptimization: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val importState by viewModel.importState.collectAsState()
@@ -290,6 +291,20 @@ fun SettingsScreen(
                 }
             }
             
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // System Section
+            SettingsSection(title = "System") {
+                SettingsCard {
+                    SettingsRow(
+                        icon = Icons.Outlined.BatterySaver,
+                        title = "Battery Optimization",
+                        subtitle = "Recommended: disabled",
+                        onClick = onBatteryOptimization
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
             
             // Debug Section

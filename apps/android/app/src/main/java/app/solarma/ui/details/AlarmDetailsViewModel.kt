@@ -7,6 +7,8 @@ import app.solarma.data.local.AlarmEntity
 import app.solarma.wallet.PendingTransaction
 import app.solarma.wallet.PendingTransactionDao
 import app.solarma.wallet.OnchainAlarmService
+import app.solarma.wallet.TransactionProcessor
+import app.solarma.wallet.TransactionQueue
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -21,7 +23,9 @@ import javax.inject.Inject
 class AlarmDetailsViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
     private val onchainAlarmService: OnchainAlarmService,
-    private val pendingTransactionDao: PendingTransactionDao
+    private val pendingTransactionDao: PendingTransactionDao,
+    private val transactionQueue: TransactionQueue,
+    private val transactionProcessor: TransactionProcessor
 ) : ViewModel() {
     
     private val _alarm = MutableStateFlow<AlarmEntity?>(null)
@@ -33,6 +37,18 @@ class AlarmDetailsViewModel @Inject constructor(
     private val _pendingCreate = MutableStateFlow(false)
     val pendingCreate: StateFlow<Boolean> = _pendingCreate.asStateFlow()
     private var pendingJob: Job? = null
+
+    private val _ackTx = MutableStateFlow<PendingTransaction?>(null)
+    val ackTx: StateFlow<PendingTransaction?> = _ackTx.asStateFlow()
+    private var ackJob: Job? = null
+
+    private val _claimTx = MutableStateFlow<PendingTransaction?>(null)
+    val claimTx: StateFlow<PendingTransaction?> = _claimTx.asStateFlow()
+    private var claimJob: Job? = null
+
+    private val _sweepTx = MutableStateFlow<PendingTransaction?>(null)
+    val sweepTx: StateFlow<PendingTransaction?> = _sweepTx.asStateFlow()
+    private var sweepJob: Job? = null
     
     fun loadAlarm(id: Long) {
         viewModelScope.launch {
@@ -43,6 +59,27 @@ class AlarmDetailsViewModel @Inject constructor(
         pendingJob = viewModelScope.launch {
             pendingTransactionDao.observeActiveCount("CREATE_ALARM", id).collect { count ->
                 _pendingCreate.value = count > 0
+            }
+        }
+
+        ackJob?.cancel()
+        ackJob = viewModelScope.launch {
+            pendingTransactionDao.observeLatestByTypeAndAlarm("ACK_AWAKE", id).collect { tx ->
+                _ackTx.value = tx
+            }
+        }
+
+        claimJob?.cancel()
+        claimJob = viewModelScope.launch {
+            pendingTransactionDao.observeLatestByTypeAndAlarm("CLAIM", id).collect { tx ->
+                _claimTx.value = tx
+            }
+        }
+
+        sweepJob?.cancel()
+        sweepJob = viewModelScope.launch {
+            pendingTransactionDao.observeLatestByTypeAndAlarm("SWEEP_ACKNOWLEDGED", id).collect { tx ->
+                _sweepTx.value = tx
             }
         }
     }
@@ -129,6 +166,30 @@ class AlarmDetailsViewModel @Inject constructor(
                 .onFailure { e ->
                     _refundState.value = RefundState.Error(e.message ?: "Slash failed")
                 }
+        }
+    }
+
+    fun resendClaim(activityResultSender: ActivityResultSender) {
+        val currentAlarm = _alarm.value ?: return
+        if (!currentAlarm.hasDeposit || currentAlarm.onchainPubkey == null) return
+
+        viewModelScope.launch {
+            if (!transactionQueue.hasActive("CLAIM", currentAlarm.id)) {
+                transactionQueue.enqueue("CLAIM", currentAlarm.id)
+            }
+            transactionProcessor.processPendingTransactionsWithUi(activityResultSender)
+        }
+    }
+
+    fun requestSweep(activityResultSender: ActivityResultSender) {
+        val currentAlarm = _alarm.value ?: return
+        if (!currentAlarm.hasDeposit || currentAlarm.onchainPubkey == null) return
+
+        viewModelScope.launch {
+            if (!transactionQueue.hasActive("SWEEP_ACKNOWLEDGED", currentAlarm.id)) {
+                transactionQueue.enqueue("SWEEP_ACKNOWLEDGED", currentAlarm.id)
+            }
+            transactionProcessor.processPendingTransactionsWithUi(activityResultSender)
         }
     }
 }

@@ -211,8 +211,16 @@ For production stability, use a dedicated RPC provider and configure endpoints l
 
 ```properties
 # ~/.gradle/gradle.properties
-SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
-SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY,https://api.devnet.solana.com
+SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY,https://api.mainnet-beta.solana.com
+
+# Optional: priority fees / compute budget for critical transactions (ACK/CLAIM/SLASH/SWEEP)
+SOLARMA_CU_LIMIT_CRITICAL=200000
+SOLARMA_CU_PRICE_MICROLAMPORTS=1000
+
+# Optional: RPC fan-out send (same signed bytes submitted to multiple endpoints)
+SOLARMA_RPC_FANOUT=3
+SOLARMA_RPC_CONFIRM_TIMEOUT_MS=15000
 ```
 
 Do not commit real keys.

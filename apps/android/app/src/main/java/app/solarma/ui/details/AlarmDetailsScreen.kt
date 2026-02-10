@@ -53,6 +53,9 @@ fun AlarmDetailsScreen(
     val alarm by viewModel.alarm.collectAsState()
     val refundState by viewModel.refundState.collectAsState()
     val pendingCreate by viewModel.pendingCreate.collectAsState()
+    val ackTx by viewModel.ackTx.collectAsState()
+    val claimTx by viewModel.claimTx.collectAsState()
+    val sweepTx by viewModel.sweepTx.collectAsState()
     val context = LocalContext.current
     val activityResultSender = LocalActivityResultSender.current
     
@@ -130,6 +133,124 @@ fun AlarmDetailsScreen(
                     // Deposit card (if applicable — only show when actual deposit exists)
                     val hasActiveDeposit = currentAlarm.hasDeposit && currentAlarm.depositLamports > 0
                     if (hasActiveDeposit) {
+                        val ackConfirmed = ackTx?.status == "CONFIRMED"
+                        val claimConfirmed = claimTx?.status == "CONFIRMED"
+                        val deadlineMillis = currentAlarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+                        val claimUntilMillis =
+                            deadlineMillis + (OnchainParameters.CLAIM_GRACE_SECONDS * 1000L)
+                        val nowMillis = System.currentTimeMillis()
+
+                        if (ackConfirmed && !claimConfirmed) {
+                            val dtf = remember { DateTimeFormatter.ofPattern("MMM d, HH:mm:ss") }
+                            val ackAtMillis = ackTx?.lastAttemptAt ?: ackTx?.createdAt ?: 0L
+                            val ackAt = LocalDateTime.ofInstant(
+                                Instant.ofEpochMilli(ackAtMillis),
+                                ZoneId.systemDefault()
+                            ).format(dtf)
+                            val claimUntil = LocalDateTime.ofInstant(
+                                Instant.ofEpochMilli(claimUntilMillis),
+                                ZoneId.systemDefault()
+                            ).format(dtf)
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = SolarmaShapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "On-chain status",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "ACK confirmed at $ackAt",
+                                        color = TextSecondary,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        "You can CLAIM until $claimUntil",
+                                        color = TextSecondary,
+                                        fontSize = 13.sp
+                                    )
+
+                                    claimTx?.let { c ->
+                                        val label = when (c.status) {
+                                            "FAILED" -> "CLAIM failed"
+                                            "SENDING" -> "CLAIM sending"
+                                            "PENDING" -> "CLAIM pending"
+                                            "CONFIRMED" -> "CLAIM confirmed"
+                                            else -> "CLAIM ${c.status}"
+                                        }
+                                        Text(
+                                            label,
+                                            color = if (c.status == "FAILED") ErrorCrimson else TextSecondary,
+                                            fontSize = 13.sp
+                                        )
+                                        if (!c.lastError.isNullOrBlank()) {
+                                            Text(
+                                                c.lastError ?: "",
+                                                color = ErrorCrimson,
+                                                fontSize = 12.sp,
+                                                maxLines = 2
+                                            )
+                                        }
+                                        if (!c.lastSignature.isNullOrBlank()) {
+                                            Text(
+                                                "Last signature: ${c.lastSignature.take(8)}...",
+                                                color = TextMuted,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        val claimBusy = claimTx?.status == "PENDING" || claimTx?.status == "SENDING"
+                                        OutlinedButton(
+                                            onClick = { viewModel.resendClaim(activityResultSender) },
+                                            enabled = !claimBusy,
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = TextSecondary
+                                            )
+                                        ) {
+                                            Text("RESEND CLAIM")
+                                        }
+
+                                        val canSweep = nowMillis > claimUntilMillis
+                                        val sweepBusy = sweepTx?.status == "PENDING" || sweepTx?.status == "SENDING"
+                                        if (canSweep) {
+                                            Button(
+                                                onClick = { viewModel.requestSweep(activityResultSender) },
+                                                enabled = !sweepBusy,
+                                                modifier = Modifier.weight(1f),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = SolanaPurple,
+                                                    contentColor = Color.White
+                                                )
+                                            ) {
+                                                Text("SWEEP")
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        "If CLAIM is missed, SWEEP returns funds to the owner after the grace window.",
+                                        color = TextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+
                         DepositCard(
                             alarm = currentAlarm,
                             isProcessing = refundState is RefundState.Processing,
