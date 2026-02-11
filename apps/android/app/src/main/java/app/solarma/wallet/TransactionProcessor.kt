@@ -316,7 +316,7 @@ class TransactionProcessor @Inject constructor(
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    private fun computeSnoozeCost(remaining: Long, snoozeCount: Int): Long {
+    internal fun computeSnoozeCost(remaining: Long, snoozeCount: Int): Long {
         if (remaining <= 0) return 0
         val baseCost = remaining * OnchainParameters.SNOOZE_BASE_PERCENT / 100
         if (baseCost <= 0) return 0

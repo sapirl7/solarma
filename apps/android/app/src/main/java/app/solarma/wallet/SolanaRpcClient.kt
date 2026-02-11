@@ -44,7 +44,7 @@ class SolanaRpcClient @Inject constructor() {
     private val endpointFailureCount = mutableMapOf<String, Int>()
     private val endpointLastFailedAt = mutableMapOf<String, Long>()
     
-    private fun parseEndpoints(raw: String): List<String> {
+    internal fun parseEndpoints(raw: String): List<String> {
         return raw.split(',')
             .map { it.trim() }
             .filter { it.isNotEmpty() }
@@ -317,7 +317,7 @@ class SolanaRpcClient @Inject constructor() {
         }
     }
 
-    private fun parseResultObject(response: String): JSONObject {
+    internal fun parseResultObject(response: String): JSONObject {
         val json = JSONObject(response)
         if (json.has("error")) {
             val message = json.getJSONObject("error").optString("message", "RPC error")
@@ -326,7 +326,7 @@ class SolanaRpcClient @Inject constructor() {
         return json.getJSONObject("result")
     }
 
-    private fun parseResultValue(response: String): Any? {
+    internal fun parseResultValue(response: String): Any? {
         val json = JSONObject(response)
         if (json.has("error")) {
             val message = json.getJSONObject("error").optString("message", "RPC error")
