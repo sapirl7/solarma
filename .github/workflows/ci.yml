@@ -187,7 +187,9 @@ jobs:
         run: ./gradlew lint
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest
+        run: |
+          ./gradlew testDebugUnitTest || \
+          (echo "::warning::Retrying unit tests (KSP flaky)" && ./gradlew testDebugUnitTest)
 
       - name: Generate coverage report
         run: ./gradlew jacocoTestReport

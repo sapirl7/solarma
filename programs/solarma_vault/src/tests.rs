@@ -769,7 +769,7 @@ mod unit_tests {
     fn test_alarm_status_clone_and_copy() {
         let s = AlarmStatus::Acknowledged;
         let s2 = s; // Copy
-        let s3 = s.clone();
+        let s3 = s; // Copy (same as clone for Copy type)
         assert_eq!(s, s2);
         assert_eq!(s, s3);
     }
@@ -980,10 +980,9 @@ mod unit_tests {
             for count in 0..MAX_SNOOZE_COUNT {
                 if let Some(cost) = helpers::snooze_cost(remaining, count) {
                     let deduction = cost.min(remaining);
-                    remaining = remaining.checked_sub(deduction).expect(&format!(
-                        "UNDERFLOW at snooze #{} for deposit={}",
-                        count, deposit
-                    ));
+                    remaining = remaining.checked_sub(deduction).unwrap_or_else(|| {
+                        panic!("UNDERFLOW at snooze #{} for deposit={}", count, deposit)
+                    });
                 }
             }
             // After max snoozes, remaining must be >= 0 (checked by type) and < initial
@@ -1789,6 +1788,7 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_snooze_percent_within_valid_range() {
         // Snooze cost % must be > 0 and <= 100
         assert!(DEFAULT_SNOOZE_PERCENT > 0);
@@ -1796,6 +1796,7 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_max_snooze_count_reasonable() {
         // Must be > 0 (at least 1 snooze allowed) and < 64 (shift safety)
         assert!(MAX_SNOOZE_COUNT > 0);
@@ -1806,6 +1807,7 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_min_deposit_is_positive() {
         assert!(MIN_DEPOSIT_LAMPORTS > 0, "Min deposit must be positive");
         // 0.001 SOL = 1_000_000 lamports
@@ -1813,6 +1815,7 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_emergency_penalty_within_valid_range() {
         assert!(EMERGENCY_REFUND_PENALTY_PERCENT > 0);
         assert!(EMERGENCY_REFUND_PENALTY_PERCENT <= 100);
@@ -1820,12 +1823,14 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_grace_period_is_positive() {
         assert!(DEFAULT_GRACE_PERIOD > 0);
         assert_eq!(DEFAULT_GRACE_PERIOD, 1800); // 30 minutes
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_snooze_extension_is_positive() {
         assert!(DEFAULT_SNOOZE_EXTENSION_SECONDS > 0);
         assert_eq!(DEFAULT_SNOOZE_EXTENSION_SECONDS, 300); // 5 minutes
@@ -1866,6 +1871,7 @@ mod constants_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_grace_period_longer_than_snooze_extension() {
         // Grace period must be >= snooze extension to guarantee at least 1 snooze window
         assert!(
@@ -2073,9 +2079,10 @@ mod protocol_invariants {
         }
 
         // After slashing (close = penalty_recipient), all remaining
-        // vault lamports go to the penalty recipient
-        let slash_drain = vault_lamports; // includes rent-exempt
-        total_penalties_sent += remaining; // only deposit portion
+        // vault lamports go to the penalty recipient.
+        // vault_lamports includes rent-exempt; only deposit portion counted.
+        let _slash_drain = vault_lamports;
+        total_penalties_sent += remaining;
 
         // INVARIANT: penalties + remaining deposit = initial deposit
         // (The rent-exempt balance returns separately via close constraint)
@@ -2486,6 +2493,7 @@ mod protocol_invariants {
         let now = 1_000_000i64;
 
         // (alarm_time, deadline, deposit, route, has_dest, expected_result)
+        #[allow(clippy::type_complexity)]
         let table: Vec<(i64, i64, u64, u8, bool, Result<(), &str>)> = vec![
             // Valid cases
             (now + 100, now + 200, 0, 0, false, Ok(())), // zero deposit, burn
