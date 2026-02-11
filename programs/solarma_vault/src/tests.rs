@@ -1087,6 +1087,292 @@ mod unit_tests {
         let result = helpers::snooze_cost(1_000_000_000, 64);
         assert!(result.is_none(), "shift=64 must overflow");
     }
+
+    // =========================================================================
+    // LIFECYCLE: Full alarm lifecycle simulations
+    // =========================================================================
+
+    #[test]
+    fn test_lifecycle_create_snooze_claim() {
+        // Simulate: create alarm → snooze 3 times → verify claim window
+        let now = 1_000_000i64;
+        let alarm_time = now + 3600; // +1 hour
+        let deadline = alarm_time + DEFAULT_GRACE_PERIOD; // +30 min grace
+        let deposit = 1_000_000_000u64; // 1 SOL
+
+        // Validate creation
+        assert!(
+            helpers::validate_alarm_params(alarm_time, deadline, now, deposit, 0, false).is_ok()
+        );
+
+        // Before alarm fires: only refund valid
+        assert!(helpers::is_refund_window(alarm_time, now));
+        assert!(!helpers::is_claim_window(alarm_time, deadline, now));
+        assert!(!helpers::is_slash_window(deadline, now));
+        assert!(!helpers::is_snooze_window(alarm_time, deadline, now));
+
+        // Simulate 3 snoozes after alarm fires
+        let mut remaining = deposit;
+        let mut current_alarm = alarm_time;
+        let mut current_deadline = deadline;
+
+        for count in 0..3u8 {
+            // After alarm fires, in snooze window
+            assert!(helpers::is_snooze_window(
+                current_alarm,
+                current_deadline,
+                current_alarm
+            ));
+
+            let cost = helpers::snooze_cost(remaining, count).unwrap();
+            remaining -= cost;
+
+            let (new_a, new_d) = helpers::snooze_time_extension(
+                current_alarm,
+                current_deadline,
+                DEFAULT_SNOOZE_EXTENSION_SECONDS,
+            )
+            .unwrap();
+            current_alarm = new_a;
+            current_deadline = new_d;
+        }
+
+        // After snoozes: deposit reduced but not zero
+        assert!(remaining > 0);
+        assert!(remaining < deposit);
+
+        // Verify extended claim window
+        assert!(helpers::is_claim_window(
+            current_alarm,
+            current_deadline,
+            current_alarm + 60
+        ));
+    }
+
+    #[test]
+    fn test_lifecycle_create_and_slash_after_deadline() {
+        let now = 1_000_000i64;
+        let alarm_time = now + 3600;
+        let deadline = alarm_time + DEFAULT_GRACE_PERIOD;
+        let deposit = 500_000_000u64;
+
+        // Create valid alarm
+        assert!(
+            helpers::validate_alarm_params(alarm_time, deadline, now, deposit, 0, false).is_ok()
+        );
+
+        // After deadline: only slash valid
+        let after_deadline = deadline + 1;
+        assert!(helpers::is_slash_window(deadline, after_deadline));
+        assert!(!helpers::is_claim_window(
+            alarm_time,
+            deadline,
+            after_deadline
+        ));
+        assert!(!helpers::is_refund_window(alarm_time, after_deadline));
+
+        // Validate burn route slash
+        use crate::constants::BURN_SINK;
+        let sink = BURN_SINK.to_bytes();
+        assert!(helpers::validate_penalty_recipient(0, &sink, &sink, None).is_ok());
+    }
+
+    #[test]
+    fn test_validate_alarm_params_exhaustive_route_deposit_combos() {
+        // Test all route * deposit * destination combos
+        let now = 1_000_000i64;
+        let alarm_time = now + 3600;
+        let deadline = alarm_time + 7200;
+
+        let deposit_cases = [0u64, MIN_DEPOSIT_LAMPORTS, 1_000_000_000];
+        let route_cases = [0u8, 1, 2]; // Burn, Donate, Buddy
+        let dest_cases = [false, true];
+
+        for deposit in deposit_cases {
+            for route in route_cases {
+                for has_dest in dest_cases {
+                    let result = helpers::validate_alarm_params(
+                        alarm_time, deadline, now, deposit, route, has_dest,
+                    );
+
+                    if deposit == 0 {
+                        // Zero deposit: all combos should pass
+                        assert!(
+                            result.is_ok(),
+                            "Zero deposit should pass for route={}, dest={}",
+                            route,
+                            has_dest
+                        );
+                    } else if route == 0 {
+                        // Burn route: no destination needed
+                        assert!(
+                            result.is_ok(),
+                            "Burn with deposit should pass, dest={}",
+                            has_dest
+                        );
+                    } else if !has_dest {
+                        // Donate/Buddy without destination: must fail
+                        assert!(result.is_err(), "Route {} without dest should fail", route);
+                    } else {
+                        // Donate/Buddy with destination: should pass
+                        assert!(result.is_ok(), "Route {} with dest should pass", route);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_alarm_params_boundary_deposit() {
+        let now = 1_000_000i64;
+        let alarm_time = now + 3600;
+        let deadline = alarm_time + 7200;
+
+        // 1 lamport below minimum: should fail
+        let too_small = MIN_DEPOSIT_LAMPORTS - 1;
+        assert!(
+            helpers::validate_alarm_params(alarm_time, deadline, now, too_small, 0, false).is_err()
+        );
+
+        // Exactly minimum: should pass
+        assert!(helpers::validate_alarm_params(
+            alarm_time,
+            deadline,
+            now,
+            MIN_DEPOSIT_LAMPORTS,
+            0,
+            false
+        )
+        .is_ok());
+
+        // u64::MAX deposit: should pass (amount validation only checks minimum)
+        assert!(
+            helpers::validate_alarm_params(alarm_time, deadline, now, u64::MAX, 0, false).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_windows_cover_entire_timeline_no_gaps() {
+        // Property: for any timestamp, exactly one window should be active
+        // refund | snooze/claim | slash
+        let alarm_time = 1_000_000i64;
+        let deadline = 2_000_000i64;
+
+        let test_points = [
+            0,              // well before
+            alarm_time - 1, // 1s before alarm
+            alarm_time,     // exactly alarm
+            alarm_time + 1, // 1s after alarm
+            deadline - 1,   // 1s before deadline
+            deadline,       // exactly deadline
+            deadline + 1,   // 1s after deadline
+            3_000_000,      // well after
+        ];
+
+        for now in test_points {
+            let refund = helpers::is_refund_window(alarm_time, now);
+            let claim = helpers::is_claim_window(alarm_time, deadline, now);
+            let slash = helpers::is_slash_window(deadline, now);
+
+            let count = [refund, claim, slash].iter().filter(|&&x| x).count();
+
+            // Exactly one window should be active (no gaps, no overlaps)
+            // Exception: before alarm, only refund; AT alarm, only claim;
+            // AT deadline, only slash
+            assert!(
+                count == 1,
+                "Expected exactly 1 active window at now={}, got {}: refund={}, claim={}, slash={}",
+                now,
+                count,
+                refund,
+                claim,
+                slash
+            );
+        }
+    }
+
+    #[test]
+    fn test_snooze_time_extension_chain_10_snoozes() {
+        // Verify snooze extensions chain correctly for max snoozes
+        let mut alarm_time = 1_000_000i64;
+        let mut deadline = alarm_time + DEFAULT_GRACE_PERIOD;
+
+        for _ in 0..MAX_SNOOZE_COUNT {
+            let (new_a, new_d) = helpers::snooze_time_extension(
+                alarm_time,
+                deadline,
+                DEFAULT_SNOOZE_EXTENSION_SECONDS,
+            )
+            .expect("Extension should not overflow for 10 snoozes");
+
+            assert_eq!(new_a, alarm_time + DEFAULT_SNOOZE_EXTENSION_SECONDS);
+            assert_eq!(new_d, deadline + DEFAULT_SNOOZE_EXTENSION_SECONDS);
+            assert!(new_d > new_a, "Deadline must always be after alarm");
+
+            alarm_time = new_a;
+            deadline = new_d;
+        }
+
+        // After 10 snoozes, alarm is 10*300=3000s later
+        let expected_shift = (MAX_SNOOZE_COUNT as i64) * DEFAULT_SNOOZE_EXTENSION_SECONDS;
+        assert_eq!(alarm_time, 1_000_000 + expected_shift);
+    }
+
+    #[test]
+    fn test_security_all_windows_fuzz_timeline() {
+        // 100K random timestamps: every point maps to exactly one window
+        let alarm_time = 1_000_000i64;
+        let deadline = 2_000_000i64;
+        let mut rng = 0xdead_beef_u64;
+
+        for _ in 0..100_000 {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+
+            let now = (rng % 3_000_000) as i64;
+
+            let refund = helpers::is_refund_window(alarm_time, now);
+            let claim = helpers::is_claim_window(alarm_time, deadline, now);
+            let slash = helpers::is_slash_window(deadline, now);
+
+            let count = [refund, claim, slash].iter().filter(|&&x| x).count();
+            assert_eq!(
+                count, 1,
+                "Exactly 1 window at now={}: refund={} claim={} slash={}",
+                now, refund, claim, slash
+            );
+        }
+    }
+
+    #[test]
+    fn test_snooze_window_equals_claim_window() {
+        // Snooze and claim windows use same boundary logic
+        // is_snooze_window(a, d, t) == is_claim_window(a, d, t) for all t
+        let alarm_time = 1_000_000i64;
+        let deadline = 2_000_000i64;
+
+        let points = [
+            alarm_time - 1,
+            alarm_time,
+            alarm_time + 1,
+            deadline - 1,
+            deadline,
+            deadline + 1,
+            0,
+            1_500_000,
+            3_000_000,
+        ];
+
+        for now in points {
+            assert_eq!(
+                helpers::is_snooze_window(alarm_time, deadline, now),
+                helpers::is_claim_window(alarm_time, deadline, now),
+                "Snooze and claim windows differ at now={}",
+                now
+            );
+        }
+    }
 }
 
 #[cfg(test)]
