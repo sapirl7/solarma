@@ -1677,7 +1677,7 @@ mod fuzz_tests {
     #[test]
     fn fuzz_windows_partition_time_axis() {
         let mut rng = XorShift64::new(1);
-        for _ in 0..10_000 {
+        for _ in 0..25_000 {
             let alarm_time = rng.gen_range_i64(10_000, 1_000_000_000);
             let gap = rng.gen_range_i64(1, 100_000);
             let deadline = alarm_time.saturating_add(gap);
@@ -1700,7 +1700,7 @@ mod fuzz_tests {
     #[test]
     fn fuzz_cap_at_rent_exempt_is_safe() {
         let mut rng = XorShift64::new(2);
-        for _ in 0..50_000 {
+        for _ in 0..100_000 {
             let desired = rng.next_u64();
             let current = rng.next_u64();
             let min_balance = rng.next_u64();
@@ -1719,7 +1719,7 @@ mod fuzz_tests {
 
     #[test]
     fn fuzz_state_machine_preserves_invariants() {
-        for seed in 1u64..=2_000 {
+        for seed in 1u64..=5_000 {
             let mut rng = XorShift64::new(seed);
 
             let deposit = if rng.next_u64().is_multiple_of(4) {
