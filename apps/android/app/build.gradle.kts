@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.ktlint)
+    id("jacoco")
 }
 
 android {
@@ -93,6 +94,33 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+    val kotlinClasses = fileTree("build/tmp/kotlin-classes/debug") {
+        exclude(
+            "**/R.class", "**/R$*.class",
+            "**/BuildConfig.*", "**/Manifest*.*",
+            "**/*_Hilt*.*", "**/Hilt_*.*",
+            "**/*_Factory.*", "**/*_MembersInjector.*",
+            "**/*Directions*.*", "**/*Args*.*",
+        )
+    }
+    val javaClasses = fileTree("build/intermediates/javac/debug/classes") {
+        exclude(
+            "**/R.class", "**/R$*.class",
+            "**/BuildConfig.*", "**/Manifest*.*",
+        )
+    }
+    classDirectories.setFrom(kotlinClasses, javaClasses)
+    sourceDirectories.setFrom("src/main/java", "src/main/kotlin")
+    executionData.setFrom(fileTree("build") { include("**/*.exec") })
 }
 
 dependencies {

@@ -13,6 +13,7 @@ use crate::state::{Alarm, AlarmStatus, PenaltyRoute, UserProfile, Vault};
 #[cfg(test)]
 mod unit_tests {
     use super::*;
+    use anchor_lang::prelude::Pubkey;
 
     // =========================================================================
     // Account SIZE verification (compile-time)
@@ -727,6 +728,80 @@ mod unit_tests {
         assert_eq!(helpers::emergency_penalty(20), Some(1)); // 20 * 5 / 100 = 1
                                                              // 19 lamports
         assert_eq!(helpers::emergency_penalty(19), Some(0)); // 19 * 5 / 100 = 0
+    }
+
+    // =========================================================================
+    // State struct coverage
+    // =========================================================================
+
+    #[test]
+    fn test_alarm_default_fields() {
+        let alarm = Alarm::default();
+        assert_eq!(alarm.owner, Pubkey::default());
+        assert_eq!(alarm.alarm_id, 0);
+        assert_eq!(alarm.alarm_time, 0);
+        assert_eq!(alarm.deadline, 0);
+        assert_eq!(alarm.initial_amount, 0);
+        assert_eq!(alarm.remaining_amount, 0);
+        assert_eq!(alarm.penalty_route, 0);
+        assert!(alarm.penalty_destination.is_none());
+        assert_eq!(alarm.snooze_count, 0);
+        assert_eq!(alarm.status, AlarmStatus::Created);
+        assert_eq!(alarm.bump, 0);
+        assert_eq!(alarm.vault_bump, 0);
+    }
+
+    #[test]
+    fn test_user_profile_default_fields() {
+        let profile = UserProfile::default();
+        assert_eq!(profile.owner, Pubkey::default());
+        assert!(profile.tag_hash.is_none());
+        assert_eq!(profile.bump, 0);
+    }
+
+    #[test]
+    fn test_vault_size_matches_expected() {
+        // Vault: discriminator(8) + alarm pubkey(32) + bump(1) = 41
+        assert_eq!(Vault::SIZE, 41);
+    }
+
+    #[test]
+    fn test_alarm_status_clone_and_copy() {
+        let s = AlarmStatus::Acknowledged;
+        let s2 = s; // Copy
+        let s3 = s.clone();
+        assert_eq!(s, s2);
+        assert_eq!(s, s3);
+    }
+
+    #[test]
+    fn test_penalty_route_clone_and_debug() {
+        let r = PenaltyRoute::Donate;
+        let r2 = r; // Copy
+        assert_eq!(r, r2);
+        // Debug impl produces non-empty string
+        let dbg = format!("{:?}", r);
+        assert!(dbg.contains("Donate"));
+    }
+
+    #[test]
+    fn test_alarm_status_all_variants_debug() {
+        let variants = [
+            AlarmStatus::Created,
+            AlarmStatus::Acknowledged,
+            AlarmStatus::Claimed,
+            AlarmStatus::Slashed,
+        ];
+        for v in &variants {
+            let dbg = format!("{:?}", v);
+            assert!(!dbg.is_empty());
+        }
+        // All variants are distinct
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(variants[i], variants[j]);
+            }
+        }
     }
 }
 
