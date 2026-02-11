@@ -38,7 +38,7 @@
     <string name="no_transactions_body">Create an alarm with deposit to see history</string>
 
     <!-- Balance Pre-check -->
-    <string name="insufficient_balance">Insufficient balance: %.4f SOL available, ~%.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com</string>
+    <string name="insufficient_balance">Insufficient balance: %1$.4f SOL available, ~%2$.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title_1">Stake Your Wake</string>

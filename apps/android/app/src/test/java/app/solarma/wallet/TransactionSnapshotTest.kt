@@ -8,7 +8,8 @@ import org.sol4k.PublicKey
 
 class TransactionSnapshotTest {
     private fun loadSnapshotRoot(): JSONObject {
-        val stream = javaClass.classLoader?.getResourceAsStream("tx_snapshots/solarma_vault.json")
+        val stream = javaClass.getResourceAsStream("/tx_snapshots/solarma_vault.json")
+            ?: Thread.currentThread().contextClassLoader?.getResourceAsStream("tx_snapshots/solarma_vault.json")
         assertNotNull("Missing tx snapshot resource: tx_snapshots/solarma_vault.json", stream)
         val text = stream!!.bufferedReader(Charsets.UTF_8).use { it.readText() }
         return JSONObject(text)
