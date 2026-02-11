@@ -803,6 +803,290 @@ mod unit_tests {
             }
         }
     }
+
+    // =========================================================================
+    // SECURITY: Inline instruction logic equivalence tests
+    // These verify that helpers produce the same results as the inline
+    // arithmetic in instruction handlers (create_alarm, snooze, slash, etc.)
+    // =========================================================================
+
+    #[test]
+    fn test_security_snooze_inline_matches_helper() {
+        // snooze.rs calculates: base = remaining * 10 / 100, cost = base * 2^count
+        // helpers::snooze_cost should produce identical results
+        let test_cases: Vec<(u64, u8)> = vec![
+            (1_000_000_000, 0), // 1 SOL, first snooze
+            (1_000_000_000, 5), // 1 SOL, 6th snooze
+            (500_000_000, 9),   // 0.5 SOL, last valid snooze
+            (MIN_DEPOSIT_LAMPORTS, 0),
+            (10_000_000_000, 3), // 10 SOL
+        ];
+
+        for (remaining, count) in test_cases {
+            // Inline calculation from snooze.rs
+            let inline_base = remaining
+                .checked_mul(DEFAULT_SNOOZE_PERCENT)
+                .and_then(|v| v.checked_div(100));
+            let inline_cost = inline_base.and_then(|base| {
+                let mult = 1u64.checked_shl(count as u32)?;
+                base.checked_mul(mult).map(|c| c.min(remaining))
+            });
+
+            let helper_cost = helpers::snooze_cost(remaining, count);
+
+            assert_eq!(
+                inline_cost, helper_cost,
+                "Divergence at remaining={}, count={}",
+                remaining, count
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_emergency_penalty_inline_matches_helper() {
+        // emergency_refund.rs: remaining * PENALTY_PERCENT / 100
+        let amounts = [
+            0,
+            1,
+            100,
+            MIN_DEPOSIT_LAMPORTS,
+            1_000_000_000,
+            100_000_000_000,
+        ];
+
+        for amount in amounts {
+            let inline = amount
+                .checked_mul(EMERGENCY_REFUND_PENALTY_PERCENT)
+                .and_then(|v| v.checked_div(100));
+            let helper = helpers::emergency_penalty(amount);
+            assert_eq!(inline, helper, "Divergence at amount={}", amount);
+        }
+    }
+
+    #[test]
+    fn test_security_slash_burn_route_requires_burn_sink() {
+        // slash.rs: Burn route requires recipient == BURN_SINK
+        use crate::constants::BURN_SINK;
+        let burn_sink_bytes = BURN_SINK.to_bytes();
+        let wrong = [0u8; 32];
+
+        assert!(
+            helpers::validate_penalty_recipient(0, &burn_sink_bytes, &burn_sink_bytes, None)
+                .is_ok()
+        );
+        assert!(helpers::validate_penalty_recipient(0, &wrong, &burn_sink_bytes, None).is_err());
+    }
+
+    #[test]
+    fn test_security_slash_donate_route_requires_exact_destination() {
+        use crate::constants::BURN_SINK;
+        let burn_sink_bytes = BURN_SINK.to_bytes();
+        let dest = [42u8; 32];
+        let wrong = [99u8; 32];
+
+        // Correct destination
+        assert!(
+            helpers::validate_penalty_recipient(1, &dest, &burn_sink_bytes, Some(&dest)).is_ok()
+        );
+        // Wrong destination
+        assert!(
+            helpers::validate_penalty_recipient(1, &wrong, &burn_sink_bytes, Some(&dest)).is_err()
+        );
+        // Missing destination
+        assert!(helpers::validate_penalty_recipient(1, &dest, &burn_sink_bytes, None).is_err());
+    }
+
+    #[test]
+    fn test_security_slash_buddy_route_requires_exact_destination() {
+        use crate::constants::BURN_SINK;
+        let burn_sink_bytes = BURN_SINK.to_bytes();
+        let buddy = [77u8; 32];
+        let wrong = [88u8; 32];
+
+        assert!(
+            helpers::validate_penalty_recipient(2, &buddy, &burn_sink_bytes, Some(&buddy)).is_ok()
+        );
+        assert!(
+            helpers::validate_penalty_recipient(2, &wrong, &burn_sink_bytes, Some(&buddy)).is_err()
+        );
+        assert!(helpers::validate_penalty_recipient(2, &buddy, &burn_sink_bytes, None).is_err());
+    }
+
+    #[test]
+    fn test_security_claim_and_slash_windows_never_overlap() {
+        // Critical: there must NEVER be a timestamp where both claim and slash are valid
+        let mut rng_state = 0xdeadbeef_u64;
+        for _ in 0..100_000 {
+            rng_state ^= rng_state << 13;
+            rng_state ^= rng_state >> 7;
+            rng_state ^= rng_state << 17;
+
+            let alarm_time = (rng_state % 1_000_000_000) as i64 + 1;
+            let gap = ((rng_state >> 32) % 100_000) as i64 + 1;
+            let deadline = alarm_time + gap;
+            let now = (rng_state % 1_200_000_000) as i64;
+
+            let can_claim = helpers::is_claim_window(alarm_time, deadline, now);
+            let can_slash = helpers::is_slash_window(deadline, now);
+
+            assert!(
+                !(can_claim && can_slash),
+                "SECURITY VIOLATION: claim AND slash both valid at now={}, alarm={}, deadline={}",
+                now,
+                alarm_time,
+                deadline
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_refund_and_claim_never_overlap() {
+        // Refund is before alarm_time, claim is after alarm_time
+        let mut rng_state = 0xcafe_u64;
+        for _ in 0..100_000 {
+            rng_state ^= rng_state << 13;
+            rng_state ^= rng_state >> 7;
+            rng_state ^= rng_state << 17;
+
+            let alarm_time = (rng_state % 1_000_000_000) as i64 + 1;
+            let gap = ((rng_state >> 32) % 100_000) as i64 + 1;
+            let deadline = alarm_time + gap;
+            let now = (rng_state % 1_200_000_000) as i64;
+
+            let can_refund = helpers::is_refund_window(alarm_time, now);
+            let can_claim = helpers::is_claim_window(alarm_time, deadline, now);
+
+            assert!(
+                !(can_refund && can_claim),
+                "SECURITY: refund AND claim both valid at now={}, alarm={}",
+                now,
+                alarm_time
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_deposit_never_goes_negative_after_snoozes() {
+        // Simulate max snooze sequence: deposit must never underflow
+        let initial_deposits = [
+            MIN_DEPOSIT_LAMPORTS,
+            10_000_000,     // 0.01 SOL
+            1_000_000_000,  // 1 SOL
+            10_000_000_000, // 10 SOL
+        ];
+
+        for deposit in initial_deposits {
+            let mut remaining = deposit;
+            for count in 0..MAX_SNOOZE_COUNT {
+                if let Some(cost) = helpers::snooze_cost(remaining, count) {
+                    let deduction = cost.min(remaining);
+                    remaining = remaining.checked_sub(deduction).expect(&format!(
+                        "UNDERFLOW at snooze #{} for deposit={}",
+                        count, deposit
+                    ));
+                }
+            }
+            // After max snoozes, remaining must be >= 0 (checked by type) and < initial
+            assert!(remaining < deposit || deposit == 0);
+        }
+    }
+
+    #[test]
+    fn test_security_snooze_cannot_exceed_max_count() {
+        // At MAX_SNOOZE_COUNT, is_max_snooze must return true
+        assert!(helpers::is_max_snooze(MAX_SNOOZE_COUNT));
+        // One before is still allowed
+        assert!(!helpers::is_max_snooze(MAX_SNOOZE_COUNT - 1));
+        // Any value above is also blocked
+        for v in MAX_SNOOZE_COUNT..=u8::MAX {
+            assert!(
+                helpers::is_max_snooze(v),
+                "Must block snooze at count={}",
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_zero_deposit_alarm_validation() {
+        // Zero-deposit alarms should be valid regardless of penalty route
+        let now = 1_000_000i64;
+        for route in 0..=2u8 {
+            let result =
+                helpers::validate_alarm_params(now + 3600, now + 7200, now, 0, route, false);
+            assert!(result.is_ok(), "Zero-deposit should accept route={}", route);
+        }
+    }
+
+    #[test]
+    fn test_security_boundary_timestamp_precision() {
+        // Exact boundary timestamps must behave correctly
+        let alarm_time = 1_000_000i64;
+        let deadline = 2_000_000i64;
+
+        // At exactly alarm_time: claim YES, refund NO, slash NO
+        assert!(helpers::is_claim_window(alarm_time, deadline, alarm_time));
+        assert!(!helpers::is_refund_window(alarm_time, alarm_time));
+        assert!(!helpers::is_slash_window(deadline, alarm_time));
+
+        // At exactly deadline: claim NO, slash YES, refund NO
+        assert!(!helpers::is_claim_window(alarm_time, deadline, deadline));
+        assert!(helpers::is_slash_window(deadline, deadline));
+        assert!(!helpers::is_refund_window(alarm_time, deadline));
+
+        // 1 second before alarm: refund YES, claim NO
+        assert!(helpers::is_refund_window(alarm_time, alarm_time - 1));
+        assert!(!helpers::is_claim_window(
+            alarm_time,
+            deadline,
+            alarm_time - 1
+        ));
+
+        // 1 second before deadline: claim YES, slash NO
+        assert!(helpers::is_claim_window(alarm_time, deadline, deadline - 1));
+        assert!(!helpers::is_slash_window(deadline, deadline - 1));
+    }
+
+    #[test]
+    fn test_security_cap_at_rent_exempt_never_drains_below_minimum() {
+        // Property: after deduction, vault must have >= min_balance
+        let test_cases = [
+            (1_000_000, 2_000_000, 500_000),
+            (5_000_000, 2_000_000, 1_000_000),
+            (100, 100, 100),
+            (u64::MAX, 1_000_000_000, 500_000),
+            (0, 0, 0),
+        ];
+
+        for (desired, current, min_bal) in test_cases {
+            let capped = helpers::cap_at_rent_exempt(desired, current, min_bal);
+            if current >= min_bal {
+                assert!(
+                    current - capped >= min_bal,
+                    "SECURITY: vault would drop below rent-exempt! desired={}, current={}, min={}",
+                    desired,
+                    current,
+                    min_bal
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_security_snooze_cost_shift_overflow_at_count_63() {
+        // 1u64 << 63 is valid (= i64::MIN as u64), but 1u64 << 64 would panic
+        // Our helper uses checked_shl which returns None for shift >= 64
+        let result = helpers::snooze_cost(1_000_000_000, 63);
+        // Either None (overflow) or Some(capped at remaining) — must not panic
+        if let Some(v) = result {
+            assert!(v <= 1_000_000_000);
+        }
+
+        // shift=64 should definitely not panic (should return None)
+        // Note: u8 max is 255, but MAX_SNOOZE_COUNT is 10, so this is theoretical
+        let result = helpers::snooze_cost(1_000_000_000, 64);
+        assert!(result.is_none(), "shift=64 must overflow");
+    }
 }
 
 #[cfg(test)]
