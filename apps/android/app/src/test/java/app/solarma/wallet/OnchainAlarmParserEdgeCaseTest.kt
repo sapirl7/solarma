@@ -117,7 +117,7 @@ class OnchainAlarmParserEdgeCaseTest {
         )
         assertNotNull(parsed)
         assertEquals(Long.MAX_VALUE, parsed!!.initialAmount)
-        assertEquals(Long.MAX_VALUE, parsed!!.remainingAmount)
+        assertEquals(Long.MAX_VALUE, parsed.remainingAmount)
     }
 
     @Test
@@ -125,7 +125,7 @@ class OnchainAlarmParserEdgeCaseTest {
         val parsed = buildAndParse(initialAmount = 0, remainingAmount = 0)
         assertNotNull(parsed)
         assertEquals(0L, parsed!!.initialAmount)
-        assertEquals(0L, parsed!!.remainingAmount)
+        assertEquals(0L, parsed.remainingAmount)
     }
 
     @Test

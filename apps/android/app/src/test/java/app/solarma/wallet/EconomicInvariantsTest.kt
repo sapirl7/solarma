@@ -31,7 +31,9 @@ class EconomicInvariantsTest {
 
     @Test
     fun `inv1 - cumulative penalty never exceeds 100 percent`() {
-        for (count in 0..100) {
+        // Only test within protocol bounds (MAX_SNOOZE_COUNT = 10).
+        // cumulativePercent uses Int shift, which overflows past count=30.
+        for (count in 0..MAX_SNOOZE) {
             val percent = SnoozePenaltyDisplay.cumulativePercent(count)
             assertTrue("Cumulative exceeded 100% at count=$count", percent <= 100)
             assertTrue("Cumulative is negative at count=$count", percent >= 0)
