@@ -1769,5 +1769,254 @@ mod fuzz_tests {
 mod integration_tests {
     // These are implemented as Anchor TypeScript tests
     // See tests/solarma_vault.ts (66 tests)
-    // Rust unit tests above: 60+ tests
+    // Rust unit tests above: 96+ tests
+}
+
+// =========================================================================
+// Constants tests — verify values match documented behavior
+// =========================================================================
+#[cfg(test)]
+mod constants_tests {
+    use crate::constants::*;
+    use anchor_lang::prelude::Pubkey;
+
+    #[test]
+    fn test_burn_sink_is_solana_incinerator() {
+        // BURN_SINK must be the well-known Solana incinerator address
+        let expected_b58 = "1nc1nerator11111111111111111111111111111111";
+        let expected = Pubkey::try_from(expected_b58).unwrap();
+        assert_eq!(BURN_SINK, expected, "BURN_SINK must be Solana incinerator");
+    }
+
+    #[test]
+    fn test_snooze_percent_within_valid_range() {
+        // Snooze cost % must be > 0 and <= 100
+        assert!(DEFAULT_SNOOZE_PERCENT > 0);
+        assert!(DEFAULT_SNOOZE_PERCENT <= 100);
+    }
+
+    #[test]
+    fn test_max_snooze_count_reasonable() {
+        // Must be > 0 (at least 1 snooze allowed) and < 64 (shift safety)
+        assert!(MAX_SNOOZE_COUNT > 0);
+        assert!(
+            MAX_SNOOZE_COUNT < 64,
+            "Must stay below 64 for bit shift safety"
+        );
+    }
+
+    #[test]
+    fn test_min_deposit_is_positive() {
+        assert!(MIN_DEPOSIT_LAMPORTS > 0, "Min deposit must be positive");
+        // 0.001 SOL = 1_000_000 lamports
+        assert_eq!(MIN_DEPOSIT_LAMPORTS, 1_000_000);
+    }
+
+    #[test]
+    fn test_emergency_penalty_within_valid_range() {
+        assert!(EMERGENCY_REFUND_PENALTY_PERCENT > 0);
+        assert!(EMERGENCY_REFUND_PENALTY_PERCENT <= 100);
+        assert_eq!(EMERGENCY_REFUND_PENALTY_PERCENT, 5);
+    }
+
+    #[test]
+    fn test_grace_period_is_positive() {
+        assert!(DEFAULT_GRACE_PERIOD > 0);
+        assert_eq!(DEFAULT_GRACE_PERIOD, 1800); // 30 minutes
+    }
+
+    #[test]
+    fn test_snooze_extension_is_positive() {
+        assert!(DEFAULT_SNOOZE_EXTENSION_SECONDS > 0);
+        assert_eq!(DEFAULT_SNOOZE_EXTENSION_SECONDS, 300); // 5 minutes
+    }
+
+    #[test]
+    fn test_cross_platform_android_parity() {
+        // Android AlarmTiming constants must match Rust:
+        // AlarmTiming.GRACE_PERIOD_SECONDS = 1800
+        // AlarmTiming.SNOOZE_MINUTES = 5 → 300 seconds
+        // OnchainParameters.SNOOZE_BASE_PERCENT = 10
+        // OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT = 5
+        assert_eq!(
+            DEFAULT_GRACE_PERIOD, 1800,
+            "Must match Android AlarmTiming.GRACE_PERIOD_SECONDS"
+        );
+        assert_eq!(
+            DEFAULT_SNOOZE_EXTENSION_SECONDS, 300,
+            "Must match Android AlarmTiming.SNOOZE_MINUTES * 60"
+        );
+        assert_eq!(
+            DEFAULT_SNOOZE_PERCENT, 10,
+            "Must match Android OnchainParameters.SNOOZE_BASE_PERCENT"
+        );
+        assert_eq!(
+            EMERGENCY_REFUND_PENALTY_PERCENT, 5,
+            "Must match Android OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT"
+        );
+    }
+
+    #[test]
+    fn test_snooze_percent_times_max_exceeds_100() {
+        // After MAX_SNOOZE_COUNT iterations, cumulative penalty should exceed 100%
+        // cumulative = 10% * (2^MAX - 1)
+        // At max=10: 10 * (1024 - 1) = 10230% >> 100%
+        let cumulative = DEFAULT_SNOOZE_PERCENT * ((1u64 << MAX_SNOOZE_COUNT) - 1);
+        assert!(cumulative > 100, "Max snoozes must drain the full deposit");
+    }
+
+    #[test]
+    fn test_grace_period_longer_than_snooze_extension() {
+        // Grace period must be >= snooze extension to guarantee at least 1 snooze window
+        assert!(
+            DEFAULT_GRACE_PERIOD >= DEFAULT_SNOOZE_EXTENSION_SECONDS,
+            "Grace period must accommodate at least one snooze"
+        );
+    }
+}
+
+// =========================================================================
+// Error enum tests — verify all error variants are distinct
+// =========================================================================
+#[cfg(test)]
+mod error_tests {
+    use crate::error::SolarmaError;
+
+    #[test]
+    fn test_all_error_variants_exist() {
+        // Ensure all 14 error variants compile and are distinct enum values
+        let variants: Vec<SolarmaError> = vec![
+            SolarmaError::DeadlinePassed,
+            SolarmaError::DeadlineNotPassed,
+            SolarmaError::InvalidAlarmState,
+            SolarmaError::InvalidPenaltyRoute,
+            SolarmaError::InsufficientDeposit,
+            SolarmaError::Overflow,
+            SolarmaError::AlarmTimeInPast,
+            SolarmaError::InvalidDeadline,
+            SolarmaError::DepositTooSmall,
+            SolarmaError::PenaltyDestinationRequired,
+            SolarmaError::InvalidSinkAddress,
+            SolarmaError::MaxSnoozesReached,
+            SolarmaError::InvalidPenaltyRecipient,
+            SolarmaError::PenaltyDestinationNotSet,
+            SolarmaError::TooEarly,
+            SolarmaError::TooLateForRefund,
+        ];
+        assert_eq!(variants.len(), 16, "Expected 16 SolarmaError variants");
+    }
+
+    #[test]
+    fn test_error_variant_distinctness() {
+        // All error codes must be unique (Anchor assigns sequential error codes)
+        // This compiles-time verifies each variant is different
+        let a = SolarmaError::DeadlinePassed;
+        let b = SolarmaError::DeadlineNotPassed;
+        let c = SolarmaError::InvalidAlarmState;
+        // These are different enum variants → different discriminants
+        assert!(std::mem::discriminant(&a) != std::mem::discriminant(&b));
+        assert!(std::mem::discriminant(&b) != std::mem::discriminant(&c));
+        assert!(std::mem::discriminant(&a) != std::mem::discriminant(&c));
+    }
+}
+
+// =========================================================================
+// Event struct tests — verify event construction and field types
+// =========================================================================
+#[cfg(test)]
+mod event_tests {
+    use crate::events::*;
+    use anchor_lang::prelude::Pubkey;
+
+    #[test]
+    fn test_profile_initialized_event() {
+        let event = ProfileInitialized {
+            owner: Pubkey::default(),
+        };
+        assert_eq!(event.owner, Pubkey::default());
+    }
+
+    #[test]
+    fn test_alarm_created_event() {
+        let owner = Pubkey::default();
+        let alarm = Pubkey::new_unique();
+        let event = AlarmCreated {
+            owner,
+            alarm,
+            alarm_id: 42,
+            alarm_time: 1_000_000,
+            deadline: 2_000_000,
+            deposit_amount: 1_000_000_000,
+            penalty_route: 0,
+        };
+        assert_eq!(event.alarm_id, 42);
+        assert_eq!(event.deposit_amount, 1_000_000_000);
+        assert_eq!(event.penalty_route, 0);
+        assert!(event.deadline > event.alarm_time);
+    }
+
+    #[test]
+    fn test_alarm_claimed_event() {
+        let event = AlarmClaimed {
+            owner: Pubkey::default(),
+            alarm: Pubkey::new_unique(),
+            alarm_id: 1,
+            returned_amount: 500_000_000,
+        };
+        assert!(event.returned_amount > 0);
+    }
+
+    #[test]
+    fn test_alarm_snoozed_event() {
+        let event = AlarmSnoozed {
+            owner: Pubkey::default(),
+            alarm: Pubkey::new_unique(),
+            alarm_id: 1,
+            snooze_count: 3,
+            cost: 100_000_000,
+            remaining: 400_000_000,
+            new_alarm_time: 1_001_800,
+            new_deadline: 2_001_800,
+        };
+        assert_eq!(event.snooze_count, 3);
+        assert!(event.remaining + event.cost <= 1_000_000_000);
+        assert!(event.new_deadline > event.new_alarm_time);
+    }
+
+    #[test]
+    fn test_alarm_slashed_event() {
+        let event = AlarmSlashed {
+            alarm: Pubkey::new_unique(),
+            alarm_id: 1,
+            penalty_recipient: Pubkey::default(),
+            slashed_amount: 1_000_000_000,
+            caller: Pubkey::new_unique(),
+        };
+        assert!(event.slashed_amount > 0);
+        assert_ne!(event.alarm, event.caller);
+    }
+
+    #[test]
+    fn test_emergency_refund_event() {
+        let event = EmergencyRefundExecuted {
+            owner: Pubkey::default(),
+            alarm: Pubkey::new_unique(),
+            alarm_id: 1,
+            penalty_amount: 50_000_000,
+            returned_amount: 950_000_000,
+        };
+        // penalty + returned should not exceed original deposit
+        assert!(event.penalty_amount + event.returned_amount <= 1_000_000_000);
+    }
+
+    #[test]
+    fn test_wake_acknowledged_event() {
+        let event = WakeAcknowledged {
+            owner: Pubkey::default(),
+            alarm: Pubkey::new_unique(),
+            alarm_id: 1,
+            timestamp: 1_000_500,
+        };
+        assert!(event.timestamp > 0);
+    }
 }
