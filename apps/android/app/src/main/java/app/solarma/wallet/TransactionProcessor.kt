@@ -298,10 +298,16 @@ class TransactionProcessor @Inject constructor(
                     transactionDao.updateStatus(tx.id, "CONFIRMED", null, System.currentTimeMillis())
                     Log.i(TAG, "Transaction ${tx.id} confirmed")
                 } catch (e: Exception) {
-                    val delayMs = BASE_DELAY_MS * (1 shl tx.retryCount.coerceAtMost(5))
-                    transactionDao.updateStatus(tx.id, "PENDING", e.message, System.currentTimeMillis())
-                    transactionDao.incrementRetry(tx.id)
-                    Log.e(TAG, "Transaction ${tx.id} failed, retry in ${delayMs}ms", e)
+                    val category = ErrorClassifier.classify(e.message)
+                    if (category == ErrorClassifier.Category.NON_RETRYABLE) {
+                        transactionDao.updateStatus(tx.id, "FAILED", e.message, System.currentTimeMillis())
+                        Log.w(TAG, "Transaction ${tx.id} permanently failed: ${e.message}")
+                    } else {
+                        val delayMs = BASE_DELAY_MS * (1 shl tx.retryCount.coerceAtMost(5))
+                        transactionDao.updateStatus(tx.id, "PENDING", e.message, System.currentTimeMillis())
+                        transactionDao.incrementRetry(tx.id)
+                        Log.e(TAG, "Transaction ${tx.id} failed, retry in ${delayMs}ms", e)
+                    }
                 }
             }
         } finally {
