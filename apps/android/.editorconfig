@@ -1,7 +1,26 @@
+# Solarma Android – ktlint configuration
+# See: https://pinterest.github.io/ktlint/latest/rules/configuration-ktlint/
+
 [*.{kt,kts}]
-# Disable argument-list-wrapping: crashes on multiline lambdas
-# (known ktlint bug with Compose DSL patterns)
+# ── Parser crash workaround ──
+# ktlint standard:argument-list-wrapping crashes on multiline lambdas
+# passed as named Compose parameters. Known upstream issue.
+# TODO: re-enable once ktlint ships a fix (check with ktlint 1.6+)
 ktlint_standard_argument-list-wrapping = disabled
 
-# Allow wildcard imports (standard for Compose and test DSLs)
+# ── Compose conventions ──
+# Compose @Composable functions use PascalCase by convention.
+# ktlint's standard:function-naming expects camelCase, which
+# conflicts with the entire Compose ecosystem.
+ktlint_standard_function-naming = disabled
+
+# Compose heavily uses wildcard imports for layout/material3/runtime.
+# Expanding them adds 20+ explicit imports per screen with no
+# readability benefit.
 ktlint_standard_no-wildcard-imports = disabled
+
+[app/src/test/**/*.kt]
+# (inherited: no-wildcard-imports is already disabled globally)
+
+[app/src/androidTest/**/*.kt]
+# (inherited: no-wildcard-imports is already disabled globally)

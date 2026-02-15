@@ -38,44 +38,65 @@ private data class OnboardingPage(
     val iconRes: Int? = null,
     val titleRes: Int,
     val subtitleRes: Int,
-    val accentColor: Color
+    val accentColor: Color,
 )
 
-private val pages = listOf(
-    OnboardingPage(iconRes = R.drawable.ic_launcher_foreground, titleRes = R.string.onboarding_title_1, subtitleRes = R.string.onboarding_sub_1, accentColor = SolanaGreen),
-    OnboardingPage(emoji = "🔒", titleRes = R.string.onboarding_title_2, subtitleRes = R.string.onboarding_sub_2, accentColor = SolanaPurple),
-    OnboardingPage(emoji = "☀️", titleRes = R.string.onboarding_title_3, subtitleRes = R.string.onboarding_sub_3, accentColor = SolanaGreen),
-    OnboardingPage(iconRes = R.drawable.ic_solana_logo, titleRes = R.string.onboarding_title_4, subtitleRes = R.string.onboarding_sub_4, accentColor = SolanaPurple),
-)
+private val pages =
+    listOf(
+        OnboardingPage(
+            iconRes = R.drawable.ic_launcher_foreground,
+            titleRes = R.string.onboarding_title_1,
+            subtitleRes = R.string.onboarding_sub_1,
+            accentColor = SolanaGreen,
+        ),
+        OnboardingPage(
+            emoji = "🔒",
+            titleRes = R.string.onboarding_title_2,
+            subtitleRes = R.string.onboarding_sub_2,
+            accentColor = SolanaPurple,
+        ),
+        OnboardingPage(
+            emoji = "☀️",
+            titleRes = R.string.onboarding_title_3,
+            subtitleRes = R.string.onboarding_sub_3,
+            accentColor = SolanaGreen,
+        ),
+        OnboardingPage(
+            iconRes = R.drawable.ic_solana_logo,
+            titleRes = R.string.onboarding_title_4,
+            subtitleRes = R.string.onboarding_sub_4,
+            accentColor = SolanaPurple,
+        ),
+    )
 
 @Composable
-fun OnboardingScreen(
-    onFinish: () -> Unit
-) {
+fun OnboardingScreen(onFinish: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
     val isLastPage = pagerState.currentPage == pages.size - 1
 
     SolarmaBackground {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Skip button
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.End
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onFinish) {
                     Text(
                         text = stringResource(R.string.onboarding_skip),
                         color = TextMuted,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
                     )
                 }
             }
@@ -83,7 +104,7 @@ fun OnboardingScreen(
             // Pager content
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) { page ->
                 OnboardingPageContent(pages[page])
             }
@@ -92,33 +113,41 @@ fun OnboardingScreen(
             Row(
                 modifier = Modifier.padding(bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 repeat(pages.size) { index ->
                     val isActive = pagerState.currentPage == index
                     val dotSize by animateDpAsState(
                         targetValue = if (isActive) 10.dp else 6.dp,
                         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "dot_size"
+                        label = "dot_size",
                     )
                     Box(
-                        modifier = Modifier
-                            .size(width = if (isActive) 24.dp else dotSize, height = dotSize)
-                            .clip(CircleShape)
-                            .background(
-                                if (isActive) SolanaGreen
-                                else TextMuted.copy(alpha = 0.4f)
-                            )
+                        modifier =
+                            Modifier
+                                .size(width = if (isActive) 24.dp else dotSize, height = dotSize)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isActive) {
+                                        SolanaGreen
+                                    } else {
+                                        TextMuted.copy(alpha = 0.4f)
+                                    },
+                                ),
                     )
                 }
             }
 
             // Bottom button
             GradientButton(
-                text = stringResource(
-                    if (isLastPage) R.string.onboarding_start
-                    else R.string.onboarding_next
-                ),
+                text =
+                    stringResource(
+                        if (isLastPage) {
+                            R.string.onboarding_start
+                        } else {
+                            R.string.onboarding_next
+                        },
+                    ),
                 onClick = {
                     if (isLastPage) {
                         onFinish()
@@ -128,9 +157,10 @@ fun OnboardingScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
             )
         }
     }
@@ -142,53 +172,68 @@ private fun OnboardingPageContent(page: OnboardingPage) {
     val emojiScale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = EaseInOutCubic),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "emoji_scale"
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(2000, easing = EaseInOutCubic),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "emoji_scale",
     )
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         // Icon with glow card
         val isAppIcon = page.iconRes == R.drawable.ic_launcher_foreground
         Card(
             modifier = Modifier.size(140.dp),
             shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isAppIcon) Color.Transparent
-                    else page.accentColor.copy(alpha = 0.1f)
-            )
+            colors =
+                CardDefaults.cardColors(
+                    containerColor =
+                        if (isAppIcon) {
+                            Color.Transparent
+                        } else {
+                            page.accentColor.copy(alpha = 0.1f)
+                        },
+                ),
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 if (page.iconRes != null) {
                     androidx.compose.foundation.Image(
                         painter = painterResource(id = page.iconRes),
                         contentDescription = stringResource(page.titleRes),
-                        modifier = if (isAppIcon) Modifier
-                            .fillMaxSize()
-                            .scale(emojiScale)
-                            .clip(RoundedCornerShape(32.dp))
-                        else Modifier
-                            .size(90.dp)
-                            .scale(emojiScale),
-                        contentScale = if (isAppIcon) ContentScale.Crop
-                            else ContentScale.Fit
+                        modifier =
+                            if (isAppIcon) {
+                                Modifier
+                                    .fillMaxSize()
+                                    .scale(emojiScale)
+                                    .clip(RoundedCornerShape(32.dp))
+                            } else {
+                                Modifier
+                                    .size(90.dp)
+                                    .scale(emojiScale)
+                            },
+                        contentScale =
+                            if (isAppIcon) {
+                                ContentScale.Crop
+                            } else {
+                                ContentScale.Fit
+                            },
                     )
                 } else {
                     Text(
                         text = page.emoji ?: "",
                         fontSize = 64.sp,
-                        modifier = Modifier.scale(emojiScale)
+                        modifier = Modifier.scale(emojiScale),
                     )
                 }
             }
@@ -203,7 +248,7 @@ private fun OnboardingPageContent(page: OnboardingPage) {
             fontWeight = FontWeight.Bold,
             color = TextPrimary,
             textAlign = TextAlign.Center,
-            letterSpacing = 1.sp
+            letterSpacing = 1.sp,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -215,22 +260,24 @@ private fun OnboardingPageContent(page: OnboardingPage) {
             color = TextSecondary,
             textAlign = TextAlign.Center,
             lineHeight = 24.sp,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Accent line
         Box(
-            modifier = Modifier
-                .width(48.dp)
-                .height(3.dp)
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.horizontalGradient(
-                        listOf(page.accentColor, page.accentColor.copy(alpha = 0.3f))
-                    )
-                )
+            modifier =
+                Modifier
+                    .width(48.dp)
+                    .height(3.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush =
+                            Brush.horizontalGradient(
+                                listOf(page.accentColor, page.accentColor.copy(alpha = 0.3f)),
+                            ),
+                    ),
         )
     }
 }
