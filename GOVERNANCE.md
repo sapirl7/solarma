@@ -47,7 +47,7 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 
 **Allowed types:** `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`, `build`, `ci`, `perf`, `revert`
 
-**Scopes (optional):** `vault`, `android`, `docs`, `ci`, `deps`
+**Scopes (optional):** `vault`, `android`, `docs`, `ci`, `deps`, `main`
 
 This is enforced via pre-commit hooks (`conventional-pre-commit`).
 

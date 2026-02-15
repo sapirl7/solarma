@@ -149,7 +149,7 @@ This installs hooks for `cargo fmt`, `ktlintCheck`, markdownlint, and convention
 | `chore` | Build, CI, deps |
 | `ci` | CI configuration |
 
-**Scopes**: `vault`, `android`, `ci`, `docs`, `deps`
+**Scopes**: `vault`, `android`, `ci`, `docs`, `deps`, `main`
 
 **Examples**:
 

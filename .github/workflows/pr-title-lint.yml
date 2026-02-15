@@ -47,4 +47,4 @@ jobs:
               docs: update README badges
 
             Allowed types: feat, fix, chore, docs, style, refactor, test, build, ci, perf, revert
-            Allowed scopes (optional): vault, android, ci, docs, deps
+            Allowed scopes (optional): vault, android, ci, docs, deps, main
