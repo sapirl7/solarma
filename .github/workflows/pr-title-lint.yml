@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+permissions:
+  pull-requests: read
+
 jobs:
   lint-pr-title:
     runs-on: ubuntu-latest
@@ -31,6 +34,7 @@ jobs:
             ci
             docs
             deps
+            main
           requireScope: false
           subjectPattern: ^.+$
           subjectPatternError: |
