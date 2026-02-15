@@ -13,6 +13,7 @@ The following rules are enforced on the `main` branch via GitHub settings:
 | `anchor` | ✅ | `anchor build` + localnet integration tests |
 | `android` | ✅ | `ktlintCheck`, Android Lint, unit tests, debug APK build |
 | `docs` | ✅ | markdownlint on all `.md` files |
+| `lint-pr-title` | ✅ | Conventional Commits enforcement on PR titles |
 
 ### Branch Rules
 
