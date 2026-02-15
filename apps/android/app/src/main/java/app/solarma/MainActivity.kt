@@ -179,9 +179,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Enable foreground dispatch for NFC
         nfcAdapter?.enableForegroundDispatch(
-            this, pendingIntent, 
+            this,
+            pendingIntent,
             arrayOf(IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)),
-            null
+            null,
         )
 
         lifecycleScope.launch {
