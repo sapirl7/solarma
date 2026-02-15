@@ -10,7 +10,6 @@ import org.junit.Test
  *   cumulative = 10% × (2^n - 1), capped at 100%
  */
 class SnoozePenaltyDisplayParityTest {
-
     // =========================================================================
     // Formula matches Rust snooze_cost for all valid snooze counts
     // =========================================================================
@@ -40,7 +39,7 @@ class SnoozePenaltyDisplayParityTest {
         for (count in 0..100) {
             assertTrue(
                 "Exceeded 100% at count=$count",
-                SnoozePenaltyDisplay.cumulativePercent(count) <= 100
+                SnoozePenaltyDisplay.cumulativePercent(count) <= 100,
             )
         }
     }
@@ -89,7 +88,7 @@ class SnoozePenaltyDisplayParityTest {
     fun `formatDisplay pattern is consistent`() {
         for (count in 0..10) {
             val display = SnoozePenaltyDisplay.formatDisplay(count)
-            assertTrue("Missing count prefix", display.startsWith("${count}×"))
+            assertTrue("Missing count prefix", display.startsWith("$count×"))
             assertTrue("Missing closing paren", display.endsWith("penalized)"))
         }
     }

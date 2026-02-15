@@ -19,37 +19,36 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    
     @Provides
     @Singleton
     fun provideDatabase(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): SolarmaDatabase {
         return Room.databaseBuilder(
             context,
             SolarmaDatabase::class.java,
-            "solarma_database"
+            "solarma_database",
         )
-        .addMigrations(
-            SolarmaDatabase.MIGRATION_3_4,
-            SolarmaDatabase.MIGRATION_4_5,
-            SolarmaDatabase.MIGRATION_5_6
-        )
-        .build()
+            .addMigrations(
+                SolarmaDatabase.MIGRATION_3_4,
+                SolarmaDatabase.MIGRATION_4_5,
+                SolarmaDatabase.MIGRATION_5_6,
+            )
+            .build()
     }
-    
+
     @Provides
     @Singleton
     fun provideAlarmDao(database: SolarmaDatabase): AlarmDao {
         return database.alarmDao()
     }
-    
+
     @Provides
     @Singleton
     fun providePendingTransactionDao(database: SolarmaDatabase): PendingTransactionDao {
         return database.pendingTransactionDao()
     }
-    
+
     @Provides
     @Singleton
     fun provideStatsDao(database: SolarmaDatabase): StatsDao {

@@ -24,7 +24,6 @@ import java.time.LocalTime
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateAlarmViewModelTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var alarmRepository: AlarmRepository
@@ -57,121 +56,137 @@ class CreateAlarmViewModelTest {
     // ── Deposit validation ─────────────────────────────────
 
     @Test
-    fun `save with hasDeposit true and depositAmount zero shows error`() = runTest {
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            hasDeposit = true,
-            depositAmount = 0.0
-        )
+    fun `save with hasDeposit true and depositAmount zero shows error`() =
+        runTest {
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    hasDeposit = true,
+                    depositAmount = 0.0,
+                )
 
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        val saveState = viewModel.saveState.value
-        assertTrue("Expected SaveState.Error", saveState is SaveState.Error)
-        assertTrue((saveState as SaveState.Error).message.contains("greater than 0"))
-    }
-
-    @Test
-    fun `save with hasDeposit true and negative amount shows error`() = runTest {
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            hasDeposit = true,
-            depositAmount = -0.5
-        )
-
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val saveState = viewModel.saveState.value
-        assertTrue(saveState is SaveState.Error)
-    }
+            val saveState = viewModel.saveState.value
+            assertTrue("Expected SaveState.Error", saveState is SaveState.Error)
+            assertTrue((saveState as SaveState.Error).message.contains("greater than 0"))
+        }
 
     @Test
-    fun `save with hasDeposit true and amount below minimum shows error`() = runTest {
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            hasDeposit = true,
-            depositAmount = 0.0005 // Below MIN_DEPOSIT_SOL (0.001)
-        )
+    fun `save with hasDeposit true and negative amount shows error`() =
+        runTest {
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    hasDeposit = true,
+                    depositAmount = -0.5,
+                )
 
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        val saveState = viewModel.saveState.value
-        assertTrue(saveState is SaveState.Error)
-        assertTrue((saveState as SaveState.Error).message.contains("Minimum"))
-    }
+            val saveState = viewModel.saveState.value
+            assertTrue(saveState is SaveState.Error)
+        }
+
+    @Test
+    fun `save with hasDeposit true and amount below minimum shows error`() =
+        runTest {
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    hasDeposit = true,
+                    // Below MIN_DEPOSIT_SOL (0.001)
+                    depositAmount = 0.0005,
+                )
+
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val saveState = viewModel.saveState.value
+            assertTrue(saveState is SaveState.Error)
+            assertTrue((saveState as SaveState.Error).message.contains("Minimum"))
+        }
 
     // ── Buddy address validation ───────────────────────────
 
     @Test
-    fun `save with buddy route and empty address shows error`() = runTest {
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            hasDeposit = true,
-            depositAmount = 0.1,
-            penaltyRoute = 2, // buddy
-            buddyAddress = ""
-        )
+    fun `save with buddy route and empty address shows error`() =
+        runTest {
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    hasDeposit = true,
+                    depositAmount = 0.1,
+                    // buddy
+                    penaltyRoute = 2,
+                    buddyAddress = "",
+                )
 
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        val saveState = viewModel.saveState.value
-        assertTrue(saveState is SaveState.Error)
-        assertTrue((saveState as SaveState.Error).message.contains("buddy"))
-    }
+            val saveState = viewModel.saveState.value
+            assertTrue(saveState is SaveState.Error)
+            assertTrue((saveState as SaveState.Error).message.contains("buddy"))
+        }
 
     @Test
-    fun `save with buddy route and invalid address shows error`() = runTest {
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            hasDeposit = true,
-            depositAmount = 0.1,
-            penaltyRoute = 2,
-            buddyAddress = "invalid!@#\$%"
-        )
+    fun `save with buddy route and invalid address shows error`() =
+        runTest {
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    hasDeposit = true,
+                    depositAmount = 0.1,
+                    penaltyRoute = 2,
+                    buddyAddress = "invalid!@#\$%",
+                )
 
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        val saveState = viewModel.saveState.value
-        assertTrue(saveState is SaveState.Error)
-        assertTrue((saveState as SaveState.Error).message.contains("Invalid"))
-    }
+            val saveState = viewModel.saveState.value
+            assertTrue(saveState is SaveState.Error)
+            assertTrue((saveState as SaveState.Error).message.contains("Invalid"))
+        }
 
     // ── No deposit path ────────────────────────────────────
 
     @Test
-    fun `save without deposit handles context error gracefully`() = runTest {
-        // save() accesses context.dataStore which throws in unit tests,
-        // but the ViewModel catch block wraps it into SaveState.Error
-        val state = CreateAlarmState(
-            time = LocalTime.of(7, 0),
-            label = "Morning Alarm",
-            hasDeposit = false
-        )
+    fun `save without deposit handles context error gracefully`() =
+        runTest {
+            // save() accesses context.dataStore which throws in unit tests,
+            // but the ViewModel catch block wraps it into SaveState.Error
+            val state =
+                CreateAlarmState(
+                    time = LocalTime.of(7, 0),
+                    label = "Morning Alarm",
+                    hasDeposit = false,
+                )
 
-        viewModel.save(state)
-        testDispatcher.scheduler.advanceUntilIdle()
+            viewModel.save(state)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        // ViewModel wraps all exceptions in SaveState.Error
-        val saveState = viewModel.saveState.value
-        assertTrue("Expected Error (DataStore not available in test)", saveState is SaveState.Error)
-    }
+            // ViewModel wraps all exceptions in SaveState.Error
+            val saveState = viewModel.saveState.value
+            assertTrue("Expected Error (DataStore not available in test)", saveState is SaveState.Error)
+        }
 
     // ── State management ───────────────────────────────────
 
     @Test
-    fun `resetState clears saveState to idle`() = runTest {
-        viewModel.resetState()
-        assertEquals(SaveState.Idle, viewModel.saveState.value)
-    }
+    fun `resetState clears saveState to idle`() =
+        runTest {
+            viewModel.resetState()
+            assertEquals(SaveState.Idle, viewModel.saveState.value)
+        }
 
     @Test
-    fun `save sets state to Saving initially`() = runTest {
-        // We can verify the initial state is Idle
-        assertEquals(SaveState.Idle, viewModel.saveState.value)
-    }
+    fun `save sets state to Saving initially`() =
+        runTest {
+            // We can verify the initial state is Idle
+            assertEquals(SaveState.Idle, viewModel.saveState.value)
+        }
 }

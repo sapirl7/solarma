@@ -13,13 +13,17 @@ import java.time.ZoneOffset
  * Uses fixed clocks to make tests deterministic.
  */
 class AlarmTimeCalculatorTest {
-
-    private fun clockAt(hour: Int, minute: Int, zoneId: ZoneId = ZoneId.of("UTC")): Clock {
+    private fun clockAt(
+        hour: Int,
+        minute: Int,
+        zoneId: ZoneId = ZoneId.of("UTC"),
+    ): Clock {
         // Fixed at 2026-02-11 at given time
-        val instant = LocalTime.of(hour, minute)
-            .atDate(java.time.LocalDate.of(2026, 2, 11))
-            .atZone(zoneId)
-            .toInstant()
+        val instant =
+            LocalTime.of(hour, minute)
+                .atDate(java.time.LocalDate.of(2026, 2, 11))
+                .atZone(zoneId)
+                .toInstant()
         return Clock.fixed(instant, zoneId)
     }
 
@@ -120,7 +124,7 @@ class AlarmTimeCalculatorTest {
                 val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
                 assertTrue(
                     "Alarm should be in the future for now=$nowHour:30, alarm=$alarmHour:00",
-                    millis >= clock.millis()
+                    millis >= clock.millis(),
                 )
             }
         }
@@ -145,10 +149,11 @@ class AlarmTimeCalculatorTest {
     fun `DST spring forward - alarm in gap is pushed to 3_00`() {
         // Europe/Warsaw: 2026-03-29, clocks skip 02:00 → 03:00 (CET→CEST)
         val zone = ZoneId.of("Europe/Warsaw")
-        val instant = java.time.LocalDate.of(2026, 3, 29)
-            .atTime(1, 0)
-            .atZone(zone)
-            .toInstant()
+        val instant =
+            java.time.LocalDate.of(2026, 3, 29)
+                .atTime(1, 0)
+                .atZone(zone)
+                .toInstant()
         val clock = Clock.fixed(instant, zone)
 
         // 2:30 AM doesn't exist — Java LocalDateTime.atZone pushes it to 3:30
@@ -168,10 +173,11 @@ class AlarmTimeCalculatorTest {
     fun `DST fall back - alarm in repeated hour uses first offset`() {
         // Europe/Warsaw: 2026-10-25, clocks go 03:00 → 02:00 (CEST→CET)
         val zone = ZoneId.of("Europe/Warsaw")
-        val instant = java.time.LocalDate.of(2026, 10, 25)
-            .atTime(1, 0)
-            .atZone(zone)
-            .toInstant()
+        val instant =
+            java.time.LocalDate.of(2026, 10, 25)
+                .atTime(1, 0)
+                .atZone(zone)
+                .toInstant()
         val clock = Clock.fixed(instant, zone)
 
         // 2:30 AM occurs twice: once in CEST (+02), once in CET (+01)
@@ -225,7 +231,7 @@ class AlarmTimeCalculatorTest {
                     val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
                     assertTrue(
                         "Alarm should be >= now for zone=$zoneStr, now=$nowHour:00, alarm=$alarmHour:00",
-                        millis >= clock.millis()
+                        millis >= clock.millis(),
                     )
                 }
             }

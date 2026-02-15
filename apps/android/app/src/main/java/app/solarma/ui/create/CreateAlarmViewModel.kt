@@ -13,8 +13,8 @@ import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.PenaltyRoute
 import app.solarma.wallet.PendingTransaction
 import app.solarma.wallet.PendingTransactionDao
-import app.solarma.wallet.SolarmaTreasury
 import app.solarma.wallet.SolanaRpcClient
+import app.solarma.wallet.SolarmaTreasury
 import app.solarma.wallet.WalletConnectionState
 import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
@@ -25,283 +25,306 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.LocalTime
-import kotlin.math.roundToLong
 import javax.inject.Inject
+import kotlin.math.roundToLong
 
 /**
  * ViewModel for CreateAlarmScreen.
  * Handles alarm creation: converts UI state → entity → DB + optional onchain deposit.
  */
 @HiltViewModel
-class CreateAlarmViewModel @Inject constructor(
-    private val alarmRepository: AlarmRepository,
-    private val onchainAlarmService: OnchainAlarmService,
-    private val walletManager: WalletManager,
-    private val rpcClient: SolanaRpcClient,
-    private val pendingTransactionDao: PendingTransactionDao,
-    @ApplicationContext private val context: Context
-) : ViewModel() {
-    
-    companion object {
-        private const val TAG = "Solarma.CreateAlarmVM"
-        private val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
-        private val KEY_QR_CODE = stringPreferencesKey("qr_code")
-        private const val MIN_DEPOSIT_SOL = 0.001
-        /** Estimated rent + transaction fees in SOL */
-        private const val ESTIMATED_FEES_SOL = 0.01
-    }
-    
-    private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
-    val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
-    
-    private var pendingAlarm: AlarmEntity? = null
-    private var pendingState: CreateAlarmState? = null
-    
-    /**
-     * Save alarm from UI state.
-     * Step 1: Save to local DB
-     * Step 2: If hasDeposit, return NeedsSigning state (requires ActivityResultSender from UI)
-     */
-    fun save(state: CreateAlarmState) {
-        viewModelScope.launch {
-            _saveState.value = SaveState.Saving
-            
-            try {
-                // Validate BUDDY address if that route is selected
-                if (state.hasDeposit && state.penaltyRoute == 2) {
-                    val buddyAddr = state.buddyAddress.trim()
-                    if (buddyAddr.isBlank()) {
-                        _saveState.value = SaveState.Error("Please enter a buddy wallet address")
-                        return@launch
-                    }
-                    // Validate base58 format (32-44 chars, no invalid chars)
-                    if (!buddyAddr.matches(Regex("^[1-9A-HJ-NP-Za-km-z]{32,44}$"))) {
-                        _saveState.value = SaveState.Error("Invalid buddy address format. Must be a valid Solana address.")
-                        return@launch
-                    }
-                }
+class CreateAlarmViewModel
+    @Inject
+    constructor(
+        private val alarmRepository: AlarmRepository,
+        private val onchainAlarmService: OnchainAlarmService,
+        private val walletManager: WalletManager,
+        private val rpcClient: SolanaRpcClient,
+        private val pendingTransactionDao: PendingTransactionDao,
+        @ApplicationContext private val context: Context,
+    ) : ViewModel() {
+        companion object {
+            private const val TAG = "Solarma.CreateAlarmVM"
+            private val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
+            private val KEY_QR_CODE = stringPreferencesKey("qr_code")
+            private const val MIN_DEPOSIT_SOL = 0.001
 
-                if (state.hasDeposit) {
-                    if (state.depositAmount <= 0.0) {
-                        _saveState.value = SaveState.Error("Deposit amount must be greater than 0")
-                        return@launch
-                    }
-                    if (state.depositAmount < MIN_DEPOSIT_SOL) {
-                        _saveState.value = SaveState.Error("Minimum deposit is $MIN_DEPOSIT_SOL SOL")
-                        return@launch
-                    }
-                    
-                    // H2: Check clock drift before creating deposit alarms.
-                    // A drifted clock may cause missed claim deadlines.
-                    try {
-                        val driftSec = rpcClient.checkTimeDrift()
-                        if (driftSec != null && kotlin.math.abs(driftSec) > 300) {
-                            Log.w(TAG, "Clock drift detected: ${driftSec}s — deposit alarm may miss deadline")
-                            _saveState.value = SaveState.Error(
-                                "Your device clock is off by ${kotlin.math.abs(driftSec) / 60} minutes " +
-                                "compared to Solana network. Please sync your clock to avoid losing your deposit."
-                            )
+            /** Estimated rent + transaction fees in SOL */
+            private const val ESTIMATED_FEES_SOL = 0.01
+        }
+
+        private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
+        val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
+
+        private var pendingAlarm: AlarmEntity? = null
+        private var pendingState: CreateAlarmState? = null
+
+        /**
+         * Save alarm from UI state.
+         * Step 1: Save to local DB
+         * Step 2: If hasDeposit, return NeedsSigning state (requires ActivityResultSender from UI)
+         */
+        fun save(state: CreateAlarmState) {
+            viewModelScope.launch {
+                _saveState.value = SaveState.Saving
+
+                try {
+                    // Validate BUDDY address if that route is selected
+                    if (state.hasDeposit && state.penaltyRoute == 2) {
+                        val buddyAddr = state.buddyAddress.trim()
+                        if (buddyAddr.isBlank()) {
+                            _saveState.value = SaveState.Error("Please enter a buddy wallet address")
                             return@launch
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Clock drift check failed (non-blocking)", e)
+                        // Validate base58 format (32-44 chars, no invalid chars)
+                        if (!buddyAddr.matches(Regex("^[1-9A-HJ-NP-Za-km-z]{32,44}$"))) {
+                            _saveState.value = SaveState.Error("Invalid buddy address format. Must be a valid Solana address.")
+                            return@launch
+                        }
                     }
+
+                    if (state.hasDeposit) {
+                        if (state.depositAmount <= 0.0) {
+                            _saveState.value = SaveState.Error("Deposit amount must be greater than 0")
+                            return@launch
+                        }
+                        if (state.depositAmount < MIN_DEPOSIT_SOL) {
+                            _saveState.value = SaveState.Error("Minimum deposit is $MIN_DEPOSIT_SOL SOL")
+                            return@launch
+                        }
+
+                        // H2: Check clock drift before creating deposit alarms.
+                        // A drifted clock may cause missed claim deadlines.
+                        try {
+                            val driftSec = rpcClient.checkTimeDrift()
+                            if (driftSec != null && kotlin.math.abs(driftSec) > 300) {
+                                Log.w(TAG, "Clock drift detected: ${driftSec}s — deposit alarm may miss deadline")
+                                _saveState.value =
+                                    SaveState.Error(
+                                        "Your device clock is off by ${kotlin.math.abs(driftSec) / 60} minutes " +
+                                            "compared to Solana network. Please sync your clock to avoid losing your deposit.",
+                                    )
+                                return@launch
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Clock drift check failed (non-blocking)", e)
+                        }
+                    }
+
+                    // Convert LocalTime to next occurrence
+                    val triggerAtMillis = AlarmTimeCalculator.nextTriggerMillis(state.time)
+                    val depositLamports = (state.depositAmount * 1_000_000_000L).roundToLong()
+                    val penaltyDestination =
+                        when (state.penaltyRoute) {
+                            1 -> SolarmaTreasury.ADDRESS
+                            2 -> state.buddyAddress.ifEmpty { null }
+                            else -> null
+                        }
+                    val onchainAlarmId = if (state.hasDeposit) generateOnchainAlarmId() else null
+
+                    // Get NFC/QR values from Settings DataStore
+                    val prefs = context.dataStore.data.first()
+                    val tagHash = prefs[KEY_NFC_TAG_HASH]
+                    val qrCode = prefs[KEY_QR_CODE]
+
+                    // Create entity
+                    val alarm =
+                        AlarmEntity(
+                            alarmTimeMillis = triggerAtMillis,
+                            label = state.label,
+                            isEnabled = true,
+                            repeatDays = 0,
+                            wakeProofType = state.wakeProofType,
+                            targetSteps = state.targetSteps,
+                            // NFC
+                            tagHash = if (state.wakeProofType == 2) tagHash else null,
+                            // QR
+                            qrCode = if (state.wakeProofType == 3) qrCode else null,
+                            hasDeposit = state.hasDeposit,
+                            depositAmount = state.depositAmount,
+                            depositLamports = if (state.hasDeposit) depositLamports else 0,
+                            penaltyRoute = state.penaltyRoute,
+                            penaltyDestination = penaltyDestination,
+                            onchainAlarmId = onchainAlarmId,
+                        )
+
+                    // Save and schedule locally
+                    val id = alarmRepository.createAlarm(alarm)
+                    val savedAlarm = alarm.copy(id = id)
+
+                    Log.i(TAG, "Alarm saved locally: id=$id, hasDeposit=${state.hasDeposit}")
+
+                    // If deposit required, need to sign transaction
+                    if (state.hasDeposit && state.depositAmount > 0) {
+                        pendingAlarm = savedAlarm
+                        pendingState = state
+                        _saveState.value = SaveState.NeedsSigning(id, state.depositAmount)
+                    } else {
+                        _saveState.value = SaveState.Success(id)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save alarm", e)
+                    _saveState.value = SaveState.Error(e.message ?: "Failed to save alarm")
                 }
-                
-                // Convert LocalTime to next occurrence
-                val triggerAtMillis = AlarmTimeCalculator.nextTriggerMillis(state.time)
-                val depositLamports = (state.depositAmount * 1_000_000_000L).roundToLong()
-                val penaltyDestination = when (state.penaltyRoute) {
-                    1 -> SolarmaTreasury.ADDRESS
-                    2 -> state.buddyAddress.ifEmpty { null }
-                    else -> null
-                }
-                val onchainAlarmId = if (state.hasDeposit) generateOnchainAlarmId() else null
-                
-                // Get NFC/QR values from Settings DataStore
-                val prefs = context.dataStore.data.first()
-                val tagHash = prefs[KEY_NFC_TAG_HASH]
-                val qrCode = prefs[KEY_QR_CODE]
-                
-                // Create entity
-                val alarm = AlarmEntity(
-                    alarmTimeMillis = triggerAtMillis,
-                    label = state.label,
-                    isEnabled = true,
-                    repeatDays = 0,
-                    wakeProofType = state.wakeProofType,
-                    targetSteps = state.targetSteps,
-                    tagHash = if (state.wakeProofType == 2) tagHash else null,  // NFC
-                    qrCode = if (state.wakeProofType == 3) qrCode else null,    // QR
-                    hasDeposit = state.hasDeposit,
-                    depositAmount = state.depositAmount,
-                    depositLamports = if (state.hasDeposit) depositLamports else 0,
-                    penaltyRoute = state.penaltyRoute,
-                    penaltyDestination = penaltyDestination,
-                    onchainAlarmId = onchainAlarmId
-                )
-                
-                // Save and schedule locally
-                val id = alarmRepository.createAlarm(alarm)
-                val savedAlarm = alarm.copy(id = id)
-                
-                Log.i(TAG, "Alarm saved locally: id=$id, hasDeposit=${state.hasDeposit}")
-                
-                // If deposit required, need to sign transaction
-                if (state.hasDeposit && state.depositAmount > 0) {
-                    pendingAlarm = savedAlarm
-                    pendingState = state
-                    _saveState.value = SaveState.NeedsSigning(id, state.depositAmount)
-                } else {
-                    _saveState.value = SaveState.Success(id)
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to save alarm", e)
-                _saveState.value = SaveState.Error(e.message ?: "Failed to save alarm")
             }
         }
-    }
-    
-    /**
-     * Sign and submit onchain transaction.
-     * Called from UI when ActivityResultSender is available.
-     */
-    fun signDeposit(activityResultSender: ActivityResultSender) {
-        val alarm = pendingAlarm ?: return
-        val state = pendingState ?: return
-        
-        viewModelScope.launch {
-            _saveState.value = SaveState.Signing
-            
-            try {
-                val depositLamports = if (alarm.depositLamports > 0) {
-                    alarm.depositLamports
-                } else {
-                    (state.depositAmount * 1_000_000_000L).roundToLong()
-                }
-                val penaltyRoute = when (state.penaltyRoute) {
-                    1 -> PenaltyRoute.DONATE
-                    2 -> PenaltyRoute.BUDDY
-                    else -> PenaltyRoute.BURN
-                }
-                val buddyAddress = if (state.penaltyRoute == 2) state.buddyAddress.ifEmpty { null } else null
-                
-                Log.i(TAG, "Signing deposit: ${state.depositAmount} SOL, route=${penaltyRoute}")
-                
-                // Pre-check balance before attempting MWA transaction
-                val connState = walletManager.connectionState.value
-                if (connState is WalletConnectionState.Connected) {
-                    val balanceResult = rpcClient.getBalance(connState.publicKeyBase58)
-                    balanceResult.onSuccess { lamports ->
-                        val balanceSol = lamports / 1_000_000_000.0
-                        val requiredSol = state.depositAmount + ESTIMATED_FEES_SOL
-                        if (balanceSol < requiredSol) {
-                            _saveState.value = SaveState.SigningFailed(
-                                alarm.id,
-                                "Insufficient balance: %.4f SOL available, ~%.3f SOL needed (deposit + fees). Get test SOL at faucet.solana.com".format(
-                                    balanceSol, requiredSol
-                                )
-                            )
-                            alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
-                            pendingAlarm = null
-                            pendingState = null
-                            return@launch
-                        }
-                    }.onFailure { e ->
-                        // RPC failure is non-blocking — log and proceed to MWA
-                        Log.w(TAG, "Balance pre-check failed, proceeding anyway", e)
-                    }
-                }
-                
-                val result = onchainAlarmService.createOnchainAlarm(
-                    activityResultSender = activityResultSender,
-                    alarm = alarm,
-                    depositLamports = depositLamports,
-                    penaltyRoute = penaltyRoute,
-                    buddyAddress = buddyAddress
-                )
-                
-                result.fold(
-                    onSuccess = { pdaAddress ->
-                        Log.i(TAG, "Onchain alarm created: pda=$pdaAddress")
-                        // Update local alarm with onchain address
-                        alarmRepository.updateOnchainAddress(alarm.id, pdaAddress)
-                        alarmRepository.recordDeposit(depositLamports)
-                        // Record confirmed transaction for history
-                        pendingTransactionDao.insert(
-                            PendingTransaction(
-                                type = "CREATE_ALARM",
-                                alarmId = alarm.id,
-                                status = "CONFIRMED",
-                                lastAttemptAt = System.currentTimeMillis()
-                            )
-                        )
-                        _saveState.value = SaveState.Success(alarm.id)
-                    },
-                    onFailure = { e ->
-                        Log.e(TAG, "Signing failed", e)
-                        if (e is OnchainAlarmService.PendingConfirmationException) {
-                            alarmRepository.updateOnchainAddress(alarm.id, e.pda)
-                            alarmRepository.queueCreateAlarm(alarm.id)
-                            _saveState.value = SaveState.PendingConfirmation(alarm.id)
+
+        /**
+         * Sign and submit onchain transaction.
+         * Called from UI when ActivityResultSender is available.
+         */
+        fun signDeposit(activityResultSender: ActivityResultSender) {
+            val alarm = pendingAlarm ?: return
+            val state = pendingState ?: return
+
+            viewModelScope.launch {
+                _saveState.value = SaveState.Signing
+
+                try {
+                    val depositLamports =
+                        if (alarm.depositLamports > 0) {
+                            alarm.depositLamports
                         } else {
-                            // Reset deposit status since transaction wasn't sent
-                            alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
-                            _saveState.value = SaveState.SigningFailed(alarm.id, e.message ?: "Transaction failed")
+                            (state.depositAmount * 1_000_000_000L).roundToLong()
+                        }
+                    val penaltyRoute =
+                        when (state.penaltyRoute) {
+                            1 -> PenaltyRoute.DONATE
+                            2 -> PenaltyRoute.BUDDY
+                            else -> PenaltyRoute.BURN
+                        }
+                    val buddyAddress = if (state.penaltyRoute == 2) state.buddyAddress.ifEmpty { null } else null
+
+                    Log.i(TAG, "Signing deposit: ${state.depositAmount} SOL, route=$penaltyRoute")
+
+                    // Pre-check balance before attempting MWA transaction
+                    val connState = walletManager.connectionState.value
+                    if (connState is WalletConnectionState.Connected) {
+                        val balanceResult = rpcClient.getBalance(connState.publicKeyBase58)
+                        balanceResult.onSuccess { lamports ->
+                            val balanceSol = lamports / 1_000_000_000.0
+                            val requiredSol = state.depositAmount + ESTIMATED_FEES_SOL
+                            if (balanceSol < requiredSol) {
+                                _saveState.value =
+                                    SaveState.SigningFailed(
+                                        alarm.id,
+                                        (
+                                            "Insufficient balance: " +
+                                                "%.4f SOL available, " +
+                                                "~%.3f SOL needed " +
+                                                "(deposit + fees). " +
+                                                "Get test SOL at " +
+                                                "faucet.solana.com"
+                                        ).format(
+                                            balanceSol, requiredSol,
+                                        ),
+                                    )
+                                alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
+                                pendingAlarm = null
+                                pendingState = null
+                                return@launch
+                            }
+                        }.onFailure { e ->
+                            // RPC failure is non-blocking — log and proceed to MWA
+                            Log.w(TAG, "Balance pre-check failed, proceeding anyway", e)
                         }
                     }
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Signing exception", e)
-                // Reset deposit status since transaction wasn't sent
+
+                    val result =
+                        onchainAlarmService.createOnchainAlarm(
+                            activityResultSender = activityResultSender,
+                            alarm = alarm,
+                            depositLamports = depositLamports,
+                            penaltyRoute = penaltyRoute,
+                            buddyAddress = buddyAddress,
+                        )
+
+                    result.fold(
+                        onSuccess = { pdaAddress ->
+                            Log.i(TAG, "Onchain alarm created: pda=$pdaAddress")
+                            // Update local alarm with onchain address
+                            alarmRepository.updateOnchainAddress(alarm.id, pdaAddress)
+                            alarmRepository.recordDeposit(depositLamports)
+                            // Record confirmed transaction for history
+                            pendingTransactionDao.insert(
+                                PendingTransaction(
+                                    type = "CREATE_ALARM",
+                                    alarmId = alarm.id,
+                                    status = "CONFIRMED",
+                                    lastAttemptAt = System.currentTimeMillis(),
+                                ),
+                            )
+                            _saveState.value = SaveState.Success(alarm.id)
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "Signing failed", e)
+                            if (e is OnchainAlarmService.PendingConfirmationException) {
+                                alarmRepository.updateOnchainAddress(alarm.id, e.pda)
+                                alarmRepository.queueCreateAlarm(alarm.id)
+                                _saveState.value = SaveState.PendingConfirmation(alarm.id)
+                            } else {
+                                // Reset deposit status since transaction wasn't sent
+                                alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
+                                _saveState.value = SaveState.SigningFailed(alarm.id, e.message ?: "Transaction failed")
+                            }
+                        },
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Signing exception", e)
+                    // Reset deposit status since transaction wasn't sent
+                    alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
+                    _saveState.value = SaveState.SigningFailed(alarm.id, e.message ?: "Transaction failed")
+                } finally {
+                    pendingAlarm = null
+                    pendingState = null
+                }
+            }
+        }
+
+        /**
+         * Skip signing and just save alarm without deposit.
+         */
+        fun skipSigning() {
+            val alarm = pendingAlarm ?: return
+            viewModelScope.launch {
+                // Remove deposit flag from saved alarm
                 alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
-                _saveState.value = SaveState.SigningFailed(alarm.id, e.message ?: "Transaction failed")
-            } finally {
+                _saveState.value = SaveState.Success(alarm.id)
                 pendingAlarm = null
                 pendingState = null
             }
         }
-    }
-    
-    /**
-     * Skip signing and just save alarm without deposit.
-     */
-    fun skipSigning() {
-        val alarm = pendingAlarm ?: return
-        viewModelScope.launch {
-            // Remove deposit flag from saved alarm
-            alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
-            _saveState.value = SaveState.Success(alarm.id)
+
+        private fun generateOnchainAlarmId(): Long {
+            // Use random Long for on-chain ID. Previous approach (now shl 10 | rand)
+            // truncated top bits, mixed identity with time, and was non-monotonic.
+            return kotlin.random.Random.nextLong(1, Long.MAX_VALUE)
+        }
+
+        fun resetState() {
+            _saveState.value = SaveState.Idle
             pendingAlarm = null
             pendingState = null
         }
     }
-    
-    private fun generateOnchainAlarmId(): Long {
-        // Use random Long for on-chain ID. Previous approach (now shl 10 | rand)
-        // truncated top bits, mixed identity with time, and was non-monotonic.
-        return kotlin.random.Random.nextLong(1, Long.MAX_VALUE)
-    }
-    
-    fun resetState() {
-        _saveState.value = SaveState.Idle
-        pendingAlarm = null
-        pendingState = null
-    }
-}
 
 /**
  * Save operation state.
  */
 sealed class SaveState {
     object Idle : SaveState()
+
     object Saving : SaveState()
+
     data class NeedsSigning(val alarmId: Long, val depositAmount: Double) : SaveState()
+
     object Signing : SaveState()
+
     data class Success(val alarmId: Long) : SaveState()
+
     data class PendingConfirmation(val alarmId: Long) : SaveState()
+
     data class SigningFailed(val alarmId: Long, val message: String) : SaveState()
+
     data class Error(val message: String) : SaveState()
 }

@@ -13,7 +13,6 @@ import java.util.Base64
  * Covers boundary conditions the happy-path tests don't reach.
  */
 class OnchainAlarmParserEdgeCaseTest {
-
     // =========================================================================
     // Boundary: data too small
     // =========================================================================
@@ -111,10 +110,11 @@ class OnchainAlarmParserEdgeCaseTest {
 
     @Test
     fun `max u64 amounts parse correctly`() {
-        val parsed = buildAndParse(
-            initialAmount = Long.MAX_VALUE,
-            remainingAmount = Long.MAX_VALUE
-        )
+        val parsed =
+            buildAndParse(
+                initialAmount = Long.MAX_VALUE,
+                remainingAmount = Long.MAX_VALUE,
+            )
         assertNotNull(parsed)
         assertEquals(Long.MAX_VALUE, parsed!!.initialAmount)
         assertEquals(Long.MAX_VALUE, parsed.remainingAmount)
@@ -141,18 +141,19 @@ class OnchainAlarmParserEdgeCaseTest {
 
     @Test
     fun `OnchainAlarmAccount equals and hashCode work correctly`() {
-        val a = OnchainAlarmAccount(
-            pubkey = "aaa",
-            owner = "bbb",
-            alarmTimeUnix = 100L,
-            deadlineUnix = 200L,
-            initialAmount = 1000L,
-            remainingAmount = 500L,
-            penaltyRoute = 0,
-            penaltyDestination = null,
-            snoozeCount = 0,
-            status = 0
-        )
+        val a =
+            OnchainAlarmAccount(
+                pubkey = "aaa",
+                owner = "bbb",
+                alarmTimeUnix = 100L,
+                deadlineUnix = 200L,
+                initialAmount = 1000L,
+                remainingAmount = 500L,
+                penaltyRoute = 0,
+                penaltyDestination = null,
+                snoozeCount = 0,
+                status = 0,
+            )
         val b = a.copy()
         assertEquals(a, b)
         assertEquals(a.hashCode(), b.hashCode())
@@ -160,18 +161,19 @@ class OnchainAlarmParserEdgeCaseTest {
 
     @Test
     fun `OnchainAlarmAccount copy with changes`() {
-        val original = OnchainAlarmAccount(
-            pubkey = "aaa",
-            owner = "bbb",
-            alarmTimeUnix = 100L,
-            deadlineUnix = 200L,
-            initialAmount = 1000L,
-            remainingAmount = 500L,
-            penaltyRoute = 0,
-            penaltyDestination = null,
-            snoozeCount = 0,
-            status = 0
-        )
+        val original =
+            OnchainAlarmAccount(
+                pubkey = "aaa",
+                owner = "bbb",
+                alarmTimeUnix = 100L,
+                deadlineUnix = 200L,
+                initialAmount = 1000L,
+                remainingAmount = 500L,
+                penaltyRoute = 0,
+                penaltyDestination = null,
+                snoozeCount = 0,
+                status = 0,
+            )
         val snoozed = original.copy(snoozeCount = 1, remainingAmount = 400L)
         assertEquals(1, snoozed.snoozeCount)
         assertEquals(400L, snoozed.remainingAmount)
@@ -192,15 +194,16 @@ class OnchainAlarmParserEdgeCaseTest {
         penaltyDestination: String? = null,
         snoozeCount: Int = 0,
         status: Int = 0,
-        alarmId: Long = 1L
+        alarmId: Long = 1L,
     ): OnchainAlarmAccount? {
         val disc = discriminator("account:Alarm")
         val ownerBytes = PublicKey(owner).bytes()
         val destBytes = penaltyDestination?.let { PublicKey(it).bytes() }
 
-        val size = 8 + 32 + 8 + 8 + 8 + 8 + 8 + 1 +
-            1 + (destBytes?.size ?: 0) +
-            1 + 1 + 1 + 1 + 32
+        val size =
+            8 + 32 + 8 + 8 + 8 + 8 + 8 + 1 +
+                1 + (destBytes?.size ?: 0) +
+                1 + 1 + 1 + 1 + 32
 
         val buffer = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN)
         buffer.put(disc)

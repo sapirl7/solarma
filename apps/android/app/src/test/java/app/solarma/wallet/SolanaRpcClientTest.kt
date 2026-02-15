@@ -14,7 +14,6 @@ import org.junit.Test
  * - setNetwork toggle
  */
 class SolanaRpcClientTest {
-
     private lateinit var client: SolanaRpcClient
 
     @Before

@@ -4,22 +4,17 @@ import android.Manifest
 import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.core.net.toUri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,17 +23,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.LocalActivityResultSender
 import app.solarma.ui.components.*
@@ -53,37 +47,40 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun CreateAlarmScreen(
     viewModel: CreateAlarmViewModel = hiltViewModel(),
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
 ) {
     var state by remember { mutableStateOf(CreateAlarmState()) }
     var showTimePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val activityResultSender = LocalActivityResultSender.current
-    val alarmManager = remember {
-        context.getSystemService(AlarmManager::class.java)
-    }
+    val alarmManager =
+        remember {
+            context.getSystemService(AlarmManager::class.java)
+        }
     val needsExactAlarmPermission =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             alarmManager != null &&
             !alarmManager.canScheduleExactAlarms()
-    
+
     // Step permission launcher - request when user selects Steps method
-    val stepPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            state = state.copy(wakeProofType = 1)
-        } else {
-            Toast.makeText(context, "Step permission required for step counter", Toast.LENGTH_SHORT).show()
+    val stepPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                state = state.copy(wakeProofType = 1)
+            } else {
+                Toast.makeText(context, "Step permission required for step counter", Toast.LENGTH_SHORT).show()
+            }
         }
-    }
-    
+
     // Check if step permission is needed (Android 10+)
-    val needsStepPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-        ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
-    
+    val needsStepPermission =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+
     val saveState by viewModel.saveState.collectAsState()
-    
+
     LaunchedEffect(saveState) {
         when (val currentState = saveState) {
             is SaveState.Success -> {
@@ -95,7 +92,7 @@ fun CreateAlarmScreen(
                 Toast.makeText(
                     context,
                     "Deposit pending confirmation. Open app to finalize.",
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
                 viewModel.resetState()
                 onBack()
@@ -117,71 +114,74 @@ fun CreateAlarmScreen(
             else -> {}
         }
     }
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             "New Alarm",
                             style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary
+                            color = TextPrimary,
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowBack, 
+                                Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
-                                tint = TextPrimary
+                                tint = TextPrimary,
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
                 )
-            }
+            },
         ) { padding ->
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 if (needsExactAlarmPermission) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = AlarmCardShape,
-                        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+                        colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 text = "Exact alarm permission required",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = TextPrimary,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                             Text(
                                 text = "Enable exact alarms so Solarma can wake you reliably.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextMuted
+                                color = TextMuted,
                             )
                             Button(
                                 onClick = {
-                                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                        data = "package:${context.packageName}".toUri()
-                                    }
+                                    val intent =
+                                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                            data = "package:${context.packageName}".toUri()
+                                        }
                                     context.startActivity(intent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = SolanaGreen)
+                                colors = ButtonDefaults.buttonColors(containerColor = SolanaGreen),
                             ) {
                                 Text("Enable exact alarms")
                             }
@@ -192,9 +192,9 @@ fun CreateAlarmScreen(
                 // TIME PICKER CARD
                 TimeCard(
                     time = state.time,
-                    onClick = { showTimePicker = true }
+                    onClick = { showTimePicker = true },
                 )
-                
+
                 // LABEL INPUT
                 OutlinedTextField(
                     value = state.label,
@@ -203,17 +203,18 @@ fun CreateAlarmScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = ButtonShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
-                        focusedBorderColor = SolanaGreen,
-                        unfocusedContainerColor = GraphiteSurface,
-                        focusedContainerColor = GraphiteSurface
-                    )
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                            focusedBorderColor = SolanaGreen,
+                            unfocusedContainerColor = GraphiteSurface,
+                            focusedContainerColor = GraphiteSurface,
+                        ),
                 )
-                
+
                 // WAKE PROOF SECTION
                 SectionHeader(title = "WAKE PROOF CHALLENGE")
-                
+
                 WakeProofSelector(
                     selectedType = state.wakeProofType,
                     targetSteps = state.targetSteps,
@@ -225,9 +226,9 @@ fun CreateAlarmScreen(
                             state = state.copy(wakeProofType = type)
                         }
                     },
-                    onStepsChange = { state = state.copy(targetSteps = it) }
+                    onStepsChange = { state = state.copy(targetSteps = it) },
                 )
-                
+
                 // DEPOSIT SECTION
                 Spacer(modifier = Modifier.height(8.dp))
                 DepositSection(
@@ -243,7 +244,7 @@ fun CreateAlarmScreen(
                             Toast.makeText(
                                 context,
                                 "Exact alarm permission required for deposit alarms. Grant it in Settings.",
-                                Toast.LENGTH_LONG
+                                Toast.LENGTH_LONG,
                             ).show()
                         } else {
                             state = state.copy(hasDeposit = enabled)
@@ -253,88 +254,94 @@ fun CreateAlarmScreen(
                     onCustomAmountChange = { state = state.copy(customAmountText = it) },
                     onRouteChange = { state = state.copy(penaltyRoute = it) },
                     onDonationAddressChange = { state = state.copy(donationAddress = it) },
-                    onBuddyAddressChange = { state = state.copy(buddyAddress = it) }
+                    onBuddyAddressChange = { state = state.copy(buddyAddress = it) },
                 )
-                
+
                 Spacer(modifier = Modifier.weight(1f))
-                
+
                 // CREATE BUTTON
                 GradientButton(
-                    text = if (state.hasDeposit) 
-                        "Create Alarm (${state.depositAmount} SOL)" 
-                    else 
-                        "Create Alarm",
+                    text =
+                        if (state.hasDeposit) {
+                            "Create Alarm (${state.depositAmount} SOL)"
+                        } else {
+                            "Create Alarm"
+                        },
                     onClick = { viewModel.save(state) },
                     enabled = saveState !is SaveState.Saving,
                     isLoading = saveState is SaveState.Saving,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
-    
+
     if (showTimePicker) {
         TimePickerDialog(
             initialTime = state.time,
             onDismiss = { showTimePicker = false },
-            onConfirm = { 
+            onConfirm = {
                 state = state.copy(time = it)
                 showTimePicker = false
-            }
+            },
         )
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeCard(
     time: LocalTime,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 12.dp,
-                shape = TimePickerShape,
-                ambientColor = SolanaGreen.copy(alpha = 0.3f)
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 12.dp,
+                    shape = TimePickerShape,
+                    ambientColor = SolanaGreen.copy(alpha = 0.3f),
+                ),
         shape = TimePickerShape,
-        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+        colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            SolanaGreen.copy(alpha = 0.1f),
-                            Color.Transparent
-                        )
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush =
+                            Brush.verticalGradient(
+                                colors =
+                                    listOf(
+                                        SolanaGreen.copy(alpha = 0.1f),
+                                        Color.Transparent,
+                                    ),
+                            ),
+                    ),
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = time.format(DateTimeFormatter.ofPattern("HH:mm")),
                     style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = TextPrimary,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Tap to change time",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = TextSecondary,
                 )
             }
         }
@@ -346,105 +353,109 @@ fun WakeProofSelector(
     selectedType: Int,
     targetSteps: Int,
     onTypeChange: (Int) -> Unit,
-    onStepsChange: (Int) -> Unit
+    onStepsChange: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             WakeProofChip(
                 iconText = "STEPS",
                 label = "Steps",
                 selected = selectedType == 1,
                 onClick = { onTypeChange(1) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             WakeProofChip(
                 iconText = "NFC",
                 label = "NFC",
                 selected = selectedType == 2,
                 onClick = { onTypeChange(2) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             WakeProofChip(
                 iconText = "QR",
                 label = "QR Code",
                 selected = selectedType == 3,
                 onClick = { onTypeChange(3) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             WakeProofChip(
                 iconText = "NONE",
                 label = "None",
                 selected = selectedType == 0,
                 onClick = { onTypeChange(0) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
-        
+
         // Mode description card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = AlarmCardShape,
-            colors = CardDefaults.cardColors(containerColor = GraphiteSurface.copy(alpha = 0.7f))
+            colors = CardDefaults.cardColors(containerColor = GraphiteSurface.copy(alpha = 0.7f)),
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.Top,
             ) {
                 Text("INFO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextMuted)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = when (selectedType) {
-                        1 -> "Walk the required number of steps to dismiss the alarm. Your phone must detect actual movement — no cheating!"
-                        2 -> "Scan a registered NFC tag (like a sticker on your bathroom mirror) to prove you got out of bed."
-                        3 -> "Scan a QR code placed somewhere far from your bed to dismiss the alarm."
-                        else -> "Simple tap to dismiss. No physical challenge required, but your deposit is still at stake!"
-                    },
+                    text =
+                        when (selectedType) {
+                            1 ->
+                                "Walk the required number of steps to dismiss " +
+                                    "the alarm. Your phone must detect actual " +
+                                    "movement — no cheating!"
+                            2 -> "Scan a registered NFC tag (like a sticker on your bathroom mirror) to prove you got out of bed."
+                            3 -> "Scan a QR code placed somewhere far from your bed to dismiss the alarm."
+                            else -> "Simple tap to dismiss. No physical challenge required, but your deposit is still at stake!"
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
                 )
             }
         }
-        
+
         // Steps slider
         AnimatedVisibility(
             visible = selectedType == 1,
             enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
+            exit = shrinkVertically() + fadeOut(),
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = AlarmCardShape,
-                colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+                colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
                             Text(
                                 text = "Target Steps",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = TextSecondary,
                             )
                             Text(
                                 text = "≈ ${(targetSteps * 0.7).toInt()} meters to walk",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextMuted
+                                color = TextMuted,
                             )
                         }
                         Text(
                             text = "$targetSteps",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = SolanaPurple
+                            color = SolanaPurple,
                         )
                     }
                     Slider(
@@ -452,16 +463,17 @@ fun WakeProofSelector(
                         onValueChange = { onStepsChange(it.toInt()) },
                         valueRange = 10f..100f,
                         steps = 8,
-                        colors = SliderDefaults.colors(
-                            thumbColor = SolanaPurple,
-                            activeTrackColor = SolanaPurple,
-                            inactiveTrackColor = Graphite
-                        )
+                        colors =
+                            SliderDefaults.colors(
+                                thumbColor = SolanaPurple,
+                                activeTrackColor = SolanaPurple,
+                                inactiveTrackColor = Graphite,
+                            ),
                     )
                     Text(
                         text = "Tip: 50+ steps ensures you really get moving!",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SolanaGreen.copy(alpha = 0.8f)
+                        color = SolanaGreen.copy(alpha = 0.8f),
                     )
                 }
             }
@@ -475,39 +487,45 @@ fun WakeProofChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.05f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "chip_scale"
+        label = "chip_scale",
     )
-    
+
+    val chipBorder =
+        if (selected) {
+            androidx.compose.foundation.BorderStroke(2.dp, SolanaPurple)
+        } else {
+            null
+        }
+
     Surface(
         onClick = onClick,
-        modifier = modifier
-            .scale(scale)
-            .height(80.dp),
+        modifier =
+            modifier
+                .scale(scale)
+                .height(80.dp),
         shape = AlarmCardShape,
         color = if (selected) SolanaPurple.copy(alpha = 0.2f) else GraphiteSurface,
-        border = if (selected) 
-            androidx.compose.foundation.BorderStroke(2.dp, SolanaPurple) 
-        else 
-            null
+        border = chipBorder,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(iconText, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (selected) SolanaPurple else TextMuted)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) SolanaPurple else TextSecondary
+                color = if (selected) SolanaPurple else TextSecondary,
             )
         }
     }
@@ -526,35 +544,38 @@ fun DepositSection(
     onCustomAmountChange: (String) -> Unit,
     onRouteChange: (Int) -> Unit,
     onDonationAddressChange: (String) -> Unit,
-    onBuddyAddressChange: (String) -> Unit
+    onBuddyAddressChange: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = AlarmCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = if (hasDeposit) SolanaPurple.copy(alpha = 0.1f) else GraphiteSurface
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = if (hasDeposit) SolanaPurple.copy(alpha = 0.1f) else GraphiteSurface,
+            ),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(SolanaPurple, SolanaGreen)
+                        modifier =
+                            Modifier
+                                .size(40.dp)
+                                .background(
+                                    brush =
+                                        Brush.linearGradient(
+                                            colors = listOf(SolanaPurple, SolanaGreen),
+                                        ),
+                                    shape = RoundedCornerShape(12.dp),
                                 ),
-                                shape = RoundedCornerShape(12.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text("◎", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
@@ -564,74 +585,75 @@ fun DepositSection(
                             text = "Add SOL Deposit",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            color = TextPrimary,
                         )
                         Text(
                             text = "Lock SOL to stay accountable",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = TextSecondary,
                         )
                     }
                 }
                 Switch(
                     checked = hasDeposit,
                     onCheckedChange = onToggle,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = SolanaPurple,
-                        checkedTrackColor = SolanaPurple.copy(alpha = 0.3f),
-                        uncheckedThumbColor = TextMuted,
-                        uncheckedTrackColor = Graphite
-                    )
+                    colors =
+                        SwitchDefaults.colors(
+                            checkedThumbColor = SolanaPurple,
+                            checkedTrackColor = SolanaPurple.copy(alpha = 0.3f),
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = Graphite,
+                        ),
                 )
             }
-            
+
             AnimatedVisibility(
                 visible = hasDeposit,
                 enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                exit = shrinkVertically() + fadeOut(),
             ) {
                 Column(
                     modifier = Modifier.padding(top = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // Deposit explanation
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = SolanaPurple.copy(alpha = 0.1f))
+                        colors = CardDefaults.cardColors(containerColor = SolanaPurple.copy(alpha = 0.1f)),
                     ) {
                         Text(
                             text = "Smart Contract: Your SOL is locked on-chain. Wake up on time → get it back. Fail → penalty applies.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextPrimary,
                             modifier = Modifier.padding(12.dp),
-                            lineHeight = 18.sp
+                            lineHeight = 18.sp,
                         )
                     }
-                    
+
                     // Amount chips
                     Text(
                         text = "DEPOSIT AMOUNT",
                         style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary
+                        color = TextSecondary,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         listOf(0.01, 0.05, 0.1, 0.5).forEach { sol ->
                             AmountChip(
                                 amount = sol,
                                 selected = amount == sol && customAmountText.isEmpty(),
-                                onClick = { 
+                                onClick = {
                                     onAmountChange(sol)
                                     onCustomAmountChange("")
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
-                    
+
                     // Custom amount input
                     OutlinedTextField(
                         value = customAmountText,
@@ -644,80 +666,82 @@ fun DepositSection(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
-                            focusedBorderColor = SolanaPurple,
-                            unfocusedContainerColor = Graphite,
-                            focusedContainerColor = Graphite
-                        )
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                                focusedBorderColor = SolanaPurple,
+                                unfocusedContainerColor = Graphite,
+                                focusedContainerColor = Graphite,
+                            ),
                     )
-                    
+
                     // Penalty route
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "IF YOU FAIL TO WAKE UP",
                         style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary
+                        color = TextSecondary,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         PenaltyChip(
                             iconText = "BURN",
                             label = "Burn",
                             selected = penaltyRoute == 0,
                             onClick = { onRouteChange(0) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         PenaltyChip(
                             iconText = "GIVE",
                             label = "Donate",
                             selected = penaltyRoute == 1,
                             onClick = { onRouteChange(1) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         PenaltyChip(
                             iconText = "BUDDY",
                             label = "Buddy",
                             selected = penaltyRoute == 2,
                             onClick = { onRouteChange(2) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                     }
-                    
+
                     // Penalty explanation
                     Text(
-                        text = when (penaltyRoute) {
-                            0 -> "Burn: SOL is permanently destroyed. Maximum stakes!"
-                            1 -> "Donate: SOL goes to Solarma project development."
-                            else -> "Buddy: SOL goes to your accountability partner."
-                        },
+                        text =
+                            when (penaltyRoute) {
+                                0 -> "Burn: SOL is permanently destroyed. Maximum stakes!"
+                                1 -> "Donate: SOL goes to Solarma project development."
+                                else -> "Buddy: SOL goes to your accountability partner."
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                         lineHeight = 16.sp,
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        modifier = Modifier.padding(horizontal = 4.dp),
                     )
-                    
+
                     // Donate goes to fixed Solarma treasury - no input needed
                     AnimatedVisibility(
                         visible = penaltyRoute == 1,
                         enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
+                        exit = shrinkVertically() + fadeOut(),
                     ) {
                         Text(
                             text = "100% goes to Solarma development. Thank you!",
                             style = MaterialTheme.typography.bodySmall,
                             color = SolanaPurple,
-                            modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                            modifier = Modifier.padding(top = 8.dp, start = 4.dp),
                         )
                     }
-                    
+
                     // Buddy address input (visible when Buddy is selected)
                     AnimatedVisibility(
                         visible = penaltyRoute == 2,
                         enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
+                        exit = shrinkVertically() + fadeOut(),
                     ) {
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -729,18 +753,19 @@ fun DepositSection(
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
-                                    focusedBorderColor = SolanaPurple,
-                                    unfocusedContainerColor = Graphite,
-                                    focusedContainerColor = Graphite
-                                )
+                                colors =
+                                    OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                                        focusedBorderColor = SolanaPurple,
+                                        unfocusedContainerColor = Graphite,
+                                        focusedContainerColor = Graphite,
+                                    ),
                             )
                             Text(
                                 text = "Your accountability partner will receive SOL if you fail to wake up",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextMuted,
-                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
                             )
                         }
                     }
@@ -755,24 +780,24 @@ fun AmountChip(
     amount: Double,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(48.dp),
         shape = ChipShape,
         color = if (selected) SolanaPurple else Graphite,
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f)),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "${amount}◎",
+                text = "$amount◎",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) Color.Black else TextPrimary
+                color = if (selected) Color.Black else TextPrimary,
             )
         }
     }
@@ -784,30 +809,35 @@ fun PenaltyChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
+    val penaltyBorder =
+        if (selected) {
+            androidx.compose.foundation.BorderStroke(2.dp, ErrorCrimson)
+        } else {
+            androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+        }
+
     Surface(
         onClick = onClick,
         modifier = modifier.height(64.dp),
         shape = ChipShape,
         color = if (selected) ErrorCrimson.copy(alpha = 0.15f) else Graphite,
-        border = if (selected) 
-            androidx.compose.foundation.BorderStroke(2.dp, ErrorCrimson) 
-        else 
-            androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+        border = penaltyBorder,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(iconText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selected) ErrorCrimson else TextMuted)
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (selected) ErrorCrimson else TextSecondary
+                color = if (selected) ErrorCrimson else TextSecondary,
             )
         }
     }
@@ -818,20 +848,21 @@ fun PenaltyChip(
 fun TimePickerDialog(
     initialTime: LocalTime,
     onDismiss: () -> Unit,
-    onConfirm: (LocalTime) -> Unit
+    onConfirm: (LocalTime) -> Unit,
 ) {
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime.hour,
-        initialMinute = initialTime.minute
-    )
-    
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour = initialTime.hour,
+            initialMinute = initialTime.minute,
+        )
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
-                onClick = { 
+                onClick = {
                     onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
-                }
+                },
             ) {
                 Text("OK", color = SolanaGreen)
             }
@@ -844,15 +875,16 @@ fun TimePickerDialog(
         text = {
             TimePicker(
                 state = timePickerState,
-                colors = TimePickerDefaults.colors(
-                    selectorColor = SolanaGreen,
-                    timeSelectorSelectedContainerColor = SolanaGreen.copy(alpha = 0.2f),
-                    timeSelectorSelectedContentColor = SolanaGreen
-                )
+                colors =
+                    TimePickerDefaults.colors(
+                        selectorColor = SolanaGreen,
+                        timeSelectorSelectedContainerColor = SolanaGreen.copy(alpha = 0.2f),
+                        timeSelectorSelectedContentColor = SolanaGreen,
+                    ),
             )
         },
         containerColor = GraphiteSurface,
-        shape = AlarmCardShape
+        shape = AlarmCardShape,
     )
 }
 
@@ -869,5 +901,5 @@ data class CreateAlarmState(
     val customAmountText: String = "",
     val penaltyRoute: Int = 0,
     val donationAddress: String = "",
-    val buddyAddress: String = ""
+    val buddyAddress: String = "",
 )

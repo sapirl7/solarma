@@ -1,7 +1,5 @@
 package app.solarma.ui.components
 
-import app.solarma.alarm.AlarmTiming
-
 /**
  * Display utilities for snooze penalty calculations.
  *
@@ -11,7 +9,6 @@ import app.solarma.alarm.AlarmTiming
  * The penalty is EXPONENTIAL — each snooze doubles the cost.
  */
 object SnoozePenaltyDisplay {
-
     /** On-chain default: 10% base penalty per snooze */
     private const val SNOOZE_BASE_PERCENT = 10
 
@@ -36,6 +33,6 @@ object SnoozePenaltyDisplay {
      */
     fun formatDisplay(snoozeCount: Int): String {
         val percent = cumulativePercent(snoozeCount)
-        return "${snoozeCount}× (${percent}% penalized)"
+        return "$snoozeCount× ($percent% penalized)"
     }
 }

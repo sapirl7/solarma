@@ -8,7 +8,6 @@ import org.junit.Test
  * These map directly to Rust on-chain penalty route validation in slash.rs.
  */
 class PenaltyRouteTest {
-
     // =========================================================================
     // PenaltyRoute codes must match Rust constants
     // =========================================================================
@@ -86,7 +85,7 @@ class PenaltyRouteTest {
         for (c in addr) {
             assertFalse(
                 "Character '$c' is not valid Base58",
-                c in invalidChars
+                c in invalidChars,
             )
         }
     }

@@ -24,10 +24,10 @@
 > ⚠️ **Currently on Devnet** — This app uses Solana Devnet test tokens. No real SOL is at risk. Get free test SOL at [faucet.solana.com](https://faucet.solana.com).
 
 <p align="center">
-  <a href="#features">Features</a> · 
-  <a href="#how-it-works">How It Works</a> · 
-  <a href="#quick-start">Quick Start</a> · 
-  <a href="#architecture">Architecture</a> · 
+  <a href="#features">Features</a> ·
+  <a href="#how-it-works">How It Works</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#architecture">Architecture</a> ·
   <a href="#contributing">Contributing</a> ·
   <a href="#support">Support</a>
 </p>
@@ -75,7 +75,7 @@ flowchart LR
     subgraph CREATE["🔒 Create Alarm"]
         A[Set wake time] --> B[Deposit SOL]
     end
-    
+
     subgraph WAKE["⏰ Wake Up"]
         C{Complete proof?}
         C -->|NFC/QR/Steps| D[✅ Verified]
@@ -83,16 +83,16 @@ flowchart LR
         C -->|Snooze| E[10% penalty]
         E --> C
     end
-    
+
     subgraph RESULT["💰 Outcome"]
         F[Claim deposit]
         G[Penalty applied]
     end
-    
+
     B --> C
     D2 --> F
     C -->|Deadline passed| G
-    
+
     style CREATE fill:#14F195,color:#000
     style WAKE fill:#9945FF,color:#fff
     style RESULT fill:#1E1E1E,color:#fff
@@ -239,19 +239,19 @@ graph TB
         WP[WakeProof Engine]
         WM[Wallet Manager]
     end
-    
+
     subgraph WakeProof["🔐 Wake Verification"]
         NFC[NFC Scanner]
         QR[QR Scanner]
         STEP[Step Counter]
     end
-    
+
     subgraph Solana["⛓️ Solana Blockchain"]
         MWA[Mobile Wallet Adapter]
         VAULT[Solarma Vault Program]
         PDA[Alarm PDAs]
     end
-    
+
     UI --> VM
     VM --> WP
     VM --> WM
@@ -259,7 +259,7 @@ graph TB
     WM --> MWA
     MWA --> VAULT
     VAULT --> PDA
-    
+
     style Android fill:#7F52FF,color:#fff
     style WakeProof fill:#14F195,color:#000
     style Solana fill:#9945FF,color:#fff

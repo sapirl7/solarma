@@ -12,7 +12,6 @@ import java.time.ZoneId
  * Unit tests for Solarma.
  */
 class SolarmaTest {
-
     @Test
     fun `next trigger uses same day when time is in the future`() {
         val zone = ZoneId.of("UTC")

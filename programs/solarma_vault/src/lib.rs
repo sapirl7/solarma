@@ -16,9 +16,9 @@ pub mod instructions;
 pub mod state;
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod prop_tests;
+#[cfg(test)]
+mod tests;
 
 use instructions::*;
 

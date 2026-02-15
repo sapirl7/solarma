@@ -8,8 +8,9 @@ import org.sol4k.PublicKey
 
 class TransactionSnapshotTest {
     private fun loadSnapshotRoot(): JSONObject {
-        val stream = javaClass.getResourceAsStream("/tx_snapshots/solarma_vault.json")
-            ?: Thread.currentThread().contextClassLoader?.getResourceAsStream("tx_snapshots/solarma_vault.json")
+        val stream =
+            javaClass.getResourceAsStream("/tx_snapshots/solarma_vault.json")
+                ?: Thread.currentThread().contextClassLoader?.getResourceAsStream("tx_snapshots/solarma_vault.json")
         assertNotNull("Missing tx snapshot resource: tx_snapshots/solarma_vault.json", stream)
         val text = stream!!.bufferedReader(Charsets.UTF_8).use { it.readText() }
         return JSONObject(text)
@@ -32,103 +33,111 @@ class TransactionSnapshotTest {
             val inputs = c.getJSONObject("inputs")
             val op = inputs.getString("op")
 
-            val (feePayer, instruction, derivedAlarmPda, derivedVaultPda) = when (op) {
-                "create_alarm" -> {
-                    val owner = PublicKey(inputs.getString("owner"))
-                    val alarmId = inputs.getLong("alarmId")
-                    val alarmTime = inputs.getLong("alarmTime")
-                    val deadline = inputs.getLong("deadline")
-                    val depositLamports = inputs.getLong("depositLamports")
-                    val penaltyRoute = inputs.getInt("penaltyRoute").toByte()
-                    val penaltyDestination =
-                        if (inputs.isNull("penaltyDestination")) null
-                        else PublicKey(inputs.getString("penaltyDestination"))
+            val (feePayer, instruction, derivedAlarmPda, derivedVaultPda) =
+                when (op) {
+                    "create_alarm" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val alarmId = inputs.getLong("alarmId")
+                        val alarmTime = inputs.getLong("alarmTime")
+                        val deadline = inputs.getLong("deadline")
+                        val depositLamports = inputs.getLong("depositLamports")
+                        val penaltyRoute = inputs.getInt("penaltyRoute").toByte()
+                        val penaltyDestination =
+                            if (inputs.isNull("penaltyDestination")) {
+                                null
+                            } else {
+                                PublicKey(inputs.getString("penaltyDestination"))
+                            }
 
-                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-                    val vault = instructionBuilder.deriveVaultPda(pda.address)
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
 
-                    val ix = instructionBuilder.buildCreateAlarm(
-                        owner = owner,
-                        alarmId = alarmId,
-                        alarmTime = alarmTime,
-                        deadline = deadline,
-                        depositLamports = depositLamports,
-                        penaltyRoute = penaltyRoute,
-                        penaltyDestination = penaltyDestination
-                    )
-                    Quad(owner, ix, pda.address, vault.address)
+                        val ix =
+                            instructionBuilder.buildCreateAlarm(
+                                owner = owner,
+                                alarmId = alarmId,
+                                alarmTime = alarmTime,
+                                deadline = deadline,
+                                depositLamports = depositLamports,
+                                penaltyRoute = penaltyRoute,
+                                penaltyDestination = penaltyDestination,
+                            )
+                        Quad(owner, ix, pda.address, vault.address)
+                    }
+
+                    "ack_awake" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val alarmId = inputs.getLong("alarmId")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val ix = instructionBuilder.buildAckAwake(owner = owner, alarmPda = pda.address)
+                        Quad(owner, ix, pda.address, null)
+                    }
+
+                    "snooze" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val alarmId = inputs.getLong("alarmId")
+                        val expected = inputs.getInt("expectedSnoozeCount")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix =
+                            instructionBuilder.buildSnooze(
+                                owner = owner,
+                                alarmPda = pda.address,
+                                sinkAddress = TransactionBuilder.BURN_SINK,
+                                expectedSnoozeCount = expected,
+                            )
+                        Quad(owner, ix, pda.address, vault.address)
+                    }
+
+                    "claim" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val alarmId = inputs.getLong("alarmId")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix = instructionBuilder.buildClaim(owner = owner, alarmPda = pda.address)
+                        Quad(owner, ix, pda.address, vault.address)
+                    }
+
+                    "emergency_refund" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val alarmId = inputs.getLong("alarmId")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix =
+                            instructionBuilder.buildEmergencyRefund(
+                                owner = owner,
+                                alarmPda = pda.address,
+                                sinkAddress = TransactionBuilder.BURN_SINK,
+                            )
+                        Quad(owner, ix, pda.address, vault.address)
+                    }
+
+                    "slash" -> {
+                        val caller = PublicKey(inputs.getString("caller"))
+                        val alarmId = inputs.getLong("alarmId")
+                        val recipient = PublicKey(inputs.getString("penaltyRecipient"))
+
+                        val pda = instructionBuilder.deriveAlarmPda(caller, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix =
+                            instructionBuilder.buildSlash(
+                                caller = caller,
+                                alarmPda = pda.address,
+                                penaltyRecipient = recipient,
+                            )
+                        Quad(caller, ix, pda.address, vault.address)
+                    }
+
+                    else -> error("Unknown snapshot op '$op' in case '$name'")
                 }
-
-                "ack_awake" -> {
-                    val owner = PublicKey(inputs.getString("owner"))
-                    val alarmId = inputs.getLong("alarmId")
-
-                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-                    val ix = instructionBuilder.buildAckAwake(owner = owner, alarmPda = pda.address)
-                    Quad(owner, ix, pda.address, null)
-                }
-
-                "snooze" -> {
-                    val owner = PublicKey(inputs.getString("owner"))
-                    val alarmId = inputs.getLong("alarmId")
-                    val expected = inputs.getInt("expectedSnoozeCount")
-
-                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-                    val vault = instructionBuilder.deriveVaultPda(pda.address)
-
-                    val ix = instructionBuilder.buildSnooze(
-                        owner = owner,
-                        alarmPda = pda.address,
-                        sinkAddress = TransactionBuilder.BURN_SINK,
-                        expectedSnoozeCount = expected
-                    )
-                    Quad(owner, ix, pda.address, vault.address)
-                }
-
-                "claim" -> {
-                    val owner = PublicKey(inputs.getString("owner"))
-                    val alarmId = inputs.getLong("alarmId")
-
-                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-                    val vault = instructionBuilder.deriveVaultPda(pda.address)
-
-                    val ix = instructionBuilder.buildClaim(owner = owner, alarmPda = pda.address)
-                    Quad(owner, ix, pda.address, vault.address)
-                }
-
-                "emergency_refund" -> {
-                    val owner = PublicKey(inputs.getString("owner"))
-                    val alarmId = inputs.getLong("alarmId")
-
-                    val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
-                    val vault = instructionBuilder.deriveVaultPda(pda.address)
-
-                    val ix = instructionBuilder.buildEmergencyRefund(
-                        owner = owner,
-                        alarmPda = pda.address,
-                        sinkAddress = TransactionBuilder.BURN_SINK
-                    )
-                    Quad(owner, ix, pda.address, vault.address)
-                }
-
-                "slash" -> {
-                    val caller = PublicKey(inputs.getString("caller"))
-                    val alarmId = inputs.getLong("alarmId")
-                    val recipient = PublicKey(inputs.getString("penaltyRecipient"))
-
-                    val pda = instructionBuilder.deriveAlarmPda(caller, alarmId)
-                    val vault = instructionBuilder.deriveVaultPda(pda.address)
-
-                    val ix = instructionBuilder.buildSlash(
-                        caller = caller,
-                        alarmPda = pda.address,
-                        penaltyRecipient = recipient
-                    )
-                    Quad(caller, ix, pda.address, vault.address)
-                }
-
-                else -> error("Unknown snapshot op '$op' in case '$name'")
-            }
 
             val expectedDerived = c.getJSONObject("derived")
             assertEquals("$name: alarmPda", expectedDerived.getString("alarmPda"), derivedAlarmPda.toBase58())
@@ -162,7 +171,6 @@ class TransactionSnapshotTest {
         val feePayer: PublicKey,
         val instruction: SolarmaInstruction,
         val alarmPda: PublicKey,
-        val vaultPda: PublicKey?
+        val vaultPda: PublicKey?,
     )
 }
-

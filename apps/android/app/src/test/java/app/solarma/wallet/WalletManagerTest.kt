@@ -15,7 +15,6 @@ import java.math.BigInteger
  * MWA + Android Context and are tested via instrumentation on-device.
  */
 class WalletManagerTest {
-
     // ── Base58 codec (extracted via reflection for unit testing) ──
 
     /**
@@ -184,12 +183,13 @@ class WalletManagerTest {
 
     @Test
     fun `all four connection states are distinct types`() {
-        val states = listOf(
-            WalletConnectionState.Disconnected,
-            WalletConnectionState.Connecting,
-            WalletConnectionState.Connected(byteArrayOf(1), "1", "W"),
-            WalletConnectionState.Error("err"),
-        )
+        val states =
+            listOf(
+                WalletConnectionState.Disconnected,
+                WalletConnectionState.Connecting,
+                WalletConnectionState.Connected(byteArrayOf(1), "1", "W"),
+                WalletConnectionState.Error("err"),
+            )
         // Each should be a different class
         val classes = states.map { it::class }.toSet()
         assertEquals(4, classes.size)

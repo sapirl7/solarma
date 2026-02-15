@@ -9,19 +9,17 @@ import androidx.compose.ui.unit.dp
 // Sharp, Industrial, DeFi appearance
 // ═══════════════════════════════════════════════════════════════
 
-val SolarmaShapes = Shapes(
-    // Small: Chips, small buttons
-    small = RoundedCornerShape(4.dp),
-    
-    // Medium: Cards, dialogs
-    medium = RoundedCornerShape(8.dp),
-    
-    // Large: Bottom sheets, full-screen cards
-    large = RoundedCornerShape(12.dp),
-    
-    // Extra large: Modal sheets
-    extraLarge = RoundedCornerShape(16.dp)
-)
+val SolarmaShapes =
+    Shapes(
+        // Small: Chips, small buttons
+        small = RoundedCornerShape(4.dp),
+        // Medium: Cards, dialogs
+        medium = RoundedCornerShape(8.dp),
+        // Large: Bottom sheets, full-screen cards
+        large = RoundedCornerShape(12.dp),
+        // Extra large: Modal sheets
+        extraLarge = RoundedCornerShape(16.dp),
+    )
 
 // Custom shape tokens for specific use cases
 val AlarmCardShape = RoundedCornerShape(8.dp)
