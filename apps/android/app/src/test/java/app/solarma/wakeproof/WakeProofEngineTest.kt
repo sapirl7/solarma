@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
@@ -52,12 +51,14 @@ class WakeProofEngineTest {
     @Before
     fun setUp() {
         stepCounter = mock()
-        nfcScanner = mock {
-            on { scanResult }.thenReturn(nfcScanResult)
-        }
-        qrScanner = mock {
-            on { scanResult }.thenReturn(qrScanResult)
-        }
+        nfcScanner =
+            mock {
+                on { scanResult }.thenReturn(nfcScanResult)
+            }
+        qrScanner =
+            mock {
+                on { scanResult }.thenReturn(qrScanResult)
+            }
         engine = WakeProofEngine(stepCounter, nfcScanner, qrScanner)
     }
 
@@ -118,10 +119,12 @@ class WakeProofEngineTest {
     fun `TYPE_STEPS completes when steps reach target`() =
         runTest(UnconfinedTestDispatcher()) {
             whenever(stepCounter.isAvailable()).thenReturn(true)
-            whenever(stepCounter.countSteps(20)).thenReturn(flowOf(
-                StepProgress(10, 20, 0.5f, false),
-                StepProgress(20, 20, 1.0f, true),
-            ))
+            whenever(stepCounter.countSteps(20)).thenReturn(
+                flowOf(
+                    StepProgress(10, 20, 0.5f, false),
+                    StepProgress(20, 20, 1.0f, true),
+                ),
+            )
 
             engine.start(alarm(proofType = WakeProofEngine.TYPE_STEPS, targetSteps = 20), backgroundScope)
 
@@ -134,7 +137,7 @@ class WakeProofEngineTest {
             whenever(stepCounter.isAvailable()).thenReturn(false)
 
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_STEPS, hasDeposit = false), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_STEPS, hasDeposit = false), backgroundScope,
             )
 
             val p = engine.progress.value
@@ -151,7 +154,7 @@ class WakeProofEngineTest {
             whenever(stepCounter.isAvailable()).thenReturn(false)
 
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_STEPS, hasDeposit = true), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_STEPS, hasDeposit = true), backgroundScope,
             )
 
             val p = engine.progress.value
@@ -194,7 +197,7 @@ class WakeProofEngineTest {
     fun `TYPE_NFC with valid tagHash starts scanning`() =
         runTest(UnconfinedTestDispatcher()) {
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope,
             )
 
             val p = engine.progress.value
@@ -206,7 +209,7 @@ class WakeProofEngineTest {
     fun `TYPE_NFC completes on Success result`() =
         runTest(UnconfinedTestDispatcher()) {
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope,
             )
 
             nfcScanResult.value = NfcScanResult.Success
@@ -218,7 +221,7 @@ class WakeProofEngineTest {
     fun `TYPE_NFC wrong tag does not complete`() =
         runTest(UnconfinedTestDispatcher()) {
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_NFC, tagHash = "abcdef01"), backgroundScope,
             )
 
             nfcScanResult.value = NfcScanResult.WrongTag
@@ -242,7 +245,7 @@ class WakeProofEngineTest {
     fun `TYPE_QR completes on Success result`() =
         runTest(UnconfinedTestDispatcher()) {
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_QR, qrCode = "solarma-abc"), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_QR, qrCode = "solarma-abc"), backgroundScope,
             )
 
             qrScanResult.value = QrScanResult.Success
@@ -254,7 +257,7 @@ class WakeProofEngineTest {
     fun `TYPE_QR wrong code does not complete`() =
         runTest(UnconfinedTestDispatcher()) {
             engine.start(
-                alarm(proofType = WakeProofEngine.TYPE_QR, qrCode = "expected"), backgroundScope
+                alarm(proofType = WakeProofEngine.TYPE_QR, qrCode = "expected"), backgroundScope,
             )
 
             qrScanResult.value = QrScanResult.WrongCode("wrong")
@@ -327,13 +330,14 @@ class WakeProofEngineTest {
 
     @Test
     fun `WakeProgress copy preserves untouched fields`() {
-        val wp = WakeProgress(
-            type = WakeProofEngine.TYPE_STEPS,
-            currentValue = 5,
-            targetValue = 20,
-            progressPercent = 0.25f,
-            message = "Walking",
-        )
+        val wp =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_STEPS,
+                currentValue = 5,
+                targetValue = 20,
+                progressPercent = 0.25f,
+                message = "Walking",
+            )
         val changed = wp.copy(message = "Done", progressPercent = 1f)
         assertEquals(WakeProofEngine.TYPE_STEPS, changed.type)
         assertEquals(5, changed.currentValue)
@@ -346,12 +350,13 @@ class WakeProofEngineTest {
 
     @Test
     fun `proof type constants are distinct`() {
-        val types = setOf(
-            WakeProofEngine.TYPE_NONE,
-            WakeProofEngine.TYPE_STEPS,
-            WakeProofEngine.TYPE_NFC,
-            WakeProofEngine.TYPE_QR,
-        )
+        val types =
+            setOf(
+                WakeProofEngine.TYPE_NONE,
+                WakeProofEngine.TYPE_STEPS,
+                WakeProofEngine.TYPE_NFC,
+                WakeProofEngine.TYPE_QR,
+            )
         assertEquals("All type constants must be unique", 4, types.size)
     }
 }

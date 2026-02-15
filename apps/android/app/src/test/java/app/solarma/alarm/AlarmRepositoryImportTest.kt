@@ -36,7 +36,8 @@ class AlarmRepositoryImportTest {
         ownerAddr: String = owner,
         status: Int = 0,
         remaining: Long = 1_000_000_000L,
-        alarmTimeUnix: Long = System.currentTimeMillis() / 1000 + 3600 // 1h from now
+        // 1h from now
+        alarmTimeUnix: Long = System.currentTimeMillis() / 1000 + 3600,
     ) = OnchainAlarmAccount(
         pubkey = pubkey,
         owner = ownerAddr,
@@ -47,7 +48,7 @@ class AlarmRepositoryImportTest {
         penaltyRoute = 0,
         penaltyDestination = null,
         snoozeCount = 0,
-        status = status
+        status = status,
     )
 
     @Before
@@ -59,14 +60,15 @@ class AlarmRepositoryImportTest {
         transactionQueue = mock()
         rpcClient = mock()
 
-        repo = AlarmRepository(
-            context = context,
-            alarmDao = alarmDao,
-            alarmScheduler = alarmScheduler,
-            statsDao = statsDao,
-            transactionQueue = transactionQueue,
-            rpcClient = rpcClient
-        )
+        repo =
+            AlarmRepository(
+                context = context,
+                alarmDao = alarmDao,
+                alarmScheduler = alarmScheduler,
+                statsDao = statsDao,
+                transactionQueue = transactionQueue,
+                rpcClient = rpcClient,
+            )
     }
 
     private fun setParser(vararg accounts: Pair<String, OnchainAlarmAccount?>) {
@@ -82,103 +84,110 @@ class AlarmRepositoryImportTest {
     // ── Import filtering ──
 
     @Test
-    fun `status 0 with positive remaining is imported`() = runTest {
-        val parsed = makeAccount()
-        setParser("pda1" to parsed)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
-        whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(null)
-        whenever(alarmDao.insert(any())).thenReturn(1L)
+    fun `status 0 with positive remaining is imported`() =
+        runTest {
+            val parsed = makeAccount()
+            setParser("pda1" to parsed)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
+            whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(null)
+            whenever(alarmDao.insert(any())).thenReturn(1L)
 
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
 
-        assertEquals(1, result.imported)
-        assertEquals(0, result.skipped)
-        verify(alarmDao).insert(any())
-        verify(alarmScheduler).schedule(eq(1L), any())
-    }
-
-    @Test
-    fun `status 1 Acknowledged is skipped`() = runTest {
-        val parsed = makeAccount(status = 1)
-        setParser("pda1" to parsed)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
-
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
-
-        assertEquals(0, result.imported)
-        assertEquals(1, result.skipped)
-        verify(alarmDao, never()).insert(any())
-    }
+            assertEquals(1, result.imported)
+            assertEquals(0, result.skipped)
+            verify(alarmDao).insert(any())
+            verify(alarmScheduler).schedule(eq(1L), any())
+        }
 
     @Test
-    fun `status 2 Claimed is skipped`() = runTest {
-        val parsed = makeAccount(status = 2, remaining = 0)
-        setParser("pda1" to parsed)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
+    fun `status 1 Acknowledged is skipped`() =
+        runTest {
+            val parsed = makeAccount(status = 1)
+            setParser("pda1" to parsed)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
 
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
 
-        assertEquals(0, result.imported)
-        assertEquals(1, result.skipped)
-    }
-
-    @Test
-    fun `owner mismatch is skipped`() = runTest {
-        val parsed = makeAccount(ownerAddr = "different_owner")
-        setParser("pda1" to parsed)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
-
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
-
-        assertEquals(0, result.imported)
-        assertEquals(1, result.skipped)
-    }
+            assertEquals(0, result.imported)
+            assertEquals(1, result.skipped)
+            verify(alarmDao, never()).insert(any())
+        }
 
     @Test
-    fun `existing alarm is updated not duplicated`() = runTest {
-        val parsed = makeAccount()
-        setParser("pda1" to parsed)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
+    fun `status 2 Claimed is skipped`() =
+        runTest {
+            val parsed = makeAccount(status = 2, remaining = 0)
+            setParser("pda1" to parsed)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
 
-        val existing = AlarmEntity(
-            id = 42,
-            alarmTimeMillis = 0,
-            label = "Old",
-            isEnabled = false,
-            repeatDays = 0,
-            wakeProofType = 1,
-            targetSteps = 20,
-            hasDeposit = false,
-            depositAmount = 0.0,
-            depositLamports = 0,
-            penaltyRoute = 0,
-            penaltyDestination = null,
-            onchainPubkey = "alarm_pda_1",
-            onchainAlarmId = null,
-            snoozeCount = 0
-        )
-        whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(existing)
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
 
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
-
-        assertEquals(0, result.imported)
-        assertEquals(1, result.updated)
-        verify(alarmDao).update(any())
-        verify(alarmDao, never()).insert(any())
-    }
+            assertEquals(0, result.imported)
+            assertEquals(1, result.skipped)
+        }
 
     @Test
-    fun `past alarm is imported but scheduler not called`() = runTest {
-        val pastAlarm = makeAccount(alarmTimeUnix = 1_000_000_000L) // 2001
-        setParser("pda1" to pastAlarm)
-        setupRpc(listOf(ProgramAccount("pda1", "")))
-        whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(null)
-        whenever(alarmDao.insert(any())).thenReturn(1L)
+    fun `owner mismatch is skipped`() =
+        runTest {
+            val parsed = makeAccount(ownerAddr = "different_owner")
+            setParser("pda1" to parsed)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
 
-        val result = repo.importOnchainAlarms(owner).getOrThrow()
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
 
-        assertEquals(1, result.imported)
-        // Past alarm: isEnabled = false, scheduler NOT called
-        verify(alarmScheduler, never()).schedule(any(), any())
-    }
+            assertEquals(0, result.imported)
+            assertEquals(1, result.skipped)
+        }
+
+    @Test
+    fun `existing alarm is updated not duplicated`() =
+        runTest {
+            val parsed = makeAccount()
+            setParser("pda1" to parsed)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
+
+            val existing =
+                AlarmEntity(
+                    id = 42,
+                    alarmTimeMillis = 0,
+                    label = "Old",
+                    isEnabled = false,
+                    repeatDays = 0,
+                    wakeProofType = 1,
+                    targetSteps = 20,
+                    hasDeposit = false,
+                    depositAmount = 0.0,
+                    depositLamports = 0,
+                    penaltyRoute = 0,
+                    penaltyDestination = null,
+                    onchainPubkey = "alarm_pda_1",
+                    onchainAlarmId = null,
+                    snoozeCount = 0,
+                )
+            whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(existing)
+
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
+
+            assertEquals(0, result.imported)
+            assertEquals(1, result.updated)
+            verify(alarmDao).update(any())
+            verify(alarmDao, never()).insert(any())
+        }
+
+    @Test
+    fun `past alarm is imported but scheduler not called`() =
+        runTest {
+            val pastAlarm = makeAccount(alarmTimeUnix = 1_000_000_000L) // 2001
+            setParser("pda1" to pastAlarm)
+            setupRpc(listOf(ProgramAccount("pda1", "")))
+            whenever(alarmDao.getByOnchainPubkey("alarm_pda_1")).thenReturn(null)
+            whenever(alarmDao.insert(any())).thenReturn(1L)
+
+            val result = repo.importOnchainAlarms(owner).getOrThrow()
+
+            assertEquals(1, result.imported)
+            // Past alarm: isEnabled = false, scheduler NOT called
+            verify(alarmScheduler, never()).schedule(any(), any())
+        }
 }

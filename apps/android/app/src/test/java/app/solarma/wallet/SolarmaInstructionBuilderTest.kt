@@ -1,7 +1,5 @@
 package app.solarma.wallet
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import org.junit.Assert.*
 import org.junit.Test
 import org.sol4k.PublicKey
@@ -42,15 +40,16 @@ class SolarmaInstructionBuilderTest {
         val deadline = 1700010000L
         val deposit = 100_000_000L // 0.1 SOL
 
-        val instruction = builder.buildCreateAlarm(
-            owner = owner,
-            alarmId = alarmId,
-            alarmTime = alarmTime,
-            deadline = deadline,
-            depositLamports = deposit,
-            penaltyRoute = 0,
-            penaltyDestination = null
-        )
+        val instruction =
+            builder.buildCreateAlarm(
+                owner = owner,
+                alarmId = alarmId,
+                alarmTime = alarmTime,
+                deadline = deadline,
+                depositLamports = deposit,
+                penaltyRoute = 0,
+                penaltyDestination = null,
+            )
 
         // Verify instruction data starts with discriminator (8 bytes)
         assertTrue(instruction.data.size >= 8)
@@ -67,15 +66,17 @@ class SolarmaInstructionBuilderTest {
         val owner = PublicKey("11111111111111111111111111111111")
         val buddy = PublicKey("33333333333333333333333333333333")
 
-        val instruction = builder.buildCreateAlarm(
-            owner = owner,
-            alarmId = 200L,
-            alarmTime = 1700000000L,
-            deadline = 1700010000L,
-            depositLamports = 50_000_000L,
-            penaltyRoute = 2, // BUDDY
-            penaltyDestination = buddy
-        )
+        val instruction =
+            builder.buildCreateAlarm(
+                owner = owner,
+                alarmId = 200L,
+                alarmTime = 1700000000L,
+                deadline = 1700010000L,
+                depositLamports = 50_000_000L,
+                // BUDDY
+                penaltyRoute = 2,
+                penaltyDestination = buddy,
+            )
 
         // Data should be longer when destination is included
         // 8 (discriminator) + 8 (alarmId) + 8 (time) + 8 (deadline) + 8 (deposit) + 1 (route) + 1 (Some) + 32 (pubkey)
@@ -87,10 +88,11 @@ class SolarmaInstructionBuilderTest {
         val owner = PublicKey("11111111111111111111111111111111")
         val (alarmPda, _) = builder.deriveAlarmPda(owner, 300L)
 
-        val instruction = builder.buildClaim(
-            owner = owner,
-            alarmPda = alarmPda
-        )
+        val instruction =
+            builder.buildClaim(
+                owner = owner,
+                alarmPda = alarmPda,
+            )
 
         // Claim only has discriminator
         assertEquals(8, instruction.data.size)
@@ -103,12 +105,13 @@ class SolarmaInstructionBuilderTest {
         val (alarmPda, _) = builder.deriveAlarmPda(owner, 400L)
         val sink = PublicKey("44444444444444444444444444444444")
 
-        val instruction = builder.buildSnooze(
-            owner = owner,
-            alarmPda = alarmPda,
-            sinkAddress = sink,
-            expectedSnoozeCount = 0
-        )
+        val instruction =
+            builder.buildSnooze(
+                owner = owner,
+                alarmPda = alarmPda,
+                sinkAddress = sink,
+                expectedSnoozeCount = 0,
+            )
 
         // Snooze has 5 accounts (alarm, vault, sink, owner, system)
         assertEquals(5, instruction.accounts.size)
@@ -123,11 +126,12 @@ class SolarmaInstructionBuilderTest {
         val (alarmPda, _) = builder.deriveAlarmPda(owner, 500L)
         val sink = PublicKey("1nc1nerator11111111111111111111111111111111")
 
-        val instruction = builder.buildEmergencyRefund(
-            owner = owner,
-            alarmPda = alarmPda,
-            sinkAddress = sink
-        )
+        val instruction =
+            builder.buildEmergencyRefund(
+                owner = owner,
+                alarmPda = alarmPda,
+                sinkAddress = sink,
+            )
 
         assertEquals(8, instruction.data.size)
         assertEquals(5, instruction.accounts.size)
@@ -140,11 +144,12 @@ class SolarmaInstructionBuilderTest {
         val (alarmPda, _) = builder.deriveAlarmPda(owner, 600L)
         val recipient = PublicKey("1nc1nerator11111111111111111111111111111111")
 
-        val instruction = builder.buildSlash(
-            caller = owner,
-            alarmPda = alarmPda,
-            penaltyRecipient = recipient
-        )
+        val instruction =
+            builder.buildSlash(
+                caller = owner,
+                alarmPda = alarmPda,
+                penaltyRecipient = recipient,
+            )
 
         assertEquals(8, instruction.data.size)
         assertEquals(5, instruction.accounts.size)

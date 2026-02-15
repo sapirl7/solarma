@@ -1,9 +1,9 @@
 package app.solarma.wallet
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Tests for compute budget instruction byte layout,
@@ -13,10 +13,11 @@ class ComputeBudgetTest {
     @Test
     fun `SetComputeUnitLimit data is 5 bytes - ix_2 plus u32_le`() {
         val units = 200_000
-        val data = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
-            .put(2) // instruction index
-            .putInt(units)
-            .array()
+        val data =
+            ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
+                .put(2) // instruction index
+                .putInt(units)
+                .array()
 
         assertEquals(5, data.size)
         assertEquals(2, data[0].toInt())
@@ -29,10 +30,11 @@ class ComputeBudgetTest {
     @Test
     fun `SetComputeUnitPrice data is 9 bytes - ix_3 plus u64_le`() {
         val microLamports = 50_000L
-        val data = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
-            .put(3) // instruction index
-            .putLong(microLamports)
-            .array()
+        val data =
+            ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
+                .put(3) // instruction index
+                .putLong(microLamports)
+                .array()
 
         assertEquals(9, data.size)
         assertEquals(3, data[0].toInt())

@@ -57,12 +57,13 @@ class AlarmDetailsViewModelTest {
 
     @Test
     fun `RefundState all types are distinct`() {
-        val states = listOf(
-            RefundState.Idle,
-            RefundState.Processing,
-            RefundState.Success("sig"),
-            RefundState.Error("err")
-        )
+        val states =
+            listOf(
+                RefundState.Idle,
+                RefundState.Processing,
+                RefundState.Success("sig"),
+                RefundState.Error("err"),
+            )
         assertEquals(4, states.toSet().size)
     }
 
@@ -93,11 +94,12 @@ class AlarmDetailsViewModelTest {
 
     @Test
     fun `DeleteState all types are distinct`() {
-        val states = listOf(
-            DeleteState.Idle,
-            DeleteState.Deleted,
-            DeleteState.BlockedByDeposit
-        )
+        val states =
+            listOf(
+                DeleteState.Idle,
+                DeleteState.Deleted,
+                DeleteState.BlockedByDeposit,
+            )
         assertEquals(3, states.toSet().size)
     }
 
@@ -112,36 +114,40 @@ class AlarmDetailsViewModelTest {
 
     @Test
     fun `RefundState when expression covers all cases`() {
-        val states = listOf<RefundState>(
-            RefundState.Idle,
-            RefundState.Processing,
-            RefundState.Success("s"),
-            RefundState.Error("e")
-        )
+        val states =
+            listOf<RefundState>(
+                RefundState.Idle,
+                RefundState.Processing,
+                RefundState.Success("s"),
+                RefundState.Error("e"),
+            )
         for (state in states) {
-            val label = when (state) {
-                is RefundState.Idle -> "idle"
-                is RefundState.Processing -> "processing"
-                is RefundState.Success -> "success:${state.signature}"
-                is RefundState.Error -> "error:${state.message}"
-            }
+            val label =
+                when (state) {
+                    is RefundState.Idle -> "idle"
+                    is RefundState.Processing -> "processing"
+                    is RefundState.Success -> "success:${state.signature}"
+                    is RefundState.Error -> "error:${state.message}"
+                }
             assertTrue(label.isNotEmpty())
         }
     }
 
     @Test
     fun `DeleteState when expression covers all cases`() {
-        val states = listOf<DeleteState>(
-            DeleteState.Idle,
-            DeleteState.Deleted,
-            DeleteState.BlockedByDeposit
-        )
+        val states =
+            listOf<DeleteState>(
+                DeleteState.Idle,
+                DeleteState.Deleted,
+                DeleteState.BlockedByDeposit,
+            )
         for (state in states) {
-            val label = when (state) {
-                is DeleteState.Idle -> "idle"
-                is DeleteState.Deleted -> "deleted"
-                is DeleteState.BlockedByDeposit -> "blocked"
-            }
+            val label =
+                when (state) {
+                    is DeleteState.Idle -> "idle"
+                    is DeleteState.Deleted -> "deleted"
+                    is DeleteState.BlockedByDeposit -> "blocked"
+                }
             assertTrue(label.isNotEmpty())
         }
     }

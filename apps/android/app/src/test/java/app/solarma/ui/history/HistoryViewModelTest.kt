@@ -41,63 +41,71 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `transactions starts with empty list`() = runTest {
-        assertTrue(viewModel.transactions.value.isEmpty())
-    }
+    fun `transactions starts with empty list`() =
+        runTest {
+            assertTrue(viewModel.transactions.value.isEmpty())
+        }
 
     @Test
-    fun `transactions reflects DAO emissions`() = runTest(testDispatcher) {
-        // Start a subscriber to activate WhileSubscribed sharing
-        val job = launch { viewModel.transactions.collect {} }
+    fun `transactions reflects DAO emissions`() =
+        runTest(testDispatcher) {
+            // Start a subscriber to activate WhileSubscribed sharing
+            val job = launch { viewModel.transactions.collect {} }
 
-        val tx = makeTx(id = 1, type = "CLAIM")
-        fakeDao.emit(listOf(tx))
-        advanceUntilIdle()
+            val tx = makeTx(id = 1, type = "CLAIM")
+            fakeDao.emit(listOf(tx))
+            advanceUntilIdle()
 
-        assertEquals(1, viewModel.transactions.value.size)
-        assertEquals("CLAIM", viewModel.transactions.value[0].type)
-        job.cancel()
-    }
-
-    @Test
-    fun `deleteTransaction calls DAO delete`() = runTest {
-        val tx = makeTx(id = 1, type = "CLAIM")
-        viewModel.deleteTransaction(tx)
-        assertEquals(1, fakeDao.deletedTransactions.size)
-        assertEquals(tx, fakeDao.deletedTransactions[0])
-    }
+            assertEquals(1, viewModel.transactions.value.size)
+            assertEquals("CLAIM", viewModel.transactions.value[0].type)
+            job.cancel()
+        }
 
     @Test
-    fun `multiple emissions update flow`() = runTest(testDispatcher) {
-        val job = launch { viewModel.transactions.collect {} }
-
-        fakeDao.emit(listOf(makeTx(1, "CLAIM")))
-        advanceUntilIdle()
-        assertEquals(1, viewModel.transactions.value.size)
-
-        fakeDao.emit(listOf(makeTx(1, "CLAIM"), makeTx(2, "SLASH")))
-        advanceUntilIdle()
-        assertEquals(2, viewModel.transactions.value.size)
-        job.cancel()
-    }
+    fun `deleteTransaction calls DAO delete`() =
+        runTest {
+            val tx = makeTx(id = 1, type = "CLAIM")
+            viewModel.deleteTransaction(tx)
+            assertEquals(1, fakeDao.deletedTransactions.size)
+            assertEquals(tx, fakeDao.deletedTransactions[0])
+        }
 
     @Test
-    fun `empty emission clears list`() = runTest(testDispatcher) {
-        val job = launch { viewModel.transactions.collect {} }
+    fun `multiple emissions update flow`() =
+        runTest(testDispatcher) {
+            val job = launch { viewModel.transactions.collect {} }
 
-        fakeDao.emit(listOf(makeTx(1, "CLAIM")))
-        advanceUntilIdle()
-        assertEquals(1, viewModel.transactions.value.size)
+            fakeDao.emit(listOf(makeTx(1, "CLAIM")))
+            advanceUntilIdle()
+            assertEquals(1, viewModel.transactions.value.size)
 
-        fakeDao.emit(emptyList())
-        advanceUntilIdle()
-        assertTrue(viewModel.transactions.value.isEmpty())
-        job.cancel()
-    }
+            fakeDao.emit(listOf(makeTx(1, "CLAIM"), makeTx(2, "SLASH")))
+            advanceUntilIdle()
+            assertEquals(2, viewModel.transactions.value.size)
+            job.cancel()
+        }
+
+    @Test
+    fun `empty emission clears list`() =
+        runTest(testDispatcher) {
+            val job = launch { viewModel.transactions.collect {} }
+
+            fakeDao.emit(listOf(makeTx(1, "CLAIM")))
+            advanceUntilIdle()
+            assertEquals(1, viewModel.transactions.value.size)
+
+            fakeDao.emit(emptyList())
+            advanceUntilIdle()
+            assertTrue(viewModel.transactions.value.isEmpty())
+            job.cancel()
+        }
 
     // ── Helpers ──
 
-    private fun makeTx(id: Long, type: String) = PendingTransaction(
+    private fun makeTx(
+        id: Long,
+        type: String,
+    ) = PendingTransaction(
         id = id,
         type = type,
         alarmId = 100L,
@@ -105,7 +113,7 @@ class HistoryViewModelTest {
         lastError = null,
         retryCount = 0,
         createdAt = System.currentTimeMillis(),
-        lastAttemptAt = null
+        lastAttemptAt = null,
     )
 
     /**
@@ -120,18 +128,40 @@ class HistoryViewModelTest {
         }
 
         override fun getAllTransactions(): Flow<List<PendingTransaction>> = flow
+
         override fun getPendingTransactions(): Flow<List<PendingTransaction>> = flow
+
         override suspend fun getById(id: Long): PendingTransaction? = null
+
         override suspend fun insert(tx: PendingTransaction): Long = tx.id
+
         override suspend fun update(tx: PendingTransaction) {}
+
         override suspend fun delete(tx: PendingTransaction) {
             deletedTransactions.add(tx)
         }
-        override suspend fun updateStatus(id: Long, status: String, error: String?, timestamp: Long) {}
+
+        override suspend fun updateStatus(
+            id: Long,
+            status: String,
+            error: String?,
+            timestamp: Long,
+        ) {}
+
         override suspend fun incrementRetry(id: Long) {}
-        override suspend fun countActiveByTypeAndAlarm(type: String, alarmId: Long): Int = 0
+
+        override suspend fun countActiveByTypeAndAlarm(
+            type: String,
+            alarmId: Long,
+        ): Int = 0
+
         override suspend fun deleteConfirmed() {}
+
         override suspend fun getPendingCount(): Int = 0
-        override fun observeActiveCount(type: String, alarmId: Long): Flow<Int> = MutableStateFlow(0)
+
+        override fun observeActiveCount(
+            type: String,
+            alarmId: Long,
+        ): Flow<Int> = MutableStateFlow(0)
     }
 }

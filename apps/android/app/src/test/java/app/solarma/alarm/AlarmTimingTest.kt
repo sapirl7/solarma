@@ -25,7 +25,7 @@ class AlarmTimingTest {
     fun `grace period millis is seconds times 1000`() {
         assertEquals(
             AlarmTiming.GRACE_PERIOD_SECONDS * 1000L,
-            AlarmTiming.GRACE_PERIOD_MILLIS
+            AlarmTiming.GRACE_PERIOD_MILLIS,
         )
     }
 
@@ -48,7 +48,7 @@ class AlarmTimingTest {
     fun `snooze millis is minutes times 60000`() {
         assertEquals(
             AlarmTiming.SNOOZE_MINUTES.toLong() * 60 * 1000L,
-            AlarmTiming.SNOOZE_MILLIS
+            AlarmTiming.SNOOZE_MILLIS,
         )
     }
 
@@ -66,7 +66,7 @@ class AlarmTimingTest {
         // Must allow at least one snooze within grace period
         assertTrue(
             "Grace must be >= snooze extension",
-            AlarmTiming.GRACE_PERIOD_MILLIS >= AlarmTiming.SNOOZE_MILLIS
+            AlarmTiming.GRACE_PERIOD_MILLIS >= AlarmTiming.SNOOZE_MILLIS,
         )
     }
 

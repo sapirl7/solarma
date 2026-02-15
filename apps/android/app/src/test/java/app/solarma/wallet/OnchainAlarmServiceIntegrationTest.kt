@@ -23,43 +23,47 @@ class OnchainAlarmServiceIntegrationTest {
         walletManager = mock()
         transactionBuilder = mock()
         rpcClient = mock()
-        service = OnchainAlarmService(
-            networkChecker = networkChecker,
-            walletManager = walletManager,
-            transactionBuilder = transactionBuilder,
-            rpcClient = rpcClient
-        )
+        service =
+            OnchainAlarmService(
+                networkChecker = networkChecker,
+                walletManager = walletManager,
+                transactionBuilder = transactionBuilder,
+                rpcClient = rpcClient,
+            )
     }
 
     @Test
-    fun `awaitConfirmation returns Confirmed on confirmed status`() = runTest {
-        whenever(rpcClient.getSignatureStatus("sig_ok"))
-            .thenReturn(Result.success(SignatureStatus("confirmed", null)))
+    fun `awaitConfirmation returns Confirmed on confirmed status`() =
+        runTest {
+            whenever(rpcClient.getSignatureStatus("sig_ok"))
+                .thenReturn(Result.success(SignatureStatus("confirmed", null)))
 
-        val result = service.awaitConfirmation("sig_ok")
+            val result = service.awaitConfirmation("sig_ok")
 
-        assertTrue(result is OnchainAlarmService.ConfirmationResult.Confirmed)
-    }
-
-    @Test
-    fun `awaitConfirmation returns Failed on status with error`() = runTest {
-        whenever(rpcClient.getSignatureStatus("sig_err"))
-            .thenReturn(Result.success(SignatureStatus("processed", "InstructionError")))
-
-        val result = service.awaitConfirmation("sig_err")
-
-        assertTrue(result is OnchainAlarmService.ConfirmationResult.Failed)
-        assertEquals("InstructionError", (result as OnchainAlarmService.ConfirmationResult.Failed).error)
-    }
+            assertTrue(result is OnchainAlarmService.ConfirmationResult.Confirmed)
+        }
 
     @Test
-    fun `awaitConfirmation returns Pending when all attempts return no confirmation`() = runTest {
-        // SignatureStatus with null confirmationStatus and null err → not confirmed, not failed
-        whenever(rpcClient.getSignatureStatus("sig_pending"))
-            .thenReturn(Result.success(SignatureStatus(null, null)))
+    fun `awaitConfirmation returns Failed on status with error`() =
+        runTest {
+            whenever(rpcClient.getSignatureStatus("sig_err"))
+                .thenReturn(Result.success(SignatureStatus("processed", "InstructionError")))
 
-        val result = service.awaitConfirmation("sig_pending")
+            val result = service.awaitConfirmation("sig_err")
 
-        assertTrue(result is OnchainAlarmService.ConfirmationResult.Pending)
-    }
+            assertTrue(result is OnchainAlarmService.ConfirmationResult.Failed)
+            assertEquals("InstructionError", (result as OnchainAlarmService.ConfirmationResult.Failed).error)
+        }
+
+    @Test
+    fun `awaitConfirmation returns Pending when all attempts return no confirmation`() =
+        runTest {
+            // SignatureStatus with null confirmationStatus and null err → not confirmed, not failed
+            whenever(rpcClient.getSignatureStatus("sig_pending"))
+                .thenReturn(Result.success(SignatureStatus(null, null)))
+
+            val result = service.awaitConfirmation("sig_pending")
+
+            assertTrue(result is OnchainAlarmService.ConfirmationResult.Pending)
+        }
 }

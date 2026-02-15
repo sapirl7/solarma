@@ -1,11 +1,11 @@
 package app.solarma.wallet
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.security.MessageDigest
 import org.junit.Assert.*
 import org.junit.Test
 import org.sol4k.PublicKey
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
 
 /**
  * Expanded coverage tests for SolarmaInstructionBuilder.
@@ -96,10 +96,11 @@ class SolarmaInstructionBuilderExpandedTest {
     @Test
     fun `create_alarm discriminator matches Anchor convention`() {
         val expected = sha256("global:create_alarm").copyOfRange(0, 8)
-        val ix = builder.buildCreateAlarm(
-            owner = owner, alarmId = 1L, alarmTime = 1L, deadline = 2L,
-            depositLamports = 0L, penaltyRoute = 0
-        )
+        val ix =
+            builder.buildCreateAlarm(
+                owner = owner, alarmId = 1L, alarmTime = 1L, deadline = 2L,
+                depositLamports = 0L, penaltyRoute = 0,
+            )
         assertArrayEquals("create_alarm discriminator", expected, ix.data.copyOfRange(0, 8))
     }
 
@@ -153,10 +154,11 @@ class SolarmaInstructionBuilderExpandedTest {
     @Test
     fun `create_alarm data encodes alarmId correctly`() {
         val alarmId = 0x0102030405060708L
-        val ix = builder.buildCreateAlarm(
-            owner = owner, alarmId = alarmId, alarmTime = 0L, deadline = 0L,
-            depositLamports = 0L, penaltyRoute = 0
-        )
+        val ix =
+            builder.buildCreateAlarm(
+                owner = owner, alarmId = alarmId, alarmTime = 0L, deadline = 0L,
+                depositLamports = 0L, penaltyRoute = 0,
+            )
 
         // Alarm ID is right after 8-byte discriminator, little-endian
         val buffer = ByteBuffer.wrap(ix.data, 8, 8).order(ByteOrder.LITTLE_ENDIAN)
@@ -167,37 +169,40 @@ class SolarmaInstructionBuilderExpandedTest {
     fun `create_alarm data encodes times correctly`() {
         val alarmTime = 1700000000L
         val deadline = 1700001800L
-        val ix = builder.buildCreateAlarm(
-            owner = owner, alarmId = 1L, alarmTime = alarmTime, deadline = deadline,
-            depositLamports = 0L, penaltyRoute = 0
-        )
+        val ix =
+            builder.buildCreateAlarm(
+                owner = owner, alarmId = 1L, alarmTime = alarmTime, deadline = deadline,
+                depositLamports = 0L, penaltyRoute = 0,
+            )
 
         val buffer = ByteBuffer.wrap(ix.data).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.position(16)  // skip discriminator (8) + alarmId (8)
+        buffer.position(16) // skip discriminator (8) + alarmId (8)
         assertEquals(alarmTime, buffer.long)
         assertEquals(deadline, buffer.long)
     }
 
     @Test
     fun `create_alarm data encodes deposit correctly`() {
-        val deposit = 5_000_000_000L  // 5 SOL
-        val ix = builder.buildCreateAlarm(
-            owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
-            depositLamports = deposit, penaltyRoute = 0
-        )
+        val deposit = 5_000_000_000L // 5 SOL
+        val ix =
+            builder.buildCreateAlarm(
+                owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
+                depositLamports = deposit, penaltyRoute = 0,
+            )
 
         val buffer = ByteBuffer.wrap(ix.data).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.position(32)  // skip disc(8) + id(8) + time(8) + deadline(8)
+        buffer.position(32) // skip disc(8) + id(8) + time(8) + deadline(8)
         assertEquals(deposit, buffer.long)
     }
 
     @Test
     fun `create_alarm penalty route byte is correct`() {
         for (route in PenaltyRoute.entries) {
-            val ix = builder.buildCreateAlarm(
-                owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
-                depositLamports = 0L, penaltyRoute = route.code
-            )
+            val ix =
+                builder.buildCreateAlarm(
+                    owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
+                    depositLamports = 0L, penaltyRoute = route.code,
+                )
 
             // Penalty route byte is at offset 40 (after disc(8) + id(8) + time(8) + deadline(8) + deposit(8))
             assertEquals("Route ${route.name}", route.code, ix.data[40])
@@ -210,10 +215,11 @@ class SolarmaInstructionBuilderExpandedTest {
 
     @Test
     fun `buildCreateAlarm accounts are alarm, vault, owner, system`() {
-        val ix = builder.buildCreateAlarm(
-            owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
-            depositLamports = 0L, penaltyRoute = 0
-        )
+        val ix =
+            builder.buildCreateAlarm(
+                owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
+                depositLamports = 0L, penaltyRoute = 0,
+            )
 
         assertEquals(4, ix.accounts.size)
         // Alarm PDA
@@ -237,7 +243,7 @@ class SolarmaInstructionBuilderExpandedTest {
 
         assertEquals(4, ix.accounts.size)
         assertTrue(ix.accounts[2].isSigner)
-        assertFalse(ix.accounts[3].isWritable)  // system program
+        assertFalse(ix.accounts[3].isWritable) // system program
     }
 
     @Test
@@ -261,8 +267,8 @@ class SolarmaInstructionBuilderExpandedTest {
         val ix = builder.buildSnooze(owner = owner, alarmPda = alarmPda, sinkAddress = sink, expectedSnoozeCount = 5)
 
         assertEquals(5, ix.accounts.size)
-        assertEquals(sink, ix.accounts[2].pubkey)  // sink address
-        assertTrue(ix.accounts[2].isWritable)  // sink receives funds
+        assertEquals(sink, ix.accounts[2].pubkey) // sink address
+        assertTrue(ix.accounts[2].isWritable) // sink receives funds
     }
 
     @Test
@@ -294,14 +300,15 @@ class SolarmaInstructionBuilderExpandedTest {
         val alarmPda = builder.deriveAlarmPda(owner, 1L).address
         val sink = PublicKey("1nc1nerator11111111111111111111111111111111")
 
-        val instructions = listOf(
-            builder.buildCreateAlarm(owner, 1L, 0L, 0L, 0L, 0),
-            builder.buildClaim(owner, alarmPda),
-            builder.buildAckAwake(owner, alarmPda),
-            builder.buildSnooze(owner, alarmPda, sink, 0),
-            builder.buildEmergencyRefund(owner, alarmPda, sink),
-            builder.buildSlash(owner, alarmPda, sink)
-        )
+        val instructions =
+            listOf(
+                builder.buildCreateAlarm(owner, 1L, 0L, 0L, 0L, 0),
+                builder.buildClaim(owner, alarmPda),
+                builder.buildAckAwake(owner, alarmPda),
+                builder.buildSnooze(owner, alarmPda, sink, 0),
+                builder.buildEmergencyRefund(owner, alarmPda, sink),
+                builder.buildSlash(owner, alarmPda, sink),
+            )
 
         for (ix in instructions) {
             assertEquals(SolarmaInstructionBuilder.PROGRAM_ID, ix.programId)

@@ -37,9 +37,10 @@ class SettingsViewModelTest {
 
     @Test
     fun `SettingsUiState copy modifies wallet address`() {
-        val state = SettingsUiState().copy(
-            walletAddress = "8xrt45..."
-        )
+        val state =
+            SettingsUiState().copy(
+                walletAddress = "8xrt45...",
+            )
         assertEquals("8xrt45...", state.walletAddress)
     }
 
@@ -168,12 +169,13 @@ class SettingsViewModelTest {
     @Test
     fun `ImportState all types distinct`() {
         val result = ImportResult(imported = 1, updated = 0, skipped = 0)
-        val states = listOf(
-            ImportState.Idle,
-            ImportState.Loading,
-            ImportState.Success(result),
-            ImportState.Error("e")
-        )
+        val states =
+            listOf(
+                ImportState.Idle,
+                ImportState.Loading,
+                ImportState.Success(result),
+                ImportState.Error("e"),
+            )
         assertEquals(4, states.toSet().size)
     }
 
@@ -189,19 +191,21 @@ class SettingsViewModelTest {
     @Test
     fun `ImportState when expression covers all cases`() {
         val result = ImportResult(imported = 2, updated = 1, skipped = 0)
-        val states = listOf<ImportState>(
-            ImportState.Idle,
-            ImportState.Loading,
-            ImportState.Success(result),
-            ImportState.Error("err")
-        )
+        val states =
+            listOf<ImportState>(
+                ImportState.Idle,
+                ImportState.Loading,
+                ImportState.Success(result),
+                ImportState.Error("err"),
+            )
         for (state in states) {
-            val label = when (state) {
-                is ImportState.Idle -> "idle"
-                is ImportState.Loading -> "loading"
-                is ImportState.Success -> "imported:${state.result.imported}"
-                is ImportState.Error -> "error:${state.message}"
-            }
+            val label =
+                when (state) {
+                    is ImportState.Idle -> "idle"
+                    is ImportState.Loading -> "loading"
+                    is ImportState.Success -> "imported:${state.result.imported}"
+                    is ImportState.Error -> "error:${state.message}"
+                }
             assertTrue(label.isNotEmpty())
         }
     }

@@ -1,8 +1,8 @@
 package app.solarma.wallet
 
-import java.math.BigInteger
 import org.junit.Assert.*
 import org.junit.Test
+import java.math.BigInteger
 
 /**
  * Unit tests for WalletManager's pure logic:
@@ -183,12 +183,13 @@ class WalletManagerTest {
 
     @Test
     fun `all four connection states are distinct types`() {
-        val states = listOf(
-            WalletConnectionState.Disconnected,
-            WalletConnectionState.Connecting,
-            WalletConnectionState.Connected(byteArrayOf(1), "1", "W"),
-            WalletConnectionState.Error("err"),
-        )
+        val states =
+            listOf(
+                WalletConnectionState.Disconnected,
+                WalletConnectionState.Connecting,
+                WalletConnectionState.Connected(byteArrayOf(1), "1", "W"),
+                WalletConnectionState.Error("err"),
+            )
         // Each should be a different class
         val classes = states.map { it::class }.toSet()
         assertEquals(4, classes.size)

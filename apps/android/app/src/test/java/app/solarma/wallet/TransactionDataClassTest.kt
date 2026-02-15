@@ -77,12 +77,13 @@ class TransactionDataClassTest {
 
     @Test
     fun `PendingTransaction with lastError`() {
-        val tx = PendingTransaction(
-            type = "CREATE_ALARM",
-            alarmId = 1,
-            status = "FAILED",
-            lastError = "Max retries exceeded"
-        )
+        val tx =
+            PendingTransaction(
+                type = "CREATE_ALARM",
+                alarmId = 1,
+                status = "FAILED",
+                lastError = "Max retries exceeded",
+            )
         assertEquals("FAILED", tx.status)
         assertEquals("Max retries exceeded", tx.lastError)
     }
@@ -92,12 +93,13 @@ class TransactionDataClassTest {
     @Test
     fun `PendingTransaction with timestamps`() {
         val now = System.currentTimeMillis()
-        val tx = PendingTransaction(
-            type = "CLAIM",
-            alarmId = 1,
-            lastAttemptAt = now,
-            createdAt = now
-        )
+        val tx =
+            PendingTransaction(
+                type = "CLAIM",
+                alarmId = 1,
+                lastAttemptAt = now,
+                createdAt = now,
+            )
         assertEquals(now, tx.lastAttemptAt)
         assertEquals(now, tx.createdAt)
     }
@@ -143,17 +145,18 @@ class TransactionDataClassTest {
 
     @Test
     fun `PendingTransaction destructuring`() {
-        val tx = PendingTransaction(
-            id = 1,
-            type = "CLAIM",
-            transactionData = "data",
-            alarmId = 2,
-            retryCount = 3,
-            lastError = "err",
-            createdAt = 1000L,
-            lastAttemptAt = 2000L,
-            status = "FAILED"
-        )
+        val tx =
+            PendingTransaction(
+                id = 1,
+                type = "CLAIM",
+                transactionData = "data",
+                alarmId = 2,
+                retryCount = 3,
+                lastError = "err",
+                createdAt = 1000L,
+                lastAttemptAt = 2000L,
+                status = "FAILED",
+            )
         assertEquals(1L, tx.id)
         assertEquals("CLAIM", tx.type)
         assertEquals("data", tx.transactionData)

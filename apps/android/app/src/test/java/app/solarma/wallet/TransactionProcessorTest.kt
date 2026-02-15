@@ -13,17 +13,21 @@ class TransactionProcessorTest {
     // Mirror production logic exactly for parity testing in a standalone function.
     // The actual computeSnoozeCost is internal on TransactionProcessor but requires
     // Android Context dependencies to construct. We test via logic parity.
-    private fun computeSnoozeCost(remaining: Long, snoozeCount: Int): Long {
+    private fun computeSnoozeCost(
+        remaining: Long,
+        snoozeCount: Int,
+    ): Long {
         if (remaining <= 0) return 0
         val baseCost = remaining * OnchainParameters.SNOOZE_BASE_PERCENT / 100
         if (baseCost <= 0) return 0
         val safeCount = snoozeCount.coerceIn(0, 30)
         val multiplier = 1L shl safeCount
-        val cost = if (multiplier > 0 && baseCost > Long.MAX_VALUE / multiplier) {
-            remaining
-        } else {
-            baseCost * multiplier
-        }
+        val cost =
+            if (multiplier > 0 && baseCost > Long.MAX_VALUE / multiplier) {
+                remaining
+            } else {
+                baseCost * multiplier
+            }
         return kotlin.math.min(cost, remaining)
     }
 
@@ -192,7 +196,7 @@ class TransactionProcessorTest {
 
     @Test
     fun `emergency refund penalty splits correctly`() {
-        val deposit = 2_000_000_000L  // 2 SOL
+        val deposit = 2_000_000_000L // 2 SOL
         val penalty = deposit * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
         val refund = deposit - penalty
         assertEquals(100_000_000L, penalty)
@@ -272,7 +276,10 @@ class TransactionProcessorTest {
 
     companion object {
         // Mirror isDeadlinePassed logic for testing without constructing TransactionProcessor
-        private fun isDeadlinePassed(alarmTimeMillis: Long, nowMillis: Long): Boolean {
+        private fun isDeadlinePassed(
+            alarmTimeMillis: Long,
+            nowMillis: Long,
+        ): Boolean {
             val deadlineMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
             return nowMillis >= deadlineMillis
         }

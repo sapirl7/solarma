@@ -85,7 +85,7 @@ class PenaltyRouteTest {
         for (c in addr) {
             assertFalse(
                 "Character '$c' is not valid Base58",
-                c in invalidChars
+                c in invalidChars,
             )
         }
     }

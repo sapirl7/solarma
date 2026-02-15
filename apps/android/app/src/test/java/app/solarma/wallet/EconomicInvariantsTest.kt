@@ -17,11 +17,11 @@ import org.junit.Test
 class EconomicInvariantsTest {
     // Rust constants from constants.rs
     companion object {
-        const val SNOOZE_PERCENT = 10L       // DEFAULT_SNOOZE_PERCENT
-        const val REFUND_PENALTY = 5L        // EMERGENCY_REFUND_PENALTY_PERCENT
-        const val MAX_SNOOZE = 10            // MAX_SNOOZE_COUNT
-        const val MIN_DEPOSIT = 1_000_000L   // MIN_DEPOSIT_LAMPORTS
-        const val SOL = 1_000_000_000L       // LAMPORTS_PER_SOL
+        const val SNOOZE_PERCENT = 10L // DEFAULT_SNOOZE_PERCENT
+        const val REFUND_PENALTY = 5L // EMERGENCY_REFUND_PENALTY_PERCENT
+        const val MAX_SNOOZE = 10 // MAX_SNOOZE_COUNT
+        const val MIN_DEPOSIT = 1_000_000L // MIN_DEPOSIT_LAMPORTS
+        const val SOL = 1_000_000_000L // LAMPORTS_PER_SOL
     }
 
     // =========================================================================
@@ -66,7 +66,7 @@ class EconomicInvariantsTest {
         // INVARIANT: drained + remaining = initial (no lamports created/destroyed)
         assertEquals(
             "Value not conserved! drained=$totalDrained remaining=$remaining",
-            initial, totalDrained + remaining
+            initial, totalDrained + remaining,
         )
     }
 
@@ -88,7 +88,7 @@ class EconomicInvariantsTest {
 
                 assertTrue(
                     "Cost must be positive for deposit=$initial, count=$count",
-                    rustCost > 0 || remaining == 0L
+                    rustCost > 0 || remaining == 0L,
                 )
 
                 remaining -= rustCost
@@ -115,7 +115,7 @@ class EconomicInvariantsTest {
             val drainedPercent = ((initial - remaining) * 100) / initial
             assertTrue(
                 "Only drained $drainedPercent% of $initial",
-                drainedPercent >= 99
+                drainedPercent >= 99,
             )
         }
     }
@@ -178,7 +178,7 @@ class EconomicInvariantsTest {
             assertEquals(
                 "Invalid code $code must → BURN",
                 PenaltyRoute.BURN,
-                PenaltyRoute.fromCode(code)
+                PenaltyRoute.fromCode(code),
             )
         }
     }

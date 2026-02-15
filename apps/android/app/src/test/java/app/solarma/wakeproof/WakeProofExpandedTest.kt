@@ -36,18 +36,20 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProgress copy with step progress`() {
-        val p = WakeProgress(
-            type = WakeProofEngine.TYPE_STEPS,
-            currentValue = 5,
-            targetValue = 20,
-            progressPercent = 0.25f,
-            message = "Walk to wake up!"
-        )
-        val updated = p.copy(
-            currentValue = 20,
-            progressPercent = 1.0f,
-            message = "Done!"
-        )
+        val p =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_STEPS,
+                currentValue = 5,
+                targetValue = 20,
+                progressPercent = 0.25f,
+                message = "Walk to wake up!",
+            )
+        val updated =
+            p.copy(
+                currentValue = 20,
+                progressPercent = 1.0f,
+                message = "Done!",
+            )
         assertEquals(20, updated.currentValue)
         assertEquals(1.0f, updated.progressPercent, 0.001f)
         assertEquals("Done!", updated.message)
@@ -75,23 +77,25 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProgress with TYPE_NONE`() {
-        val p = WakeProgress(
-            type = WakeProofEngine.TYPE_NONE,
-            requiresAction = true,
-            message = "Press to confirm awake"
-        )
+        val p =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_NONE,
+                requiresAction = true,
+                message = "Press to confirm awake",
+            )
         assertEquals(WakeProofEngine.TYPE_NONE, p.type)
         assertTrue(p.requiresAction)
     }
 
     @Test
     fun `WakeProgress with TYPE_STEPS`() {
-        val p = WakeProgress(
-            type = WakeProofEngine.TYPE_STEPS,
-            currentValue = 10,
-            targetValue = 20,
-            progressPercent = 0.5f
-        )
+        val p =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_STEPS,
+                currentValue = 10,
+                targetValue = 20,
+                progressPercent = 0.5f,
+            )
         assertEquals(WakeProofEngine.TYPE_STEPS, p.type)
         assertEquals(10, p.currentValue)
         assertEquals(20, p.targetValue)
@@ -100,22 +104,24 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProgress with TYPE_NFC`() {
-        val p = WakeProgress(
-            type = WakeProofEngine.TYPE_NFC,
-            message = "Scan NFC tag",
-            requiresAction = true
-        )
+        val p =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_NFC,
+                message = "Scan NFC tag",
+                requiresAction = true,
+            )
         assertEquals(WakeProofEngine.TYPE_NFC, p.type)
         assertTrue(p.requiresAction)
     }
 
     @Test
     fun `WakeProgress with TYPE_QR`() {
-        val p = WakeProgress(
-            type = WakeProofEngine.TYPE_QR,
-            message = "Scan QR code",
-            requiresAction = true
-        )
+        val p =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_QR,
+                message = "Scan QR code",
+                requiresAction = true,
+            )
         assertEquals(WakeProofEngine.TYPE_QR, p.type)
         assertTrue(p.requiresAction)
     }
@@ -166,11 +172,12 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProgress complete progress`() {
-        val p = WakeProgress(
-            currentValue = 20,
-            targetValue = 20,
-            progressPercent = 1.0f
-        )
+        val p =
+            WakeProgress(
+                currentValue = 20,
+                targetValue = 20,
+                progressPercent = 1.0f,
+            )
         assertEquals(1.0f, p.progressPercent, 0.001f)
         assertEquals(p.currentValue, p.targetValue)
     }
@@ -189,16 +196,17 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProgress destructuring`() {
-        val p = WakeProgress(
-            type = 1,
-            currentValue = 5,
-            targetValue = 20,
-            progressPercent = 0.25f,
-            message = "msg",
-            error = "err",
-            requiresAction = true,
-            fallbackActive = false
-        )
+        val p =
+            WakeProgress(
+                type = 1,
+                currentValue = 5,
+                targetValue = 20,
+                progressPercent = 0.25f,
+                message = "msg",
+                error = "err",
+                requiresAction = true,
+                fallbackActive = false,
+            )
         val (type, current, target, progress, message, error, requires, fallback) = p
         assertEquals(1, type)
         assertEquals(5, current)
@@ -214,12 +222,13 @@ class WakeProofExpandedTest {
 
     @Test
     fun `WakeProofEngine type constants are distinct`() {
-        val types = setOf(
-            WakeProofEngine.TYPE_NONE,
-            WakeProofEngine.TYPE_STEPS,
-            WakeProofEngine.TYPE_NFC,
-            WakeProofEngine.TYPE_QR
-        )
+        val types =
+            setOf(
+                WakeProofEngine.TYPE_NONE,
+                WakeProofEngine.TYPE_STEPS,
+                WakeProofEngine.TYPE_NFC,
+                WakeProofEngine.TYPE_QR,
+            )
         assertEquals(4, types.size)
     }
 
@@ -232,11 +241,12 @@ class WakeProofExpandedTest {
         assertEquals(0, state.currentValue)
 
         // Step challenge started
-        state = state.copy(
-            type = WakeProofEngine.TYPE_STEPS,
-            targetValue = 20,
-            message = "Walk to wake up!"
-        )
+        state =
+            state.copy(
+                type = WakeProofEngine.TYPE_STEPS,
+                targetValue = 20,
+                message = "Walk to wake up!",
+            )
         assertEquals(WakeProofEngine.TYPE_STEPS, state.type)
         assertEquals(20, state.targetValue)
 
@@ -254,18 +264,20 @@ class WakeProofExpandedTest {
     @Test
     fun `WakeProgress NFC fallback transition`() {
         // NFC challenge
-        var state = WakeProgress(
-            type = WakeProofEngine.TYPE_NFC,
-            requiresAction = true,
-            message = "Scan NFC tag"
-        )
+        var state =
+            WakeProgress(
+                type = WakeProofEngine.TYPE_NFC,
+                requiresAction = true,
+                message = "Scan NFC tag",
+            )
         assertFalse(state.fallbackActive)
 
         // Fallback activated after timeout
-        state = state.copy(
-            fallbackActive = true,
-            message = "Can't read NFC? Tap to confirm manually"
-        )
+        state =
+            state.copy(
+                fallbackActive = true,
+                message = "Can't read NFC? Tap to confirm manually",
+            )
         assertTrue(state.fallbackActive)
     }
 }
