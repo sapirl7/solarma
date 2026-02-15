@@ -10,7 +10,6 @@ import org.junit.Test
  * - PendingConfirmationException
  */
 class OnchainAlarmServiceTest {
-
     // ── ConfirmationResult sealed class ──
 
     @Test
@@ -57,17 +56,19 @@ class OnchainAlarmServiceTest {
 
     @Test
     fun `exhaustive when works`() {
-        val results = listOf(
-            ConfirmationResult.Confirmed,
-            ConfirmationResult.Failed("err"),
-            ConfirmationResult.Pending
-        )
+        val results =
+            listOf(
+                ConfirmationResult.Confirmed,
+                ConfirmationResult.Failed("err"),
+                ConfirmationResult.Pending,
+            )
         for (result in results) {
-            val label = when (result) {
-                is ConfirmationResult.Confirmed -> "confirmed"
-                is ConfirmationResult.Failed -> "failed: ${result.error}"
-                is ConfirmationResult.Pending -> "pending"
-            }
+            val label =
+                when (result) {
+                    is ConfirmationResult.Confirmed -> "confirmed"
+                    is ConfirmationResult.Failed -> "failed: ${result.error}"
+                    is ConfirmationResult.Pending -> "pending"
+                }
             assertTrue(label.isNotEmpty())
         }
     }
@@ -90,10 +91,11 @@ class OnchainAlarmServiceTest {
 
     @Test
     fun `PendingConfirmationException holds signature and pda`() {
-        val ex = OnchainAlarmService.PendingConfirmationException(
-            signature = "5abc123",
-            pda = "7xyz456"
-        )
+        val ex =
+            OnchainAlarmService.PendingConfirmationException(
+                signature = "5abc123",
+                pda = "7xyz456",
+            )
         assertEquals("5abc123", ex.signature)
         assertEquals("7xyz456", ex.pda)
         assertEquals("Transaction pending confirmation", ex.message)

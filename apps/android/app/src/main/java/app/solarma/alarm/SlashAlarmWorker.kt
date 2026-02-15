@@ -18,58 +18,64 @@ import java.util.concurrent.TimeUnit
  * Worker that enqueues slash transaction after deadline.
  */
 @HiltWorker
-class SlashAlarmWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted params: WorkerParameters,
-    private val alarmRepository: AlarmRepository,
-    private val transactionQueue: TransactionQueue
-) : CoroutineWorker(context, params) {
+class SlashAlarmWorker
+    @AssistedInject
+    constructor(
+        @Assisted context: Context,
+        @Assisted params: WorkerParameters,
+        private val alarmRepository: AlarmRepository,
+        private val transactionQueue: TransactionQueue,
+    ) : CoroutineWorker(context, params) {
+        companion object {
+            private const val TAG = "Solarma.SlashWorker"
+            private const val KEY_ALARM_ID = "alarm_id"
 
-    companion object {
-        private const val TAG = "Solarma.SlashWorker"
-        private const val KEY_ALARM_ID = "alarm_id"
+            fun enqueue(
+                context: Context,
+                alarmId: Long,
+                delayMillis: Long,
+            ) {
+                val request =
+                    OneTimeWorkRequestBuilder<SlashAlarmWorker>()
+                        .setInitialDelay(delayMillis.coerceAtLeast(0), TimeUnit.MILLISECONDS)
+                        .setInputData(workDataOf(KEY_ALARM_ID to alarmId))
+                        .build()
 
-        fun enqueue(context: Context, alarmId: Long, delayMillis: Long) {
-            val request = OneTimeWorkRequestBuilder<SlashAlarmWorker>()
-                .setInitialDelay(delayMillis.coerceAtLeast(0), TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf(KEY_ALARM_ID to alarmId))
-                .build()
-
-            WorkManager.getInstance(context)
-                .enqueueUniqueWork(
-                    "slash_alarm_$alarmId",
-                    ExistingWorkPolicy.REPLACE,
-                    request
-                )
+                WorkManager.getInstance(context)
+                    .enqueueUniqueWork(
+                        "slash_alarm_$alarmId",
+                        ExistingWorkPolicy.REPLACE,
+                        request,
+                    )
+            }
         }
-    }
 
-    override suspend fun doWork(): Result {
-        val alarmId = inputData.getLong(KEY_ALARM_ID, -1L)
-        if (alarmId <= 0) return Result.failure()
+        override suspend fun doWork(): Result {
+            val alarmId = inputData.getLong(KEY_ALARM_ID, -1L)
+            if (alarmId <= 0) return Result.failure()
 
-        val alarm = alarmRepository.getAlarm(alarmId) ?: return Result.success()
-        if (!alarm.hasDeposit) return Result.success()
+            val alarm = alarmRepository.getAlarm(alarmId) ?: return Result.success()
+            if (!alarm.hasDeposit) return Result.success()
 
-        // SECURITY: If user already completed wake proof, do not slash
-        val lastTriggered = alarm.lastTriggeredAt ?: alarm.alarmTimeMillis
-        val completed = alarm.lastCompletedAt
-        if (completed != null && completed >= lastTriggered) {
-            Log.i(TAG, "Skipping slash for alarm $alarmId — already completed")
+            // SECURITY: If user already completed wake proof, do not slash
+            val lastTriggered = alarm.lastTriggeredAt ?: alarm.alarmTimeMillis
+            val completed = alarm.lastCompletedAt
+            if (completed != null && completed >= lastTriggered) {
+                Log.i(TAG, "Skipping slash for alarm $alarmId — already completed")
+                return Result.success()
+            }
+
+            // If CLAIM is already queued, user woke up — skip slash
+            if (transactionQueue.hasActive("CLAIM", alarmId)) {
+                Log.i(TAG, "Skipping slash for alarm $alarmId — CLAIM already queued")
+                return Result.success()
+            }
+
+            if (!transactionQueue.hasActive("SLASH", alarmId)) {
+                transactionQueue.enqueue(type = "SLASH", alarmId = alarmId)
+                Log.i(TAG, "Queued slash for alarm $alarmId")
+            }
+
             return Result.success()
         }
-
-        // If CLAIM is already queued, user woke up — skip slash
-        if (transactionQueue.hasActive("CLAIM", alarmId)) {
-            Log.i(TAG, "Skipping slash for alarm $alarmId — CLAIM already queued")
-            return Result.success()
-        }
-
-        if (!transactionQueue.hasActive("SLASH", alarmId)) {
-            transactionQueue.enqueue(type = "SLASH", alarmId = alarmId)
-            Log.i(TAG, "Queued slash for alarm $alarmId")
-        }
-
-        return Result.success()
     }
-}

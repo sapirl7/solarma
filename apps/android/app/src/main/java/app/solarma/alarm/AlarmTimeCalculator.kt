@@ -8,7 +8,10 @@ import java.time.LocalTime
  * Computes the next trigger time for a given LocalTime.
  */
 object AlarmTimeCalculator {
-    fun nextTriggerMillis(time: LocalTime, clock: Clock = Clock.systemDefaultZone()): Long {
+    fun nextTriggerMillis(
+        time: LocalTime,
+        clock: Clock = Clock.systemDefaultZone(),
+    ): Long {
         val now = LocalDateTime.now(clock)
         var targetDateTime = LocalDateTime.of(now.toLocalDate(), time)
 

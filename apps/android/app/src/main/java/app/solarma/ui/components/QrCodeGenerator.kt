@@ -18,10 +18,13 @@ import com.google.zxing.qrcode.QRCodeWriter
 /**
  * Generate QR code bitmap from text.
  */
-fun generateQrBitmap(text: String, size: Int = 512): Bitmap {
+fun generateQrBitmap(
+    text: String,
+    size: Int = 512,
+): Bitmap {
     val writer = QRCodeWriter()
     val bitMatrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size)
-    
+
     val bitmap = createBitmap(size, size)
     for (x in 0 until size) {
         for (y in 0 until size) {
@@ -38,15 +41,16 @@ fun generateQrBitmap(text: String, size: Int = 512): Bitmap {
 fun QrCodeImage(
     text: String,
     modifier: Modifier = Modifier,
-    size: Dp = 200.dp
+    size: Dp = 200.dp,
 ) {
-    val bitmap = remember(text) {
-        generateQrBitmap(text, 512)
-    }
-    
+    val bitmap =
+        remember(text) {
+            generateQrBitmap(text, 512)
+        }
+
     Image(
         bitmap = bitmap.asImageBitmap(),
         contentDescription = "QR Code for $text",
-        modifier = modifier.size(size)
+        modifier = modifier.size(size),
     )
 }

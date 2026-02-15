@@ -16,7 +16,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class SolarmaAppSmokeTest {
-
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 

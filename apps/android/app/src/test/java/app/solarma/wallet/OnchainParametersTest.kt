@@ -8,7 +8,6 @@ import org.junit.Test
  * If these fail, the app is using wrong percentages for snooze/refund.
  */
 class OnchainParametersTest {
-
     @Test
     fun `snooze base percent matches Rust constant`() {
         // Rust: DEFAULT_SNOOZE_PERCENT = 10

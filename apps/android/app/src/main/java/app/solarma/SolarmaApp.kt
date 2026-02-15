@@ -9,7 +9,6 @@ import dagger.hilt.android.HiltAndroidApp
  */
 @HiltAndroidApp
 class SolarmaApp : Application() {
-    
     override fun onCreate() {
         super.onCreate()
         // Initialize any app-wide components here

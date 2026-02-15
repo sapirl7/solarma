@@ -3,8 +3,6 @@ package app.solarma.wallet
 import org.junit.Assert.*
 import org.junit.Test
 import org.sol4k.PublicKey
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * Deep coverage tests for TransactionBuilder.
@@ -14,7 +12,6 @@ import java.nio.ByteOrder
  * are tested through the production `buildUnsignedTransactionForSnapshot` path.
  */
 class TransactionBuilderTest {
-
     private val instructionBuilder = SolarmaInstructionBuilder()
     private val txBuilder = TransactionBuilder(SolanaRpcClient(), instructionBuilder)
     private val owner = PublicKey("11111111111111111111111111111111")
@@ -27,15 +24,16 @@ class TransactionBuilderTest {
 
     @Test
     fun `snapshot transaction starts with signature count and placeholder`() {
-        val instruction = instructionBuilder.buildCreateAlarm(
-            owner = owner,
-            alarmId = 1L,
-            alarmTime = 1700000000L,
-            deadline = 1700001800L,
-            depositLamports = 100_000_000L,
-            penaltyRoute = 0,
-            penaltyDestination = null
-        )
+        val instruction =
+            instructionBuilder.buildCreateAlarm(
+                owner = owner,
+                alarmId = 1L,
+                alarmTime = 1700000000L,
+                deadline = 1700001800L,
+                depositLamports = 100_000_000L,
+                penaltyRoute = 0,
+                penaltyDestination = null,
+            )
 
         val tx = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, fakeBlockhash)
 
@@ -50,10 +48,11 @@ class TransactionBuilderTest {
 
     @Test
     fun `snapshot transaction message header has correct counts`() {
-        val instruction = instructionBuilder.buildClaim(
-            owner = owner,
-            alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address
-        )
+        val instruction =
+            instructionBuilder.buildClaim(
+                owner = owner,
+                alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address,
+            )
 
         val tx = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, fakeBlockhash)
 
@@ -70,8 +69,10 @@ class TransactionBuilderTest {
         // At least program ID is readonly non-signer
         assertTrue("numReadOnlyNonSigners >= 1", numReadOnlyNonSigners >= 1)
         // All values are non-negative and consistent
-        assertTrue("header values non-negative",
-            numSigners >= 0 && numReadOnlySigners >= 0 && numReadOnlyNonSigners >= 0)
+        assertTrue(
+            "header values non-negative",
+            numSigners >= 0 && numReadOnlySigners >= 0 && numReadOnlyNonSigners >= 0,
+        )
     }
 
     @Test
@@ -79,16 +80,18 @@ class TransactionBuilderTest {
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, 42L).address
         val sink = TransactionBuilder.BURN_SINK
 
-        val instructions = listOf(
-            "create_alarm" to instructionBuilder.buildCreateAlarm(
-                owner, 42L, 1700000000L, 1700001800L, 100_000_000L, 0, null
-            ),
-            "claim" to instructionBuilder.buildClaim(owner, alarmPda),
-            "ack_awake" to instructionBuilder.buildAckAwake(owner, alarmPda),
-            "snooze" to instructionBuilder.buildSnooze(owner, alarmPda, sink, 0),
-            "emergency_refund" to instructionBuilder.buildEmergencyRefund(owner, alarmPda, sink),
-            "slash" to instructionBuilder.buildSlash(owner, alarmPda, sink)
-        )
+        val instructions =
+            listOf(
+                "create_alarm" to
+                    instructionBuilder.buildCreateAlarm(
+                        owner, 42L, 1700000000L, 1700001800L, 100_000_000L, 0, null,
+                    ),
+                "claim" to instructionBuilder.buildClaim(owner, alarmPda),
+                "ack_awake" to instructionBuilder.buildAckAwake(owner, alarmPda),
+                "snooze" to instructionBuilder.buildSnooze(owner, alarmPda, sink, 0),
+                "emergency_refund" to instructionBuilder.buildEmergencyRefund(owner, alarmPda, sink),
+                "slash" to instructionBuilder.buildSlash(owner, alarmPda, sink),
+            )
 
         for ((name, ix) in instructions) {
             val tx = txBuilder.buildUnsignedTransactionForSnapshot(owner, ix, fakeBlockhash)
@@ -98,10 +101,11 @@ class TransactionBuilderTest {
 
     @Test
     fun `different blockhashes produce different transactions`() {
-        val instruction = instructionBuilder.buildClaim(
-            owner = owner,
-            alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address
-        )
+        val instruction =
+            instructionBuilder.buildClaim(
+                owner = owner,
+                alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address,
+            )
 
         val hash1 = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
         val hash2 = "3SU7bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKiDDD"
@@ -109,16 +113,19 @@ class TransactionBuilderTest {
         val tx1 = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, hash1)
         val tx2 = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, hash2)
 
-        assertFalse("Different blockhashes should produce different TXs",
-            tx1.contentEquals(tx2))
+        assertFalse(
+            "Different blockhashes should produce different TXs",
+            tx1.contentEquals(tx2),
+        )
     }
 
     @Test
     fun `same inputs produce identical transactions (deterministic)`() {
-        val instruction = instructionBuilder.buildClaim(
-            owner = owner,
-            alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address
-        )
+        val instruction =
+            instructionBuilder.buildClaim(
+                owner = owner,
+                alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address,
+            )
 
         val tx1 = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, fakeBlockhash)
         val tx2 = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, fakeBlockhash)
@@ -132,10 +139,11 @@ class TransactionBuilderTest {
 
     @Test
     fun `fee payer appears first in message accounts`() {
-        val instruction = instructionBuilder.buildClaim(
-            owner = owner,
-            alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address
-        )
+        val instruction =
+            instructionBuilder.buildClaim(
+                owner = owner,
+                alarmPda = instructionBuilder.deriveAlarmPda(owner, 1L).address,
+            )
 
         val tx = txBuilder.buildUnsignedTransactionForSnapshot(owner, instruction, fakeBlockhash)
 
@@ -147,8 +155,10 @@ class TransactionBuilderTest {
         val firstKeyOffset = accountCountOffset + 1
 
         val firstKey = tx.copyOfRange(firstKeyOffset, firstKeyOffset + 32)
-        assertArrayEquals("Fee payer (owner) should be first account",
-            owner.bytes(), firstKey)
+        assertArrayEquals(
+            "Fee payer (owner) should be first account",
+            owner.bytes(), firstKey,
+        )
     }
 
     // =========================================================================
@@ -157,16 +167,18 @@ class TransactionBuilderTest {
 
     @Test
     fun `SolarmaInstruction equals with same data`() {
-        val ix1 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
-            data = byteArrayOf(1, 2, 3)
-        )
-        val ix2 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
-            data = byteArrayOf(1, 2, 3)
-        )
+        val ix1 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
+                data = byteArrayOf(1, 2, 3),
+            )
+        val ix2 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
+                data = byteArrayOf(1, 2, 3),
+            )
 
         assertEquals(ix1, ix2)
         assertEquals(ix1.hashCode(), ix2.hashCode())
@@ -174,54 +186,60 @@ class TransactionBuilderTest {
 
     @Test
     fun `SolarmaInstruction not equal with different data`() {
-        val ix1 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = emptyList(),
-            data = byteArrayOf(1, 2, 3)
-        )
-        val ix2 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = emptyList(),
-            data = byteArrayOf(4, 5, 6)
-        )
+        val ix1 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = emptyList(),
+                data = byteArrayOf(1, 2, 3),
+            )
+        val ix2 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = emptyList(),
+                data = byteArrayOf(4, 5, 6),
+            )
 
         assertNotEquals(ix1, ix2)
     }
 
     @Test
     fun `SolarmaInstruction not equal with different accounts`() {
-        val ix1 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
-            data = byteArrayOf(1)
-        )
-        val ix2 = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = listOf(AccountMeta(owner, isSigner = false, isWritable = true)),
-            data = byteArrayOf(1)
-        )
+        val ix1 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = listOf(AccountMeta(owner, isSigner = true, isWritable = true)),
+                data = byteArrayOf(1),
+            )
+        val ix2 =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = listOf(AccountMeta(owner, isSigner = false, isWritable = true)),
+                data = byteArrayOf(1),
+            )
 
         assertNotEquals(ix1, ix2)
     }
 
     @Test
     fun `SolarmaInstruction not equal to non-SolarmaInstruction`() {
-        val ix = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = emptyList(),
-            data = byteArrayOf()
-        )
+        val ix =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = emptyList(),
+                data = byteArrayOf(),
+            )
         assertNotEquals(ix, "not an instruction")
         assertNotEquals(ix, null)
     }
 
     @Test
     fun `SolarmaInstruction equals itself`() {
-        val ix = SolarmaInstruction(
-            programId = SolarmaInstructionBuilder.PROGRAM_ID,
-            accounts = emptyList(),
-            data = byteArrayOf(1, 2, 3)
-        )
+        val ix =
+            SolarmaInstruction(
+                programId = SolarmaInstructionBuilder.PROGRAM_ID,
+                accounts = emptyList(),
+                data = byteArrayOf(1, 2, 3),
+            )
         assertEquals(ix, ix)
     }
 
@@ -300,8 +318,11 @@ class TransactionBuilderTest {
                 0 -> assertEquals(PenaltyRoute.BURN, route)
                 1 -> assertEquals(PenaltyRoute.DONATE, route)
                 2 -> assertEquals(PenaltyRoute.BUDDY, route)
-                else -> assertEquals("Code $code should default to BURN",
-                    PenaltyRoute.BURN, route)
+                else ->
+                    assertEquals(
+                        "Code $code should default to BURN",
+                        PenaltyRoute.BURN, route,
+                    )
             }
         }
     }
@@ -345,15 +366,16 @@ class TransactionBuilderTest {
     @Test
     fun `create alarm with DONATE follows treasury path`() {
         val treasury = PublicKey(SolarmaTreasury.ADDRESS)
-        val ix = instructionBuilder.buildCreateAlarm(
-            owner = owner,
-            alarmId = 999L,
-            alarmTime = 1700000000L,
-            deadline = 1700001800L,
-            depositLamports = 500_000_000L,
-            penaltyRoute = PenaltyRoute.DONATE.code,
-            penaltyDestination = treasury
-        )
+        val ix =
+            instructionBuilder.buildCreateAlarm(
+                owner = owner,
+                alarmId = 999L,
+                alarmTime = 1700000000L,
+                deadline = 1700001800L,
+                depositLamports = 500_000_000L,
+                penaltyRoute = PenaltyRoute.DONATE.code,
+                penaltyDestination = treasury,
+            )
 
         // Data includes Option<Pubkey> = Some(treasury) → 1 + 32 bytes extra
         assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 32, ix.data.size)
@@ -361,15 +383,16 @@ class TransactionBuilderTest {
 
     @Test
     fun `create alarm without destination has None option`() {
-        val ix = instructionBuilder.buildCreateAlarm(
-            owner = owner,
-            alarmId = 1000L,
-            alarmTime = 1700000000L,
-            deadline = 1700001800L,
-            depositLamports = 50_000_000L,
-            penaltyRoute = PenaltyRoute.BURN.code,
-            penaltyDestination = null
-        )
+        val ix =
+            instructionBuilder.buildCreateAlarm(
+                owner = owner,
+                alarmId = 1000L,
+                alarmTime = 1700000000L,
+                deadline = 1700001800L,
+                depositLamports = 50_000_000L,
+                penaltyRoute = PenaltyRoute.BURN.code,
+                penaltyDestination = null,
+            )
 
         // No destination: Option<Pubkey> = None → 1 byte only
         assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1, ix.data.size)
@@ -382,12 +405,13 @@ class TransactionBuilderTest {
     @Test
     fun `snapshot transaction for snooze includes expected_snooze_count in data`() {
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, 5L).address
-        val ix = instructionBuilder.buildSnooze(
-            owner = owner,
-            alarmPda = alarmPda,
-            sinkAddress = TransactionBuilder.BURN_SINK,
-            expectedSnoozeCount = 3
-        )
+        val ix =
+            instructionBuilder.buildSnooze(
+                owner = owner,
+                alarmPda = alarmPda,
+                sinkAddress = TransactionBuilder.BURN_SINK,
+                expectedSnoozeCount = 3,
+            )
 
         // Snooze instruction data: 8-byte discriminator + 1-byte expected_snooze_count
         assertEquals(9, ix.data.size)

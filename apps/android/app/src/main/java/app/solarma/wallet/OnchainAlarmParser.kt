@@ -17,7 +17,7 @@ data class OnchainAlarmAccount(
     val penaltyRoute: Int,
     val penaltyDestination: String?,
     val snoozeCount: Int,
-    val status: Int
+    val status: Int,
 )
 
 object OnchainAlarmParser {
@@ -30,7 +30,10 @@ object OnchainAlarmParser {
         return digest.digest(name.toByteArray()).copyOfRange(0, 8)
     }
 
-    fun parse(pubkey: String, dataBase64: String): OnchainAlarmAccount? {
+    fun parse(
+        pubkey: String,
+        dataBase64: String,
+    ): OnchainAlarmAccount? {
         return try {
             val data = Base64.getDecoder().decode(dataBase64)
             if (data.size < 80) {
@@ -48,23 +51,24 @@ object OnchainAlarmParser {
             buffer.get(ownerBytes)
             val owner = PublicKey(ownerBytes).toBase58()
 
-            val alarmId = buffer.long       // alarm_id (u64)
-            val alarmTime = buffer.long     // alarm_time (i64)
-            val deadline = buffer.long      // deadline (i64)
+            val alarmId = buffer.long // alarm_id (u64)
+            val alarmTime = buffer.long // alarm_time (i64)
+            val deadline = buffer.long // deadline (i64)
 
-            val initialAmount = buffer.long   // initial_amount (u64)
+            val initialAmount = buffer.long // initial_amount (u64)
             val remainingAmount = buffer.long // remaining_amount (u64)
 
             val penaltyRoute = buffer.get().toInt() and 0xFF
 
             val hasPenaltyDest = buffer.get().toInt()
-            val penaltyDestination = if (hasPenaltyDest == 1) {
-                val destBytes = ByteArray(32)
-                buffer.get(destBytes)
-                PublicKey(destBytes).toBase58()
-            } else {
-                null
-            }
+            val penaltyDestination =
+                if (hasPenaltyDest == 1) {
+                    val destBytes = ByteArray(32)
+                    buffer.get(destBytes)
+                    PublicKey(destBytes).toBase58()
+                } else {
+                    null
+                }
 
             val snoozeCount = buffer.get().toInt() and 0xFF
             val status = buffer.get().toInt() and 0xFF
@@ -85,7 +89,7 @@ object OnchainAlarmParser {
                 penaltyRoute = penaltyRoute,
                 penaltyDestination = penaltyDestination,
                 snoozeCount = snoozeCount,
-                status = status
+                status = status,
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse alarm account $pubkey", e)

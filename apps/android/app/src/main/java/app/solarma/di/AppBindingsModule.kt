@@ -14,7 +14,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppBindingsModule {
-
     @Binds
     @Singleton
     abstract fun bindNetworkChecker(impl: AndroidNetworkChecker): NetworkChecker

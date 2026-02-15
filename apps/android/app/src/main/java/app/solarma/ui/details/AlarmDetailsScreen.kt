@@ -13,10 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,16 +24,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.LocalActivityResultSender
+import app.solarma.R
 import app.solarma.alarm.AlarmTiming
 import app.solarma.data.local.AlarmEntity
-import app.solarma.wallet.OnchainParameters
 import app.solarma.ui.components.PenaltyRouteDisplay
 import app.solarma.ui.components.SnoozePenaltyDisplay
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import app.solarma.wakeproof.WakeProofEngine
-import app.solarma.R
-import androidx.compose.ui.res.stringResource
+import app.solarma.wallet.OnchainParameters
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -48,22 +47,22 @@ fun AlarmDetailsScreen(
     alarmId: Long,
     viewModel: AlarmDetailsViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
-    onViewHistory: () -> Unit = {}
+    onViewHistory: () -> Unit = {},
 ) {
     val alarm by viewModel.alarm.collectAsState()
     val refundState by viewModel.refundState.collectAsState()
     val pendingCreate by viewModel.pendingCreate.collectAsState()
     val context = LocalContext.current
     val activityResultSender = LocalActivityResultSender.current
-    
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRefundDialog by remember { mutableStateOf(false) }
     var showSlashDialog by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(alarmId) {
         viewModel.loadAlarm(alarmId)
     }
-    
+
     LaunchedEffect(refundState) {
         when (val state = refundState) {
             is RefundState.Success -> {
@@ -77,17 +76,17 @@ fun AlarmDetailsScreen(
             else -> {}
         }
     }
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             "Alarm Details",
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = TextPrimary,
                         )
                     },
                     navigationIcon = {
@@ -95,7 +94,7 @@ fun AlarmDetailsScreen(
                             Icon(
                                 Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
-                                tint = TextPrimary
+                                tint = TextPrimary,
                             )
                         }
                     },
@@ -104,29 +103,31 @@ fun AlarmDetailsScreen(
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete",
-                                tint = TextMuted
+                                tint = TextMuted,
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
                 )
-            }
+            },
         ) { padding ->
             alarm?.let { currentAlarm ->
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Time card
                     AlarmTimeCard(currentAlarm)
-                    
+
                     // Deposit card (if applicable — only show when actual deposit exists)
                     val hasActiveDeposit = currentAlarm.hasDeposit && currentAlarm.depositLamports > 0
                     if (hasActiveDeposit) {
@@ -135,46 +136,51 @@ fun AlarmDetailsScreen(
                             isProcessing = refundState is RefundState.Processing,
                             pendingConfirmation = pendingCreate,
                             onRefundClick = { showRefundDialog = true },
-                            onSlashClick = { showSlashDialog = true }
+                            onSlashClick = { showSlashDialog = true },
                         )
                     }
-                    
+
                     // Actions
                     OutlinedButton(
                         onClick = onViewHistory,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = TextSecondary
-                        )
+                        colors =
+                            ButtonDefaults.outlinedButtonColors(
+                                contentColor = TextSecondary,
+                            ),
                     ) {
                         Text("VIEW TRANSACTION HISTORY")
                     }
                 }
             } ?: run {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                    contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(color = SolanaGreen)
                 }
             }
         }
     }
-    
+
     // Delete confirmation dialog
     if (showDeleteDialog) {
         val hasDeposit = alarm?.let { it.hasDeposit && it.depositLamports > 0 } == true
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text(if (hasDeposit) "Cannot Delete" else "Delete Alarm?") },
-            text = { 
+            text = {
                 Text(
-                    if (hasDeposit) 
-                        "This alarm has a locked deposit. Use Emergency Refund (before alarm time) or Resolve Deposit (after deadline) to release funds first."
-                    else 
+                    if (hasDeposit) {
+                        "This alarm has a locked deposit. " +
+                            "Use Emergency Refund (before alarm time) or " +
+                            "Resolve Deposit (after deadline) to release funds first."
+                    } else {
                         "Are you sure you want to delete this alarm?"
+                    },
                 )
             },
             confirmButton = {
@@ -188,7 +194,7 @@ fun AlarmDetailsScreen(
                             viewModel.deleteAlarm()
                             showDeleteDialog = false
                             onBack()
-                        }
+                        },
                     ) {
                         Text("Delete", color = Color(0xFFE53935))
                     }
@@ -200,19 +206,19 @@ fun AlarmDetailsScreen(
                         Text("Cancel")
                     }
                 }
-            }
+            },
         )
     }
-    
+
     // Refund confirmation dialog
     if (showRefundDialog) {
         AlertDialog(
             onDismissRequest = { showRefundDialog = false },
             title = { Text("EMERGENCY REFUND") },
-            text = { 
+            text = {
                 Text(
                     "Request emergency refund of your deposit?\n\n" +
-                    "Note: A ${OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT}% penalty applies for early cancellation."
+                        "Note: A ${OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT}% penalty applies for early cancellation.",
                 )
             },
             confirmButton = {
@@ -220,7 +226,7 @@ fun AlarmDetailsScreen(
                     onClick = {
                         viewModel.requestEmergencyRefund(activityResultSender)
                         showRefundDialog = false
-                    }
+                    },
                 ) {
                     Text("Refund", color = SolanaPurple)
                 }
@@ -229,10 +235,10 @@ fun AlarmDetailsScreen(
                 TextButton(onClick = { showRefundDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
-    
+
     // Slash (resolve expired alarm) dialog
     if (showSlashDialog) {
         val penaltyInfo = alarm?.let { PenaltyRouteDisplay.fromRoute(it.penaltyRoute) }
@@ -241,8 +247,10 @@ fun AlarmDetailsScreen(
             title = { Text("RESOLVE EXPIRED ALARM") },
             text = {
                 Text(
-                    "This alarm has expired. Your deposit will be released according to your penalty route: ${penaltyInfo?.formatted ?: "Unknown"}.\n\n" +
-                    "This action is final and cannot be undone."
+                    "This alarm has expired. Your deposit will be released " +
+                        "according to your penalty route: " +
+                        "${penaltyInfo?.formatted ?: "Unknown"}.\n\n" +
+                        "This action is final and cannot be undone.",
                 )
             },
             confirmButton = {
@@ -250,7 +258,7 @@ fun AlarmDetailsScreen(
                     onClick = {
                         viewModel.requestSlash(activityResultSender)
                         showSlashDialog = false
-                    }
+                    },
                 ) {
                     Text("Resolve", color = WarningAmber)
                 }
@@ -259,59 +267,62 @@ fun AlarmDetailsScreen(
                 TextButton(onClick = { showSlashDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 }
 
 @Composable
 fun AlarmTimeCard(alarm: AlarmEntity) {
-    val time = LocalDateTime.ofInstant(
-        Instant.ofEpochMilli(alarm.alarmTimeMillis),
-        ZoneId.systemDefault()
-    )
+    val time =
+        LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(alarm.alarmTimeMillis),
+            ZoneId.systemDefault(),
+        )
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM")
-    
-    val proofType = when (alarm.wakeProofType) {
-        WakeProofEngine.TYPE_STEPS -> "STEPS (${alarm.targetSteps})"
-        WakeProofEngine.TYPE_NFC -> "NFC TAG"
-        WakeProofEngine.TYPE_QR -> "QR CODE"
-        else -> "NONE"
-    }
-    
+
+    val proofType =
+        when (alarm.wakeProofType) {
+            WakeProofEngine.TYPE_STEPS -> "STEPS (${alarm.targetSteps})"
+            WakeProofEngine.TYPE_NFC -> "NFC TAG"
+            WakeProofEngine.TYPE_QR -> "QR CODE"
+            else -> "NONE"
+        }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+        colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = time.format(timeFormatter),
                 fontSize = 64.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = TextPrimary,
             )
             Text(
                 text = time.format(dateFormatter),
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary
+                color = TextSecondary,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = SolanaPurple.copy(alpha = 0.15f)
+                color = SolanaPurple.copy(alpha = 0.15f),
             ) {
                 Text(
                     text = proofType,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     color = SolanaPurple,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -322,9 +333,14 @@ fun AlarmTimeCard(alarm: AlarmEntity) {
  * Alarm deposit state for determining available actions.
  */
 private enum class AlarmDepositPhase {
-    BEFORE_ALARM,   // Can emergency refund
-    GRACE_PERIOD,   // Between alarm and deadline — no action available
-    EXPIRED         // After deadline — can slash/resolve
+    // Can emergency refund
+    BEFORE_ALARM,
+
+    // Between alarm and deadline — no action available
+    GRACE_PERIOD,
+
+    // After deadline — can slash/resolve
+    EXPIRED,
 }
 
 @Composable
@@ -333,101 +349,104 @@ fun DepositCard(
     isProcessing: Boolean,
     pendingConfirmation: Boolean,
     onRefundClick: () -> Unit,
-    onSlashClick: () -> Unit
+    onSlashClick: () -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
-    
+
     // Deadline = alarm time + grace period (matches on-chain logic)
     val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
-    val deadlineTime = LocalDateTime.ofInstant(
-        Instant.ofEpochMilli(deadlineMillis),
-        ZoneId.systemDefault()
-    )
+    val deadlineTime =
+        LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(deadlineMillis),
+            ZoneId.systemDefault(),
+        )
     val deadlineFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    
+
     // Penalty route info
     val penaltyInfo = PenaltyRouteDisplay.fromRoute(alarm.penaltyRoute)
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+        colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text(
                         text = stringResource(R.string.deposit_locked),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = TextPrimary,
                     )
                     Text(
                         text = "${alarm.depositAmount} SOL",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = SolanaPurple
+                        color = SolanaPurple,
                     )
                 }
-                
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (pendingConfirmation) {
-                        SolanaPurple.copy(alpha = 0.15f)
-                    } else {
-                        SolanaGreen.copy(alpha = 0.15f)
-                    }
+                    color =
+                        if (pendingConfirmation) {
+                            SolanaPurple.copy(alpha = 0.15f)
+                        } else {
+                            SolanaGreen.copy(alpha = 0.15f)
+                        },
                 ) {
                     Text(
                         text = if (pendingConfirmation) stringResource(R.string.status_pending) else stringResource(R.string.status_active),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (pendingConfirmation) SolanaPurple else SolanaGreen,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Deadline and penalty info row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
                     Text(
                         text = "Deadline",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
+                        color = TextMuted,
                     )
                     Text(
                         text = deadlineTime.format(deadlineFormatter),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = WarningAmber
+                        color = WarningAmber,
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Penalty",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
+                        color = TextMuted,
                     )
                     Text(
                         text = penaltyInfo.formatted,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = TextPrimary,
                     )
                 }
                 if (alarm.snoozeCount > 0) {
@@ -435,57 +454,59 @@ fun DepositCard(
                         Text(
                             text = "Snoozed",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            color = TextMuted,
                         )
                         Text(
                             text = SnoozePenaltyDisplay.formatDisplay(alarm.snoozeCount),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = WarningAmber
+                            color = WarningAmber,
                         )
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // PDA address — tap to copy
             alarm.onchainPubkey?.let { pubkey ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Graphite.copy(alpha = 0.5f))
-                        .clickable {
-                            clipboardManager.setText(AnnotatedString(pubkey))
-                            Toast.makeText(context, "PDA copied!", Toast.LENGTH_SHORT).show()
-                        }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Graphite.copy(alpha = 0.5f))
+                            .clickable {
+                                clipboardManager.setText(AnnotatedString(pubkey))
+                                Toast.makeText(context, "PDA copied!", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "PDA: ${pubkey.take(8)}…${pubkey.takeLast(8)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
+                        color = TextMuted,
                     )
                     Text(
                         text = "📋 Copy",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SolanaPurple
+                        color = SolanaPurple,
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Determine which action is available
             val nowMillis = System.currentTimeMillis()
-            val phase = when {
-                nowMillis < alarm.alarmTimeMillis -> AlarmDepositPhase.BEFORE_ALARM
-                nowMillis < deadlineMillis -> AlarmDepositPhase.GRACE_PERIOD
-                else -> AlarmDepositPhase.EXPIRED
-            }
+            val phase =
+                when {
+                    nowMillis < alarm.alarmTimeMillis -> AlarmDepositPhase.BEFORE_ALARM
+                    nowMillis < deadlineMillis -> AlarmDepositPhase.GRACE_PERIOD
+                    else -> AlarmDepositPhase.EXPIRED
+                }
 
             when (phase) {
                 AlarmDepositPhase.BEFORE_ALARM -> {
@@ -493,16 +514,17 @@ fun DepositCard(
                         onClick = onRefundClick,
                         enabled = !isProcessing,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SolanaPurple,
-                            disabledContainerColor = SolanaPurple.copy(alpha = 0.5f)
-                        )
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = SolanaPurple,
+                                disabledContainerColor = SolanaPurple.copy(alpha = 0.5f),
+                            ),
                     ) {
                         if (isProcessing) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 color = Color.White,
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
@@ -515,7 +537,7 @@ fun DepositCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = WarningAmber,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 AlarmDepositPhase.EXPIRED -> {
@@ -523,22 +545,23 @@ fun DepositCard(
                         onClick = onSlashClick,
                         enabled = !isProcessing,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WarningAmber,
-                            disabledContainerColor = WarningAmber.copy(alpha = 0.5f)
-                        )
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = WarningAmber,
+                                disabledContainerColor = WarningAmber.copy(alpha = 0.5f),
+                            ),
                     ) {
                         if (isProcessing) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 color = Color.White,
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                         Text(
                             text = if (isProcessing) "Processing..." else "⚠️ RESOLVE EXPIRED DEPOSIT",
-                            color = Color.Black
+                            color = Color.Black,
                         )
                     }
                 }

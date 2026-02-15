@@ -14,7 +14,6 @@ import org.junit.Test
  * This test validates both strategies.
  */
 class ImportOnchainAlarmMappingTest {
-
     // ── importOnchainAlarms filtering (AlarmRepository line 348) ──
     // Only status==0 AND remainingAmount>0 passes the filter.
 
@@ -96,8 +95,8 @@ class ImportOnchainAlarmMappingTest {
     @Test
     fun `isEnabled based on alarm time vs now`() {
         val futureAlarm = 2_000_000_000_000L // far future
-        val pastAlarm = 1_000_000_000_000L   // 2001
-        val now = 1_700_000_000_000L          // 2023
+        val pastAlarm = 1_000_000_000_000L // 2001
+        val now = 1_700_000_000_000L // 2023
 
         assertTrue("Future alarm should be enabled", futureAlarm > now)
         assertFalse("Past alarm should not be enabled", pastAlarm > now)
@@ -150,7 +149,7 @@ class ImportOnchainAlarmMappingTest {
         // This documents the real inconsistency: syncOnchainAlarms
         // treats Acknowledged as active (not resolved), while
         // importOnchainAlarms skips it (status != 0).
-        val status = 1  // Acknowledged
+        val status = 1 // Acknowledged
         val remaining = 1000L
         assertFalse("import skips Acknowledged", isImportable(status, remaining))
         assertFalse("sync does NOT consider Acknowledged resolved", isSyncResolved(status, remaining))
@@ -158,12 +157,18 @@ class ImportOnchainAlarmMappingTest {
 
     companion object {
         /** importOnchainAlarms filter: only status==0 and remaining>0 */
-        private fun isImportable(status: Int, remainingAmount: Long): Boolean {
+        private fun isImportable(
+            status: Int,
+            remainingAmount: Long,
+        ): Boolean {
             return status == 0 && remainingAmount > 0
         }
 
         /** syncOnchainAlarms filter: status>=2 or remaining<=0 means resolved */
-        private fun isSyncResolved(status: Int, remainingAmount: Long): Boolean {
+        private fun isSyncResolved(
+            status: Int,
+            remainingAmount: Long,
+        ): Boolean {
             return status >= 2 || remainingAmount <= 0
         }
 
