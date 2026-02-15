@@ -6,7 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -18,6 +20,7 @@ import org.junit.Test
 /**
  * Tests for HistoryViewModel.
  * Uses UnconfinedTestDispatcher so stateIn collection dispatches eagerly.
+ * A background collector is launched to activate WhileSubscribed sharing.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -44,11 +47,17 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `transactions reflects DAO emissions`() = runTest {
+    fun `transactions reflects DAO emissions`() = runTest(testDispatcher) {
+        // Start a subscriber to activate WhileSubscribed sharing
+        val job = launch { viewModel.transactions.collect {} }
+
         val tx = makeTx(id = 1, type = "CLAIM")
         fakeDao.emit(listOf(tx))
+        advanceUntilIdle()
+
         assertEquals(1, viewModel.transactions.value.size)
         assertEquals("CLAIM", viewModel.transactions.value[0].type)
+        job.cancel()
     }
 
     @Test
@@ -60,21 +69,31 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `multiple emissions update flow`() = runTest {
+    fun `multiple emissions update flow`() = runTest(testDispatcher) {
+        val job = launch { viewModel.transactions.collect {} }
+
         fakeDao.emit(listOf(makeTx(1, "CLAIM")))
+        advanceUntilIdle()
         assertEquals(1, viewModel.transactions.value.size)
 
         fakeDao.emit(listOf(makeTx(1, "CLAIM"), makeTx(2, "SLASH")))
+        advanceUntilIdle()
         assertEquals(2, viewModel.transactions.value.size)
+        job.cancel()
     }
 
     @Test
-    fun `empty emission clears list`() = runTest {
+    fun `empty emission clears list`() = runTest(testDispatcher) {
+        val job = launch { viewModel.transactions.collect {} }
+
         fakeDao.emit(listOf(makeTx(1, "CLAIM")))
+        advanceUntilIdle()
         assertEquals(1, viewModel.transactions.value.size)
 
         fakeDao.emit(emptyList())
+        advanceUntilIdle()
         assertTrue(viewModel.transactions.value.isEmpty())
+        job.cancel()
     }
 
     // ── Helpers ──
