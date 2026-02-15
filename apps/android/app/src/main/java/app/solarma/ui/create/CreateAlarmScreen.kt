@@ -483,6 +483,12 @@ fun WakeProofChip(
         label = "chip_scale"
     )
     
+    val chipBorder = if (selected) {
+        androidx.compose.foundation.BorderStroke(2.dp, SolanaPurple)
+    } else {
+        null
+    }
+
     Surface(
         onClick = onClick,
         modifier = modifier
@@ -490,10 +496,7 @@ fun WakeProofChip(
             .height(80.dp),
         shape = AlarmCardShape,
         color = if (selected) SolanaPurple.copy(alpha = 0.2f) else GraphiteSurface,
-        border = if (selected) 
-            androidx.compose.foundation.BorderStroke(2.dp, SolanaPurple) 
-        else 
-            null
+        border = chipBorder,
     ) {
         Column(
             modifier = Modifier
@@ -786,15 +789,18 @@ fun PenaltyChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val penaltyBorder = if (selected) {
+        androidx.compose.foundation.BorderStroke(2.dp, ErrorCrimson)
+    } else {
+        androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+    }
+
     Surface(
         onClick = onClick,
         modifier = modifier.height(64.dp),
         shape = ChipShape,
         color = if (selected) ErrorCrimson.copy(alpha = 0.15f) else Graphite,
-        border = if (selected) 
-            androidx.compose.foundation.BorderStroke(2.dp, ErrorCrimson) 
-        else 
-            androidx.compose.foundation.BorderStroke(1.dp, TextMuted.copy(alpha = 0.2f))
+        border = penaltyBorder,
     ) {
         Column(
             modifier = Modifier

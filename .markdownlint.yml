@@ -1,9 +1,11 @@
 # Markdownlint configuration for Solarma
 # https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 
-# Allow duplicate headings in different sections (CHANGELOG format)
-MD024:
-  siblings_only: true
+# Allow duplicate headings (CHANGELOG uses Added/Changed under each version)
+MD024: false
+
+# Trailing spaces handled by editors; not worth blocking CI
+MD009: false
 
 # Allow long lines in tables and links
 MD013: false
