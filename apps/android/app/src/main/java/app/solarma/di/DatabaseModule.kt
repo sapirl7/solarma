@@ -22,19 +22,19 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): SolarmaDatabase {
         return Room.databaseBuilder(
             context,
             SolarmaDatabase::class.java,
-            "solarma_database"
+            "solarma_database",
         )
-        .addMigrations(
-            SolarmaDatabase.MIGRATION_3_4,
-            SolarmaDatabase.MIGRATION_4_5,
-            SolarmaDatabase.MIGRATION_5_6
-        )
-        .build()
+            .addMigrations(
+                SolarmaDatabase.MIGRATION_3_4,
+                SolarmaDatabase.MIGRATION_4_5,
+                SolarmaDatabase.MIGRATION_5_6,
+            )
+            .build()
     }
 
     @Provides

@@ -32,17 +32,18 @@ import app.solarma.wallet.TransactionProcessor
 import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
-import java.security.MessageDigest
-import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
+import javax.inject.Inject
 
 /**
  * CompositionLocal to provide ActivityResultSender to composables.
  */
-val LocalActivityResultSender = staticCompositionLocalOf<ActivityResultSender> {
-    error("ActivityResultSender not provided")
-}
+val LocalActivityResultSender =
+    staticCompositionLocalOf<ActivityResultSender> {
+        error("ActivityResultSender not provided")
+    }
 
 /**
  * Callback for NFC tag detection.
@@ -92,56 +93,60 @@ class MainActivity : ComponentActivity() {
     private var pendingIntent: PendingIntent? = null
     private var nfcTagCallback: NfcTagCallback? = null
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            Log.i(TAG, "POST_NOTIFICATIONS permission granted")
-        } else {
-            Log.w(TAG, "POST_NOTIFICATIONS permission denied")
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { isGranted ->
+            if (isGranted) {
+                Log.i(TAG, "POST_NOTIFICATIONS permission granted")
+            } else {
+                Log.w(TAG, "POST_NOTIFICATIONS permission denied")
+            }
         }
-    }
 
-    private val activityRecognitionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            Log.i(TAG, "ACTIVITY_RECOGNITION permission granted")
-        } else {
-            Log.w(TAG, "ACTIVITY_RECOGNITION permission denied — step counter may not work")
+    private val activityRecognitionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { isGranted ->
+            if (isGranted) {
+                Log.i(TAG, "ACTIVITY_RECOGNITION permission granted")
+            } else {
+                Log.w(TAG, "ACTIVITY_RECOGNITION permission denied — step counter may not work")
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize NFC
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
-        pendingIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_MUTABLE
-        )
+        pendingIntent =
+            PendingIntent.getActivity(
+                this, 0,
+                Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_MUTABLE,
+            )
 
         // Initialize sender before setContent
         val sender = activityResultSender
 
         // NFC callback for Settings registration
-        val nfcCallback = object : NfcTagCallback {
-            override fun onTagDetected(tagHash: String) {
-                nfcTagCallback?.onTagDetected(tagHash)
+        val nfcCallback =
+            object : NfcTagCallback {
+                override fun onTagDetected(tagHash: String) {
+                    nfcTagCallback?.onTagDetected(tagHash)
+                }
             }
-        }
 
         setContent {
             SolarmaTheme {
                 CompositionLocalProvider(
                     LocalActivityResultSender provides sender,
-                    LocalNfcTagCallback provides nfcCallback
+                    LocalNfcTagCallback provides nfcCallback,
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
+                        color = MaterialTheme.colorScheme.background,
                     ) {
                         SolarmaNavHost()
                     }
@@ -151,7 +156,7 @@ class MainActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
+                this, Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -160,7 +165,7 @@ class MainActivity : ComponentActivity() {
         // Request step counter permission at startup (Android 10+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
             ContextCompat.checkSelfPermission(
-                this, Manifest.permission.ACTIVITY_RECOGNITION
+                this, Manifest.permission.ACTIVITY_RECOGNITION,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
@@ -211,14 +216,15 @@ class MainActivity : ComponentActivity() {
 
         if (intent.action == NfcAdapter.ACTION_TAG_DISCOVERED ||
             intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
-            intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
-
-            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, android.nfc.Tag::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
-            }
+            intent.action == NfcAdapter.ACTION_TECH_DISCOVERED
+        ) {
+            val tag =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, android.nfc.Tag::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+                }
             tag?.let {
                 Log.i(TAG, "NFC tag detected: ${it.id.toHexString()}")
 

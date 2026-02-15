@@ -15,7 +15,10 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_ALARM_ID = "alarm_id"
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val alarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1)
         Log.i(TAG, "Alarm triggered: id=$alarmId")
 
@@ -25,10 +28,11 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         // Start foreground service for alarm handling
-        val serviceIntent = Intent(context, AlarmService::class.java).apply {
-            action = AlarmService.ACTION_ALARM_TRIGGERED
-            putExtra(EXTRA_ALARM_ID, alarmId)
-        }
+        val serviceIntent =
+            Intent(context, AlarmService::class.java).apply {
+                action = AlarmService.ACTION_ALARM_TRIGGERED
+                putExtra(EXTRA_ALARM_ID, alarmId)
+            }
 
         context.startForegroundService(serviceIntent)
     }

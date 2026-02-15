@@ -22,9 +22,7 @@ private const val KEY_ONBOARDING_DONE = "onboarding_done"
  * Main navigation graph for the app.
  */
 @Composable
-fun SolarmaNavHost(
-    navController: NavHostController = rememberNavController()
-) {
+fun SolarmaNavHost(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
     val onboardingDone = prefs.getBoolean(KEY_ONBOARDING_DONE, false)
@@ -33,7 +31,7 @@ fun SolarmaNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = startRoute
+        startDestination = startRoute,
     ) {
         composable(Screen.Onboarding.route) {
             OnboardingScreen(
@@ -42,7 +40,7 @@ fun SolarmaNavHost(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Onboarding.route) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -54,37 +52,37 @@ fun SolarmaNavHost(
                 },
                 onSettingsClick = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
             )
         }
 
         composable(Screen.CreateAlarm.route) {
             CreateAlarmScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
 
         composable(
             route = Screen.AlarmDetails.route,
-            arguments = listOf(navArgument("id") { type = NavType.LongType })
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
         ) { backStackEntry ->
             val alarmId = backStackEntry.arguments?.getLong("id") ?: -1L
             AlarmDetailsScreen(
                 alarmId = alarmId,
                 onBack = { navController.popBackStack() },
-                onViewHistory = { navController.navigate(Screen.History.route) }
+                onViewHistory = { navController.navigate(Screen.History.route) },
             )
         }
 
         composable(Screen.History.route) {
             HistoryScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
     }
@@ -95,12 +93,16 @@ fun SolarmaNavHost(
  */
 sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")
+
     object Home : Screen("home")
+
     object CreateAlarm : Screen("create_alarm")
+
     object AlarmDetails : Screen("alarm/{id}") {
         fun withId(id: Long) = "alarm/$id"
     }
+
     object History : Screen("history")
+
     object Settings : Screen("settings")
 }
-

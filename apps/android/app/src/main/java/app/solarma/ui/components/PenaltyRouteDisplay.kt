@@ -9,7 +9,7 @@ package app.solarma.ui.components
 object PenaltyRouteDisplay {
     data class PenaltyInfo(
         val emoji: String,
-        val label: String
+        val label: String,
     ) {
         /** Formatted string like "🔥 Burn" */
         val formatted: String get() = "$emoji $label"
@@ -25,10 +25,11 @@ object PenaltyRouteDisplay {
      *
      * @param route 0=Burn, 1=Donate, 2=Buddy (matches PenaltyRoute Anchor enum)
      */
-    fun fromRoute(route: Int): PenaltyInfo = when (route) {
-        0 -> BURN
-        1 -> DONATE
-        2 -> BUDDY
-        else -> UNKNOWN
-    }
+    fun fromRoute(route: Int): PenaltyInfo =
+        when (route) {
+            0 -> BURN
+            1 -> DONATE
+            2 -> BUDDY
+            else -> UNKNOWN
+        }
 }

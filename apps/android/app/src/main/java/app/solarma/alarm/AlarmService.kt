@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.IBinder
@@ -17,11 +16,11 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Foreground service for handling active alarms.
@@ -55,7 +54,11 @@ class AlarmService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
             ACTION_ALARM_TRIGGERED -> {
                 val alarmId = intent.getLongExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
@@ -151,12 +154,13 @@ class AlarmService : Service() {
 
     private fun acquireWakeLock() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            WAKELOCK_TAG
-        ).apply {
-            acquire(10 * 60 * 1000L) // 10 minute timeout max
-        }
+        wakeLock =
+            powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                WAKELOCK_TAG,
+            ).apply {
+                acquire(10 * 60 * 1000L) // 10 minute timeout max
+            }
         Log.d(TAG, "Wake lock acquired")
     }
 
@@ -174,21 +178,23 @@ class AlarmService : Service() {
 
     private fun startAlarmSound() {
         try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val alarmUri =
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, alarmUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                isLooping = true
-                prepare()
-                start()
-            }
+            mediaPlayer =
+                MediaPlayer().apply {
+                    setDataSource(applicationContext, alarmUri)
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build(),
+                    )
+                    isLooping = true
+                    prepare()
+                    start()
+                }
             Log.d(TAG, "Alarm sound started")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start alarm sound", e)
@@ -209,13 +215,14 @@ class AlarmService : Service() {
     // ==================== Vibration ====================
 
     private fun startVibration() {
-        vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            val vibratorManager = getSystemService(android.os.VibratorManager::class.java)
-            vibratorManager?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(VIBRATOR_SERVICE) as? Vibrator
-        }
+        vibrator =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(android.os.VibratorManager::class.java)
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(VIBRATOR_SERVICE) as? Vibrator
+            }
         vibrator?.let {
             val pattern = longArrayOf(0, 500, 200, 500) // vibrate pattern
             val effect = VibrationEffect.createWaveform(pattern, 0) // repeat from index 0
@@ -233,47 +240,54 @@ class AlarmService : Service() {
     // ==================== Notification ====================
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Solarma Alarms",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Alarm notifications"
-            setSound(null, null) // Sound handled separately
-            enableVibration(false) // Vibration handled separately
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "Solarma Alarms",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Alarm notifications"
+                setSound(null, null) // Sound handled separately
+                enableVibration(false) // Vibration handled separately
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
 
     private fun buildAlarmNotification(): Notification {
-        val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
-            putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+        val fullScreenIntent =
+            Intent(this, AlarmActivity::class.java).apply {
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
-        }
-        val fullScreenPendingIntent = PendingIntent.getActivity(
-            this, 0, fullScreenIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+            }
+        val fullScreenPendingIntent =
+            PendingIntent.getActivity(
+                this, 0, fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val stopIntent = Intent(this, AlarmService::class.java).apply {
-            action = ACTION_STOP_ALARM
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 1, stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val stopIntent =
+            Intent(this, AlarmService::class.java).apply {
+                action = ACTION_STOP_ALARM
+            }
+        val stopPendingIntent =
+            PendingIntent.getService(
+                this, 1, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val snoozeIntent = Intent(this, AlarmService::class.java).apply {
-            action = ACTION_SNOOZE
-        }
-        val snoozePendingIntent = PendingIntent.getService(
-            this, 2, snoozeIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val snoozeIntent =
+            Intent(this, AlarmService::class.java).apply {
+                action = ACTION_SNOOZE
+            }
+        val snoozePendingIntent =
+            PendingIntent.getService(
+                this, 2, snoozeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -289,12 +303,13 @@ class AlarmService : Service() {
     }
 
     private fun launchAlarmActivity(alarmId: Long) {
-        val intent = Intent(this, AlarmActivity::class.java).apply {
-            putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+        val intent =
+            Intent(this, AlarmActivity::class.java).apply {
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
-        }
+            }
         startActivity(intent)
     }
 

@@ -31,11 +31,11 @@ import app.solarma.MainActivity
 import app.solarma.NfcTagCallback
 import app.solarma.ui.components.QrCodeImage
 import app.solarma.ui.theme.*
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 /**
  * Settings screen with premium dark UI.
@@ -44,7 +44,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val importState by viewModel.importState.collectAsState()
@@ -58,15 +58,16 @@ fun SettingsScreen(
     val activityResultSender = LocalActivityResultSender.current
     val activity = context as? MainActivity
 
-    val nfcCallback = remember {
-        object : NfcTagCallback {
-            override fun onTagDetected(tagHash: String) {
-                viewModel.registerNfcTag(tagHash)
-                Toast.makeText(context, "NFC tag registered", Toast.LENGTH_SHORT).show()
-                showNfcDialog = false
+    val nfcCallback =
+        remember {
+            object : NfcTagCallback {
+                override fun onTagDetected(tagHash: String) {
+                    viewModel.registerNfcTag(tagHash)
+                    Toast.makeText(context, "NFC tag registered", Toast.LENGTH_SHORT).show()
+                    showNfcDialog = false
+                }
             }
         }
-    }
 
     LaunchedEffect(showNfcDialog) {
         activity?.setNfcTagCallback(if (showNfcDialog) nfcCallback else null)
@@ -78,7 +79,7 @@ fun SettingsScreen(
                 Toast.makeText(
                     context,
                     "Imported ${state.result.imported}, updated ${state.result.updated}, skipped ${state.result.skipped}",
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
                 viewModel.resetImportState()
             }
@@ -98,7 +99,7 @@ fun SettingsScreen(
                     Text(
                         "Settings",
                         color = TextPrimary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
@@ -106,27 +107,29 @@ fun SettingsScreen(
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Back",
-                            tint = TextPrimary
+                            tint = TextPrimary,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                    ),
             )
-        }
+        },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(DeepBlack, Graphite)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(DeepBlack, Graphite),
+                        ),
                     )
-                )
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
         ) {
             // Wallet Section
             SettingsSection(title = "Wallet") {
@@ -149,7 +152,7 @@ fun SettingsScreen(
                                     Text("Connect", color = SolanaGreen)
                                 }
                             }
-                        }
+                        },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -162,12 +165,13 @@ fun SettingsScreen(
                             Switch(
                                 checked = uiState.isDevnet,
                                 onCheckedChange = { viewModel.setDevnet(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = SolanaGreen,
-                                    checkedTrackColor = SolanaGreen.copy(alpha = 0.3f)
-                                )
+                                colors =
+                                    SwitchDefaults.colors(
+                                        checkedThumbColor = SolanaGreen,
+                                        checkedTrackColor = SolanaGreen.copy(alpha = 0.3f),
+                                    ),
                             )
-                        }
+                        },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -177,24 +181,28 @@ fun SettingsScreen(
                         icon = Icons.Outlined.Sync,
                         title = "Import Onchain Alarms",
                         subtitle = if (isImporting) "Importing..." else "Restore alarms from blockchain",
-                        trailingContent = if (isImporting) {
-                            {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = SolanaGreen
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        onClick = if (isImporting) null else {
-                            {
-                                coroutineScope.launch {
-                                    viewModel.importOnchainAlarms()
+                        trailingContent =
+                            if (isImporting) {
+                                {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = SolanaGreen,
+                                    )
                                 }
-                            }
-                        }
+                            } else {
+                                null
+                            },
+                        onClick =
+                            if (isImporting) {
+                                null
+                            } else {
+                                {
+                                    coroutineScope.launch {
+                                        viewModel.importOnchainAlarms()
+                                    }
+                                }
+                            },
                     )
                 }
             }
@@ -208,7 +216,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.DirectionsWalk,
                         title = "Default Steps",
                         subtitle = "${uiState.defaultSteps} steps to dismiss",
-                        onClick = { showStepsDialog = true }
+                        onClick = { showStepsDialog = true },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -217,7 +225,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.Payments,
                         title = "Default Deposit",
                         subtitle = "${uiState.defaultDepositSol} SOL",
-                        onClick = { showDepositDialog = true }
+                        onClick = { showDepositDialog = true },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -225,12 +233,13 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Outlined.LocalFireDepartment,
                         title = "Default Penalty",
-                        subtitle = when (uiState.defaultPenalty) {
-                            0 -> "Burn"
-                            1 -> "Donate"
-                            else -> "Buddy"
-                        },
-                        onClick = { showPenaltyDialog = true }
+                        subtitle =
+                            when (uiState.defaultPenalty) {
+                                0 -> "Burn"
+                                1 -> "Donate"
+                                else -> "Buddy"
+                            },
+                        onClick = { showPenaltyDialog = true },
                     )
                 }
             }
@@ -244,7 +253,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.Nfc,
                         title = "NFC Tag",
                         subtitle = if (uiState.nfcTagRegistered) "REGISTERED" else "Tap to set up",
-                        onClick = { showNfcDialog = true }
+                        onClick = { showNfcDialog = true },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -253,7 +262,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.QrCode2,
                         title = "QR Code",
                         subtitle = if (uiState.qrCodeRegistered) "REGISTERED: ${uiState.qrCode}" else "Tap to generate",
-                        onClick = { showQrDialog = true }
+                        onClick = { showQrDialog = true },
                     )
                 }
             }
@@ -267,7 +276,7 @@ fun SettingsScreen(
                         icon = Icons.Outlined.VolumeUp,
                         title = "Alarm Sound",
                         subtitle = uiState.soundName,
-                        onClick = { /* Pick sound */ }
+                        onClick = { /* Pick sound */ },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -280,12 +289,13 @@ fun SettingsScreen(
                             Switch(
                                 checked = uiState.vibrationEnabled,
                                 onCheckedChange = { viewModel.setVibration(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = SolanaGreen,
-                                    checkedTrackColor = SolanaGreen.copy(alpha = 0.3f)
-                                )
+                                colors =
+                                    SwitchDefaults.colors(
+                                        checkedThumbColor = SolanaGreen,
+                                        checkedTrackColor = SolanaGreen.copy(alpha = 0.3f),
+                                    ),
                             )
-                        }
+                        },
                     )
                 }
             }
@@ -305,14 +315,16 @@ fun SettingsScreen(
                         onClick = {
                             scope.launch {
                                 try {
-                                    val logs = withContext(Dispatchers.IO) {
-                                        // Get more logs (3000 lines)
-                                        val process = Runtime.getRuntime().exec(
-                                            arrayOf("logcat", "-d", "-t", "3000", "--pid=${android.os.Process.myPid()}")
-                                        )
-                                        val reader = BufferedReader(InputStreamReader(process.inputStream))
-                                        reader.readText()
-                                    }
+                                    val logs =
+                                        withContext(Dispatchers.IO) {
+                                            // Get more logs (3000 lines)
+                                            val process =
+                                                Runtime.getRuntime().exec(
+                                                    arrayOf("logcat", "-d", "-t", "3000", "--pid=${android.os.Process.myPid()}"),
+                                                )
+                                            val reader = BufferedReader(InputStreamReader(process.inputStream))
+                                            reader.readText()
+                                        }
 
                                     // Write logs to file
                                     val timestamp = java.text.SimpleDateFormat("yyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
@@ -320,24 +332,26 @@ fun SettingsScreen(
                                     logFile.writeText("=== SOLARMA LOGS ===\n$timestamp\n\n$logs")
 
                                     // Share file via FileProvider
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        logFile
-                                    )
+                                    val uri =
+                                        androidx.core.content.FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            logFile,
+                                        )
 
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_SUBJECT, "Solarma Logs $timestamp")
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
+                                    val shareIntent =
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            putExtra(Intent.EXTRA_SUBJECT, "Solarma Logs $timestamp")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Logs"))
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
                                 }
                             }
-                        }
+                        },
                     )
                 }
             }
@@ -350,7 +364,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Outlined.Info,
                         title = "Version",
-                        subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+                        subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
@@ -362,7 +376,7 @@ fun SettingsScreen(
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, "https://github.com/sapirl7/solarma".toUri())
                             context.startActivity(intent)
-                        }
+                        },
                     )
                 }
             }
@@ -383,7 +397,7 @@ fun SettingsScreen(
                         Text(
                             "Tag hash: ${uiState.nfcTagHash?.take(16)}...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted
+                            color = TextMuted,
                         )
                     } else {
                         Text("Place an NFC tag near your phone to register it.")
@@ -391,7 +405,7 @@ fun SettingsScreen(
                         Text(
                             "Tip: Put the tag in your bathroom or kitchen - somewhere you need to walk to!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = TextSecondary,
                         )
                     }
                 }
@@ -416,7 +430,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showNfcDialog = false }) {
                     Text("Close")
                 }
-            }
+            },
         )
     }
 
@@ -433,25 +447,25 @@ fun SettingsScreen(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White,
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(8.dp),
                         ) {
                             QrCodeImage(
                                 text = uiState.qrCode!!,
                                 size = 180.dp,
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(16.dp),
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             uiState.qrCode!!,
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             "Print this code and place it where you need to walk!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = TextSecondary,
                         )
                     } else {
                         Text("Generate a unique QR code that you'll scan to dismiss the alarm.")
@@ -459,7 +473,7 @@ fun SettingsScreen(
                         Text(
                             "Print it and put it somewhere far from your bed!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = TextSecondary,
                         )
                     }
                 }
@@ -484,7 +498,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showQrDialog = false }) {
                     Text("Close")
                 }
-            }
+            },
         )
     }
 
@@ -502,7 +516,7 @@ fun SettingsScreen(
                         value = steps,
                         onValueChange = { steps = it.filter { c -> c.isDigit() } },
                         label = { Text("Steps") },
-                        singleLine = true
+                        singleLine = true,
                     )
                 }
             },
@@ -518,7 +532,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showStepsDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 
@@ -536,7 +550,7 @@ fun SettingsScreen(
                         value = deposit,
                         onValueChange = { deposit = it },
                         label = { Text("SOL") },
-                        singleLine = true
+                        singleLine = true,
                     )
                 }
             },
@@ -552,7 +566,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showDepositDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 
@@ -566,25 +580,26 @@ fun SettingsScreen(
                     listOf(
                         0 to "Burn - SOL destroyed forever",
                         1 to "Donate - SOL goes to Solarma",
-                        2 to "Buddy - SOL goes to friend"
+                        2 to "Buddy - SOL goes to friend",
                     ).forEach { (value, label) ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    viewModel.setDefaultPenalty(value)
-                                    showPenaltyDialog = false
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        viewModel.setDefaultPenalty(value)
+                                        showPenaltyDialog = false
+                                    }
+                                    .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
                                 selected = uiState.defaultPenalty == value,
                                 onClick = {
                                     viewModel.setDefaultPenalty(value)
                                     showPenaltyDialog = false
-                                }
+                                },
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(label)
@@ -597,7 +612,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showPenaltyDialog = false }) {
                     Text("Close")
                 }
-            }
+            },
         )
     }
 }
@@ -605,30 +620,28 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSection(
     title: String,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     Text(
         text = title,
         color = SolanaGreen,
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp),
     )
     content()
 }
 
 @Composable
-private fun SettingsCard(
-    content: @Composable ColumnScope.() -> Unit
-) {
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = GraphiteSurface)
+        colors = CardDefaults.cardColors(containerColor = GraphiteSurface),
     ) {
         Column(
             modifier = Modifier.padding(4.dp),
-            content = content
+            content = content,
         )
     }
 }
@@ -639,25 +652,29 @@ private fun SettingsRow(
     title: String,
     subtitle: String? = null,
     trailingContent: (@Composable () -> Unit)? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (onClick != null) Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(onClick = onClick)
-                else Modifier
-            )
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = title,
             tint = SolanaGreen,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -666,13 +683,13 @@ private fun SettingsRow(
             Text(
                 text = title,
                 color = TextPrimary,
-                fontSize = 16.sp
+                fontSize = 16.sp,
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     color = TextSecondary,
-                    fontSize = 13.sp
+                    fontSize = 13.sp,
                 )
             }
         }
@@ -683,7 +700,7 @@ private fun SettingsRow(
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = "Navigate to $title",
-                tint = TextSecondary
+                tint = TextSecondary,
             )
         }
     }

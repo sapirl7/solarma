@@ -1,7 +1,5 @@
 package app.solarma.ui.components
 
-import app.solarma.alarm.AlarmTiming
-
 /**
  * Display utilities for snooze penalty calculations.
  *
@@ -35,6 +33,6 @@ object SnoozePenaltyDisplay {
      */
     fun formatDisplay(snoozeCount: Int): String {
         val percent = cumulativePercent(snoozeCount)
-        return "${snoozeCount}× (${percent}% penalized)"
+        return "$snoozeCount× ($percent% penalized)"
     }
 }

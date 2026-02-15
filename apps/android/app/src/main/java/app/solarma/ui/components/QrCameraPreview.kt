@@ -1,6 +1,5 @@
 package app.solarma.ui.components
 
-import android.content.Context
 import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -28,7 +27,7 @@ import java.util.concurrent.Executors
 @Composable
 fun QrCameraPreview(
     qrScanner: QrScanner,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -44,19 +43,21 @@ fun QrCameraPreview(
                 val cameraProvider = cameraProviderFuture.get()
 
                 // Preview use case
-                val preview = Preview.Builder()
-                    .build()
-                    .also {
-                        it.surfaceProvider = previewView.surfaceProvider
-                    }
+                val preview =
+                    Preview.Builder()
+                        .build()
+                        .also {
+                            it.surfaceProvider = previewView.surfaceProvider
+                        }
 
                 // Image analysis for QR scanning
-                val imageAnalyzer = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also {
-                        it.setAnalyzer(cameraExecutor, qrScanner.createAnalyzer())
-                    }
+                val imageAnalyzer =
+                    ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(cameraExecutor, qrScanner.createAnalyzer())
+                        }
 
                 // Select back camera
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -67,7 +68,7 @@ fun QrCameraPreview(
                     lifecycleOwner,
                     cameraSelector,
                     preview,
-                    imageAnalyzer
+                    imageAnalyzer,
                 )
 
                 Log.d("QrCameraPreview", "Camera bound successfully")
@@ -82,25 +83,27 @@ fun QrCameraPreview(
     }
 
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(16.dp)),
     ) {
         AndroidView(
             factory = { previewView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         )
 
         // Scan indicator overlay
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = Color.White.copy(alpha = 0.1f),
-                modifier = Modifier.size(200.dp)
+                modifier = Modifier.size(200.dp),
             ) {
                 // Target box for QR code
             }
