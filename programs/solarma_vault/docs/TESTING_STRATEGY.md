@@ -62,9 +62,9 @@ graph LR
 |---|---|---|---|
 | **Unit (Rust)** | `cargo test` (~1s) | Math formulas, account sizes, overflow, enum safety | 140 ✅ (done) |
 | **Integration (TS)** | `anchor test` (~4min) | Per-instruction happy/negative, access control, timing, state | 70 ✅ (done) |
-| **Scenario (TS)** | `anchor test` | Multi-step README flows end-to-end | 5 (to add) |
-| **Model-based (TS)** | `anchor test` | Random ix sequences, invariant checking | 1 (to add) |
-| **Property (Rust)** | `cargo test` | Penalty formula ↔ reference model, balance conservation | 3 (to add) |
+| **Property (Rust)** | `cargo test` | Fuzz 12 helpers.rs functions, 10K+ random inputs each | 16 ✅ (done, PR #33) |
+| **Scenario (TS)** | `anchor test @slow` | Multi-step README flows end-to-end (nightly CI) | 5 (planned) |
+| **Model-based (TS)** | `anchor test @slow` | Random ix sequences, invariant checking (nightly CI) | 1 (planned) |
 
 ---
 
