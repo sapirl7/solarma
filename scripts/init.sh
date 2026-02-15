@@ -37,7 +37,7 @@ echo "Checking Solana CLI..."
 if check_command solana; then
     solana --version
 else
-    echo -e "${YELLOW}→${NC} Install: sh -c \"\$(curl -sSfL https://release.solana.com/v1.18.26/install)\""
+    echo -e "${YELLOW}→${NC} Install: sh -c \"\$(curl -sSfL https://release.anza.xyz/v2.3.0/install)\""
 fi
 
 # Check Anchor
@@ -55,7 +55,7 @@ echo "Checking Node.js..."
 if check_command node; then
     node --version
 else
-    echo -e "${YELLOW}→${NC} Install Node.js 18+"
+    echo -e "${YELLOW}→${NC} Install Node.js 20+"
 fi
 
 # Check Java
@@ -64,7 +64,7 @@ echo "Checking Java..."
 if check_command java; then
     java --version 2>&1 | head -1
 else
-    echo -e "${YELLOW}→${NC} Install JDK 17+"
+    echo -e "${YELLOW}→${NC} Install JDK 21+"
 fi
 
 # Check Android SDK

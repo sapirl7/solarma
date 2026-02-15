@@ -1,0 +1,24 @@
+# Markdownlint configuration for Solarma
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Allow duplicate headings in different sections (CHANGELOG format)
+MD024:
+  siblings_only: true
+
+# Allow long lines in tables and links
+MD013: false
+
+# Allow HTML (used in README badges, centered content)
+MD033: false
+
+# Allow inline HTML images
+MD045: false
+
+# Disable table pipe spacing enforcement (compact tables used throughout)
+MD060: false
+
+# Allow bare URLs
+MD034: false
+
+# Allow trailing punctuation in headings (e.g., "What went wrong?")
+MD026: false

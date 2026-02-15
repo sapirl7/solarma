@@ -2,20 +2,25 @@
 # Unified entry point for all build operations
 
 .PHONY: init format lint typecheck test build run clean audit help
+.PHONY: lint-strict test-strict format-strict
 
 # Default target
 help:
 	@echo "Solarma Build Commands:"
 	@echo ""
-	@echo "  make init       - Install/verify toolchain"
-	@echo "  make format     - Format all code"
-	@echo "  make lint       - Run linters"
-	@echo "  make typecheck  - Run static analysis"
-	@echo "  make test       - Run all tests"
-	@echo "  make build      - Build all artifacts"
-	@echo "  make run        - Start dev environment"
-	@echo "  make clean      - Safe cleanup"
-	@echo "  make audit      - Run security checks"
+	@echo "  make init          - Install/verify toolchain"
+	@echo "  make format        - Format all code (best-effort)"
+	@echo "  make format-strict - Format all code (fail on missing tools)"
+	@echo "  make lint          - Run linters (best-effort)"
+	@echo "  make lint-strict   - Run linters (fail on error)"
+	@echo "  make typecheck     - Run static analysis"
+	@echo "  make test          - Run all tests (best-effort)"
+	@echo "  make test-strict   - Run all tests (fail on error)"
+	@echo "  make build         - Build all artifacts"
+	@echo "  make run           - Start dev environment"
+	@echo "  make clean         - Safe cleanup"
+	@echo "  make audit         - Run security checks"
+	@echo "  make pre-commit    - Install pre-commit hooks"
 	@echo ""
 
 # Initialize toolchain and environment
@@ -24,7 +29,14 @@ init:
 	@./scripts/init.sh
 	@echo "✅ Init complete"
 
-# Format all code
+# ── Format ────────────────────────────────────────────────
+
+format-strict:
+	@echo "📝 Formatting code (strict)..."
+	cd programs/solarma_vault && cargo fmt
+	cd apps/android && ./gradlew ktlintFormat
+	@echo "✅ Format complete"
+
 format:
 	@echo "📝 Formatting code..."
 	@if [ -d "programs/solarma_vault" ]; then \
@@ -37,7 +49,14 @@ format:
 	fi
 	@echo "✅ Format complete"
 
-# Run linters
+# ── Lint ──────────────────────────────────────────────────
+
+lint-strict:
+	@echo "🔍 Running linters (strict)..."
+	cd programs/solarma_vault && cargo clippy --all-targets --all-features -- -D warnings
+	cd apps/android && ./gradlew ktlintCheck lint
+	@echo "✅ Lint complete"
+
 lint:
 	@echo "🔍 Running linters..."
 	@if [ -d "programs/solarma_vault" ]; then \
@@ -45,12 +64,13 @@ lint:
 	fi
 	@if [ -d "apps/android" ]; then \
 		if [ -n "$$ANDROID_HOME" ] || [ -n "$$ANDROID_SDK_ROOT" ]; then \
-			cd apps/android && ./gradlew lint 2>/dev/null || true; \
+			cd apps/android && ./gradlew ktlintCheck lint 2>/dev/null || true; \
 		fi; \
 	fi
 	@echo "✅ Lint complete"
 
-# Static type checking
+# ── Typecheck ─────────────────────────────────────────────
+
 typecheck:
 	@echo "🔬 Type checking..."
 	@if [ -d "programs/solarma_vault" ]; then \
@@ -58,7 +78,14 @@ typecheck:
 	fi
 	@echo "✅ Typecheck complete"
 
-# Run all tests
+# ── Test ──────────────────────────────────────────────────
+
+test-strict:
+	@echo "🧪 Running tests (strict)..."
+	cd programs/solarma_vault && cargo test
+	cd apps/android && ./gradlew testDebugUnitTest
+	@echo "✅ Tests complete"
+
 test:
 	@echo "🧪 Running tests..."
 	@if [ -d "programs/solarma_vault" ]; then \
@@ -76,7 +103,8 @@ test:
 	fi
 	@echo "✅ Tests complete"
 
-# Build all artifacts
+# ── Build ─────────────────────────────────────────────────
+
 build:
 	@echo "🏗️ Building..."
 	@if [ -d "programs/solarma_vault" ]; then \
@@ -89,19 +117,34 @@ build:
 	fi
 	@echo "✅ Build complete"
 
-# Start development environment
+# ── Dev ───────────────────────────────────────────────────
+
 run:
 	@echo "🚀 Starting dev environment..."
 	@echo "Android: cd apps/android && ./gradlew installDebug"
 	@echo "Anchor: cd programs/solarma_vault && anchor localnet"
 
-# Safe cleanup (only allowed directories)
+# ── Cleanup ───────────────────────────────────────────────
+
 clean:
 	@echo "🧹 Cleaning..."
 	@./scripts/safe_run.sh clean
 	@echo "✅ Clean complete"
 
-# Security audit (cargo audit/deny + npm audit)
+# ── Security ──────────────────────────────────────────────
+
 audit:
 	@echo "🔐 Running security checks..."
 	@./scripts/security-audit.sh
+
+# ── Pre-commit ────────────────────────────────────────────
+
+pre-commit:
+	@echo "🪝 Installing pre-commit hooks..."
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit install --hook-type pre-commit --hook-type commit-msg; \
+		echo "✅ Hooks installed"; \
+	else \
+		echo "❌ pre-commit not found. Install: pip install pre-commit"; \
+		exit 1; \
+	fi

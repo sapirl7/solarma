@@ -17,7 +17,7 @@ fi
 # Check for Solana CLI
 if ! command -v solana &> /dev/null; then
     echo "📦 Installing Solana CLI..."
-    sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"
+    sh -c "$(curl -sSfL https://release.anza.xyz/v2.3.0/install)"
     export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
 fi
 
@@ -31,7 +31,7 @@ fi
 
 # Check for Node.js
 if ! command -v node &> /dev/null; then
-    echo "⚠️  Node.js not found. Please install Node.js 18+ manually."
+    echo "⚠️  Node.js not found. Please install Node.js 20+ manually."
     exit 1
 fi
 

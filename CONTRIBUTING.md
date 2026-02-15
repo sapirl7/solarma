@@ -50,8 +50,8 @@ git remote add upstream https://github.com/sapirl7/solarma.git
 # Smart contract
 cd programs/solarma_vault
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
-cargo test          # 66 unit tests
-anchor test         # 65 integration tests
+cargo test          # 140 unit tests
+anchor test         # 70 integration tests
 
 # Android
 cd apps/android
@@ -63,7 +63,7 @@ cd apps/android
 
 ## Project Structure
 
-```
+```text
 solarma/
 ├── programs/solarma_vault/        # Anchor smart contract (Rust)
 │   ├── src/
@@ -97,9 +97,20 @@ solarma/
 
 ### Flow
 
+```text
+fork → branch → make pre-commit → code + tests → fmt + clippy → push → PR → CI ✅ → review → squash merge
 ```
-fork → branch → code + tests → fmt + clippy → push → PR → CI ✅ → review → squash merge
+
+### Pre-commit Hooks
+
+```bash
+pip install pre-commit
+make pre-commit
+# or manually:
+pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
+
+This installs hooks for `cargo fmt`, `ktlintCheck`, markdownlint, and conventional commit message validation.
 
 ---
 
@@ -123,7 +134,7 @@ fork → branch → code + tests → fmt + clippy → push → PR → CI ✅ →
 
 [Conventional Commits](https://www.conventionalcommits.org/) format:
 
-```
+```text
 <type>(<scope>): <description>
 ```
 
@@ -141,7 +152,8 @@ fork → branch → code + tests → fmt + clippy → push → PR → CI ✅ →
 **Scopes**: `vault`, `android`, `ci`, `docs`, `deps`
 
 **Examples**:
-```
+
+```text
 feat(vault): add SPL token support for deposits
 fix(android): resolve MWA timeout on Seeker device
 test(vault): add overflow edge cases for snooze cost

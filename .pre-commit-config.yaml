@@ -1,0 +1,62 @@
+# Pre-commit hooks for Solarma
+# Install: pip install pre-commit && pre-commit install --hook-type pre-commit --hook-type commit-msg
+# https://pre-commit.com
+
+repos:
+  # Rust formatting
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --manifest-path programs/solarma_vault/Cargo.toml --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+  # Kotlin formatting (ktlint via Gradle)
+  - repo: local
+    hooks:
+      - id: ktlint
+        name: ktlint
+        entry: bash -c 'cd apps/android && ./gradlew ktlintCheck -q 2>/dev/null'
+        language: system
+        types: [kotlin]
+        pass_filenames: false
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+        args: ["--config", ".markdownlint.yml"]
+
+  # Trailing whitespace and EOF
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Conventional commit message enforcement
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - feat
+          - fix
+          - chore
+          - docs
+          - style
+          - refactor
+          - test
+          - build
+          - ci
+          - perf
+          - revert
