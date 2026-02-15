@@ -9,7 +9,6 @@ import org.junit.Test
  * from TransactionProcessor to enable pure unit testing.
  */
 class ErrorClassifierTest {
-
     // ── On-chain program errors → NON_RETRYABLE ──
 
     @Test

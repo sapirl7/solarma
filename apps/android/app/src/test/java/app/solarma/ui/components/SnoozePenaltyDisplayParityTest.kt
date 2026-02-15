@@ -10,7 +10,6 @@ import org.junit.Test
  *   cumulative = 10% × (2^n - 1), capped at 100%
  */
 class SnoozePenaltyDisplayParityTest {
-
     // =========================================================================
     // Formula matches Rust snooze_cost for all valid snooze counts
     // =========================================================================

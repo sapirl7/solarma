@@ -10,7 +10,6 @@ import org.junit.Test
  * OnchainParameters constants are validated separately in OnchainParametersTest.
  */
 class TransactionProcessorTest {
-
     // Mirror production logic exactly for parity testing in a standalone function.
     // The actual computeSnoozeCost is internal on TransactionProcessor but requires
     // Android Context dependencies to construct. We test via logic parity.

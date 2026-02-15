@@ -2,12 +2,12 @@ package app.solarma.wakeproof
 
 import android.util.Log
 import app.solarma.data.local.AlarmEntity
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Engine that enforces wake proof completion.

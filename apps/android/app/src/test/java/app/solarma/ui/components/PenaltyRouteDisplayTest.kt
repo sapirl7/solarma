@@ -7,7 +7,6 @@ import org.junit.Test
  * Tests for [PenaltyRouteDisplay] — verifies mapping matches Anchor PenaltyRoute enum.
  */
 class PenaltyRouteDisplayTest {
-
     @Test
     fun `route 0 maps to Burn`() {
         val info = PenaltyRouteDisplay.fromRoute(0)

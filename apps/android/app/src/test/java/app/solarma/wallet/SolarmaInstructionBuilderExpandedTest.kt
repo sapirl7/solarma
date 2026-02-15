@@ -1,11 +1,11 @@
 package app.solarma.wallet
 
-import org.junit.Assert.*
-import org.junit.Test
-import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
+import org.junit.Assert.*
+import org.junit.Test
+import org.sol4k.PublicKey
 
 /**
  * Expanded coverage tests for SolarmaInstructionBuilder.
@@ -14,7 +14,6 @@ import java.security.MessageDigest
  * instruction data layout, and account meta ordering for all instruction types.
  */
 class SolarmaInstructionBuilderExpandedTest {
-
     private val builder = SolarmaInstructionBuilder()
     private val owner = PublicKey("11111111111111111111111111111111")
 

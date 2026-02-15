@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,16 +25,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.solarma.LocalActivityResultSender
+import app.solarma.R
 import app.solarma.alarm.AlarmTiming
 import app.solarma.data.local.AlarmEntity
-import app.solarma.wallet.OnchainParameters
 import app.solarma.ui.components.PenaltyRouteDisplay
 import app.solarma.ui.components.SnoozePenaltyDisplay
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import app.solarma.wakeproof.WakeProofEngine
-import app.solarma.R
-import androidx.compose.ui.res.stringResource
+import app.solarma.wallet.OnchainParameters
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId

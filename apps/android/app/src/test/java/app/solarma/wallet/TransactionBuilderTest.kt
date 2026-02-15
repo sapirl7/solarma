@@ -1,10 +1,10 @@
 package app.solarma.wallet
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.junit.Assert.*
 import org.junit.Test
 import org.sol4k.PublicKey
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * Deep coverage tests for TransactionBuilder.
@@ -14,7 +14,6 @@ import java.nio.ByteOrder
  * are tested through the production `buildUnsignedTransactionForSnapshot` path.
  */
 class TransactionBuilderTest {
-
     private val instructionBuilder = SolarmaInstructionBuilder()
     private val txBuilder = TransactionBuilder(SolanaRpcClient(), instructionBuilder)
     private val owner = PublicKey("11111111111111111111111111111111")

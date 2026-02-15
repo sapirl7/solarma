@@ -8,7 +8,6 @@ import org.junit.Test
  * PenaltyRoute and SolarmaTreasury are tested in PenaltyRouteTest.kt.
  */
 class TransactionDataClassTest {
-
     // ── PendingTransaction defaults ──
 
     @Test

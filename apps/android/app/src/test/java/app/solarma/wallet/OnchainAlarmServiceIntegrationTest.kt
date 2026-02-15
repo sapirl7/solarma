@@ -11,7 +11,6 @@ import org.mockito.kotlin.*
  * Uses a mocked SolanaRpcClient to test the confirmation polling loop.
  */
 class OnchainAlarmServiceIntegrationTest {
-
     private lateinit var networkChecker: NetworkChecker
     private lateinit var walletManager: WalletManager
     private lateinit var transactionBuilder: TransactionBuilder

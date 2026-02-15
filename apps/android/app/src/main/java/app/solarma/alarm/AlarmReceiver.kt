@@ -10,7 +10,6 @@ import android.util.Log
  * Starts the AlarmService to handle the wake-up flow.
  */
 class AlarmReceiver : BroadcastReceiver() {
-
     companion object {
         private const val TAG = "Solarma.AlarmReceiver"
         const val EXTRA_ALARM_ID = "alarm_id"

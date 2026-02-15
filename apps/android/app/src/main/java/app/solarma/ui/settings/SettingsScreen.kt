@@ -2,7 +2,6 @@ package app.solarma.ui.settings
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,18 +23,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.solarma.BuildConfig
+import app.solarma.LocalActivityResultSender
 import app.solarma.MainActivity
 import app.solarma.NfcTagCallback
-import app.solarma.LocalActivityResultSender
 import app.solarma.ui.components.QrCodeImage
 import app.solarma.ui.theme.*
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import app.solarma.BuildConfig
 
 /**
  * Settings screen with premium dark UI.

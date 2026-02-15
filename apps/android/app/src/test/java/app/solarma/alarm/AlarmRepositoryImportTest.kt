@@ -20,7 +20,6 @@ import org.mockito.kotlin.*
  * without Borsh deserialization.
  */
 class AlarmRepositoryImportTest {
-
     private lateinit var context: Context
     private lateinit var alarmDao: AlarmDao
     private lateinit var alarmScheduler: AlarmScheduler

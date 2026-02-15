@@ -1,16 +1,15 @@
 package app.solarma.wallet
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 /**
  * Tests for compute budget instruction byte layout,
  * verifying SetComputeUnitLimit and SetComputeUnitPrice match Solana spec.
  */
 class ComputeBudgetTest {
-
     @Test
     fun `SetComputeUnitLimit data is 5 bytes - ix_2 plus u32_le`() {
         val units = 200_000

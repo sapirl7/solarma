@@ -2,6 +2,10 @@ package app.solarma.wallet
 
 import android.util.Log
 import app.solarma.BuildConfig
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -9,10 +13,6 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Solana RPC client for transaction submission and queries.
@@ -20,7 +20,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class SolanaRpcClient @Inject constructor() {
-
     companion object {
         private const val TAG = "Solarma.RpcClient"
 

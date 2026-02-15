@@ -8,7 +8,6 @@ import org.junit.Test
  * These map directly to Rust on-chain penalty route validation in slash.rs.
  */
 class PenaltyRouteTest {
-
     // =========================================================================
     // PenaltyRoute codes must match Rust constants
     // =========================================================================

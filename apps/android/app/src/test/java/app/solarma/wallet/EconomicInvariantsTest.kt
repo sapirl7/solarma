@@ -15,7 +15,6 @@ import org.junit.Test
  * Each test maps to a Rust protocol_invariants::INV-* test.
  */
 class EconomicInvariantsTest {
-
     // Rust constants from constants.rs
     companion object {
         const val SNOOZE_PERCENT = 10L       // DEFAULT_SNOOZE_PERCENT

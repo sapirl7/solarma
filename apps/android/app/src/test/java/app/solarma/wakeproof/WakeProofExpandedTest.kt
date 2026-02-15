@@ -9,7 +9,6 @@ import org.junit.Test
  * progressPercent, message, error, requiresAction, and fallbackActive fields.
  */
 class WakeProofExpandedTest {
-
     // ── WakeProgress defaults ──
 
     @Test

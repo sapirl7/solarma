@@ -7,7 +7,6 @@ package app.solarma.ui.components
  * Single source of truth — avoids duplicating `when` blocks across screens.
  */
 object PenaltyRouteDisplay {
-
     data class PenaltyInfo(
         val emoji: String,
         val label: String

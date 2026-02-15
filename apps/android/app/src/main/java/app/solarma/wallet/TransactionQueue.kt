@@ -1,9 +1,9 @@
 package app.solarma.wallet
 
 import androidx.room.*
-import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Pending transaction for offline queue.
@@ -43,7 +43,6 @@ data class PendingTransaction(
  */
 @Dao
 interface PendingTransactionDao {
-
     @Query("SELECT * FROM pending_transactions WHERE status = 'PENDING' ORDER BY createdAt ASC")
     fun getPendingTransactions(): Flow<List<PendingTransaction>>
 

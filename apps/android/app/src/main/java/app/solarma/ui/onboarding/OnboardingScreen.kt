@@ -15,6 +15,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,8 +28,6 @@ import app.solarma.ui.components.GradientButton
 import app.solarma.ui.components.SolarmaBackground
 import app.solarma.ui.theme.*
 import kotlinx.coroutines.launch
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.ContentScale
 
 // ═══════════════════════════════════════════════════════════════
 // ONBOARDING — 4-slide intro explaining the Solarma concept

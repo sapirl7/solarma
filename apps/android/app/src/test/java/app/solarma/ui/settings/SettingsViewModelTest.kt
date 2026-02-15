@@ -9,7 +9,6 @@ import org.junit.Test
  * Tests SettingsUiState data class and ImportState sealed class.
  */
 class SettingsViewModelTest {
-
     // ── SettingsUiState default values ──
 
     @Test

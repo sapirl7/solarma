@@ -11,7 +11,6 @@ import org.junit.Test
  *   cumulative = 10% × (2^n - 1)
  */
 class SnoozePenaltyDisplayTest {
-
     @Test
     fun `zero snoozes means zero penalty`() {
         assertEquals(0, SnoozePenaltyDisplay.cumulativePercent(0))

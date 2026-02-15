@@ -24,7 +24,6 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var fakeDao: FakePendingTransactionDao
     private lateinit var viewModel: HistoryViewModel

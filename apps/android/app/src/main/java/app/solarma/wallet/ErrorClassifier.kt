@@ -8,7 +8,6 @@ package app.solarma.wallet
  * transient and worth retrying with backoff.
  */
 object ErrorClassifier {
-
     enum class Category {
         /** Transient error — retry with exponential backoff */
         RETRYABLE,

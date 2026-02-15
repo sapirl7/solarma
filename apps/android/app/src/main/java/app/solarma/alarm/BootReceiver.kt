@@ -10,7 +10,6 @@ import android.util.Log
  * Uses WorkManager for reliable execution (P1 improvement).
  */
 class BootReceiver : BroadcastReceiver() {
-
     companion object {
         private const val TAG = "Solarma.BootReceiver"
     }

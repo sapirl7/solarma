@@ -1,19 +1,18 @@
 package app.solarma.alarm
 
-import org.junit.Assert.*
-import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import org.junit.Assert.*
+import org.junit.Test
 
 /**
  * Tests for AlarmTimeCalculator — pure time computation logic.
  * Uses fixed clocks to make tests deterministic.
  */
 class AlarmTimeCalculatorTest {
-
     private fun clockAt(hour: Int, minute: Int, zoneId: ZoneId = ZoneId.of("UTC")): Clock {
         // Fixed at 2026-02-11 at given time
         val instant = LocalTime.of(hour, minute)

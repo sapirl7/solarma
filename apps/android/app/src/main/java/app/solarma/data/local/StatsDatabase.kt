@@ -47,7 +47,6 @@ data class StatsEntity(
  */
 @Dao
 interface StatsDao {
-
     @Query("SELECT * FROM stats WHERE id = 1")
     fun getStats(): Flow<StatsEntity?>
 

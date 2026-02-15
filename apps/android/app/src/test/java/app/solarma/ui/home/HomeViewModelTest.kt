@@ -26,7 +26,6 @@ import org.mockito.kotlin.*
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var alarmDao: AlarmDao

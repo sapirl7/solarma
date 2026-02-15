@@ -1,16 +1,15 @@
 package app.solarma.wallet
 
-import org.junit.Test
-import org.junit.Assert.*
-import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.Assert.*
+import org.junit.Test
+import org.sol4k.PublicKey
 
 /**
  * Unit tests for SolarmaInstructionBuilder.
  */
 class SolarmaInstructionBuilderTest {
-
     private val builder = SolarmaInstructionBuilder()
 
     @Test

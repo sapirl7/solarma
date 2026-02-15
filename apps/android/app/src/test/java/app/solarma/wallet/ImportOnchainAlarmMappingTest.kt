@@ -14,7 +14,6 @@ import org.junit.Test
  * This test validates both strategies.
  */
 class ImportOnchainAlarmMappingTest {
-
     // ── importOnchainAlarms filtering (AlarmRepository line 348) ──
     // Only status==0 AND remainingAmount>0 passes the filter.
 

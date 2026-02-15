@@ -1,11 +1,11 @@
 package app.solarma.wallet
 
 import android.util.Log
-import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
 import javax.inject.Singleton
+import org.sol4k.PublicKey
 
 /**
  * Builder for Solarma Anchor program instructions.
@@ -13,7 +13,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class SolarmaInstructionBuilder @Inject constructor() {
-
     companion object {
         private const val TAG = "Solarma.TxBuilder"
 

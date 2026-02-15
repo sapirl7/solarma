@@ -6,6 +6,7 @@ import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.PendingTransactionDao
 import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.WalletManager
+import java.time.LocalTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -14,7 +15,6 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.*
-import java.time.LocalTime
 
 /**
  * Unit tests for [CreateAlarmViewModel].
@@ -24,7 +24,6 @@ import java.time.LocalTime
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateAlarmViewModelTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var alarmRepository: AlarmRepository

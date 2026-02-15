@@ -1,8 +1,8 @@
 package app.solarma.alarm
 
 import android.Manifest
-import android.app.PendingIntent
 import android.app.KeyguardManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -33,20 +33,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.work.WorkManager
 import app.solarma.data.local.AlarmEntity
-import app.solarma.ui.theme.SolarmaTheme
-import app.solarma.wakeproof.WakeProofEngine
-import app.solarma.wakeproof.WakeProgress
-import app.solarma.wakeproof.QrScanner
-import app.solarma.wakeproof.NfcScanner
 import app.solarma.ui.components.QrCameraPreview
+import app.solarma.ui.theme.SolarmaTheme
+import app.solarma.wakeproof.NfcScanner
+import app.solarma.wakeproof.QrScanner
+import app.solarma.wakeproof.WakeProgress
+import app.solarma.wakeproof.WakeProofEngine
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-import androidx.work.WorkManager
+import kotlinx.coroutines.launch
 
 /**
  * Full-screen alarm activity shown over lock screen.
@@ -54,7 +54,6 @@ import androidx.work.WorkManager
  */
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
-
     companion object {
         private const val TAG = "Solarma.AlarmActivity"
     }

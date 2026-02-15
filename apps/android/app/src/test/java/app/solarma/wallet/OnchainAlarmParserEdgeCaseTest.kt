@@ -1,19 +1,18 @@
 package app.solarma.wallet
 
-import org.junit.Assert.*
-import org.junit.Test
-import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.util.Base64
+import org.junit.Assert.*
+import org.junit.Test
+import org.sol4k.PublicKey
 
 /**
  * Extended edge-case tests for [OnchainAlarmParser].
  * Covers boundary conditions the happy-path tests don't reach.
  */
 class OnchainAlarmParserEdgeCaseTest {
-
     // =========================================================================
     // Boundary: data too small
     // =========================================================================

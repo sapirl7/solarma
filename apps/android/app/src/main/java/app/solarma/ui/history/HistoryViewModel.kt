@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import app.solarma.wallet.PendingTransaction
 import app.solarma.wallet.PendingTransactionDao
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * ViewModel for transaction history screen.

@@ -1,17 +1,16 @@
 package app.solarma.wallet
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
+import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.sol4k.PublicKey
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.security.MessageDigest
-import java.util.Base64
 
 class OnchainAlarmParserTest {
-
     @Test
     fun parseAlarmWithPenaltyDestination() {
         val owner = "11111111111111111111111111111111"

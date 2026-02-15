@@ -4,12 +4,12 @@ import android.app.Activity
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * NFC tag scanner for Wake Proof challenge.
@@ -17,7 +17,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class NfcScanner @Inject constructor() {
-
     companion object {
         private const val TAG = "Solarma.NfcScanner"
     }

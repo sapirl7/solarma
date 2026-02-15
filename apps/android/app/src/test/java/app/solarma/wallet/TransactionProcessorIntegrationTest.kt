@@ -18,7 +18,6 @@ import org.mockito.kotlin.*
  * deadline guards, status.err classification, and max retries.
  */
 class TransactionProcessorIntegrationTest {
-
     private lateinit var networkChecker: NetworkChecker
     private lateinit var transactionDao: PendingTransactionDao
     private lateinit var walletManager: WalletManager

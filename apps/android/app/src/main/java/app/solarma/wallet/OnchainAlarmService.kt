@@ -1,15 +1,15 @@
 package app.solarma.wallet
 
 import android.util.Log
-import app.solarma.data.local.AlarmEntity
 import app.solarma.alarm.AlarmTiming
+import app.solarma.data.local.AlarmEntity
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.sol4k.PublicKey
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Service that handles the complete onchain flow for alarms.
@@ -45,7 +45,6 @@ class OnchainAlarmService @Inject constructor(
         val signedTx = signResult.getOrElse { return Result.failure(it) }
         return rpcClient.sendTransactionFanOut(signedTx)
     }
-
 
     /**
      * Create onchain alarm with deposit.

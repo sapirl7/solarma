@@ -1,19 +1,7 @@
 [*.{kt,kts}]
-# Disable argument-list-wrapping: crashes on multiline lambdas in Compose DSL
+# Disable argument-list-wrapping: crashes on multiline lambdas
+# (known ktlint bug with Compose DSL patterns)
 ktlint_standard_argument-list-wrapping = disabled
 
-# Wildcard imports are acceptable for test DSLs (JUnit, Mockito, coroutines)
+# Allow wildcard imports (standard for Compose and test DSLs)
 ktlint_standard_no-wildcard-imports = disabled
-
-# Blank line conventions (class body, between members)
-ktlint_standard_no-blank-line-in-list = disabled
-
-# Trailing comma rules (style-only, not worth blocking CI)
-ktlint_standard_trailing-comma-on-call-site = disabled
-ktlint_standard_trailing-comma-on-declaration-site = disabled
-
-# Multiline expression wrapping (triggers on Compose DSL patterns)
-ktlint_standard_multiline-expression-wrapping = disabled
-
-# Function signature formatting (strict wrapping conflicts with Compose)
-ktlint_standard_function-signature = disabled

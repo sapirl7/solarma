@@ -2,15 +2,15 @@ package app.solarma.wallet
 
 import android.util.Log
 import app.solarma.data.local.AlarmDao
-import app.solarma.data.local.StatsEntity
 import app.solarma.data.local.StatsDao
+import app.solarma.data.local.StatsEntity
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.min
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
-import kotlin.math.min
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Processes pending transactions from the offline queue.

@@ -11,7 +11,6 @@ import app.solarma.alarm.AlarmTiming
  * The penalty is EXPONENTIAL — each snooze doubles the cost.
  */
 object SnoozePenaltyDisplay {
-
     /** On-chain default: 10% base penalty per snooze */
     private const val SNOOZE_BASE_PERCENT = 10
 

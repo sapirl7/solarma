@@ -7,11 +7,11 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Step counter for wake proof challenge.

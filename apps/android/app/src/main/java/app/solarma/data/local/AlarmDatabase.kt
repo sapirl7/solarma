@@ -85,7 +85,6 @@ data class AlarmEntity(
  */
 @Dao
 interface AlarmDao {
-
     @Query("SELECT * FROM alarms WHERE isEnabled = 1 ORDER BY alarmTimeMillis ASC")
     fun getEnabledAlarms(): Flow<List<AlarmEntity>>
 

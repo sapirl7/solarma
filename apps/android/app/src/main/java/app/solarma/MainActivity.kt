@@ -4,38 +4,38 @@ import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.solarma.navigation.SolarmaNavHost
-import app.solarma.ui.theme.SolarmaTheme
 import app.solarma.ui.settings.SettingsViewModel
 import app.solarma.ui.settings.dataStore
+import app.solarma.ui.theme.SolarmaTheme
 import app.solarma.wakeproof.NfcScanner
-import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.OnchainAlarmService
+import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.TransactionProcessor
 import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import javax.inject.Inject
-import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * CompositionLocal to provide ActivityResultSender to composables.
@@ -61,7 +61,6 @@ val LocalNfcTagCallback = staticCompositionLocalOf<NfcTagCallback?> { null }
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     companion object {
         private const val TAG = "Solarma.MainActivity"
     }

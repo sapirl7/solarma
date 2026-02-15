@@ -9,7 +9,6 @@ import org.junit.Test
  * test its sealed class hierarchies and state transitions.
  */
 class AlarmDetailsViewModelTest {
-
     // ── RefundState sealed class ──
 
     @Test

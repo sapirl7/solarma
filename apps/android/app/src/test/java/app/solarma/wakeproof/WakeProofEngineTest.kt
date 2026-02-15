@@ -26,7 +26,6 @@ import org.mockito.kotlin.whenever
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WakeProofEngineTest {
-
     private lateinit var stepCounter: StepCounter
     private lateinit var nfcScanner: NfcScanner
     private lateinit var qrScanner: QrScanner

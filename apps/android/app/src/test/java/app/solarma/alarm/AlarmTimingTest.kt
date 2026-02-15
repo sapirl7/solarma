@@ -12,7 +12,6 @@ import org.junit.Test
  *   DEFAULT_SNOOZE_EXTENSION_SECONDS = 300
  */
 class AlarmTimingTest {
-
     // =========================================================================
     // Grace period constants
     // =========================================================================

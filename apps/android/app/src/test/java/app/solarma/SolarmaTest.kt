@@ -1,18 +1,17 @@
 package app.solarma
 
 import app.solarma.alarm.AlarmTimeCalculator
-import org.junit.Assert.assertEquals
-import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 /**
  * Unit tests for Solarma.
  */
 class SolarmaTest {
-
     @Test
     fun `next trigger uses same day when time is in the future`() {
         val zone = ZoneId.of("UTC")

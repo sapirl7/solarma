@@ -10,7 +10,6 @@ import org.junit.Test
  * - PendingConfirmationException
  */
 class OnchainAlarmServiceTest {
-
     // ── ConfirmationResult sealed class ──
 
     @Test

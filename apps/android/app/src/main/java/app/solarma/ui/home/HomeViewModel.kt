@@ -6,13 +6,13 @@ import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.AlarmEntity
 import app.solarma.data.local.StatsDao
 import app.solarma.data.local.StatsEntity
+import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.WalletConnectionState
 import app.solarma.wallet.WalletManager
-import app.solarma.wallet.SolanaRpcClient
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * ViewModel for the home screen.

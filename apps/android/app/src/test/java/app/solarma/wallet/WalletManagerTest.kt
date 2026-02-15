@@ -1,8 +1,8 @@
 package app.solarma.wallet
 
+import java.math.BigInteger
 import org.junit.Assert.*
 import org.junit.Test
-import java.math.BigInteger
 
 /**
  * Unit tests for WalletManager's pure logic:
@@ -15,7 +15,6 @@ import java.math.BigInteger
  * MWA + Android Context and are tested via instrumentation on-device.
  */
 class WalletManagerTest {
-
     // ── Base58 codec (extracted via reflection for unit testing) ──
 
     /**

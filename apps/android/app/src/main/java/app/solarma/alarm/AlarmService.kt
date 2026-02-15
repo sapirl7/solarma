@@ -17,11 +17,11 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Foreground service for handling active alarms.
@@ -29,7 +29,6 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class AlarmService : Service() {
-
     companion object {
         private const val TAG = "Solarma.AlarmService"
         const val ACTION_ALARM_TRIGGERED = "app.solarma.ALARM_TRIGGERED"

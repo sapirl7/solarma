@@ -14,7 +14,6 @@ import org.mockito.kotlin.*
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionQueueTest {
-
     private lateinit var mockDao: PendingTransactionDao
     private lateinit var queue: TransactionQueue
 
