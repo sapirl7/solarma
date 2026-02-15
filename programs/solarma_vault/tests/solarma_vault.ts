@@ -3345,6 +3345,8 @@ describe("solarma_vault", () => {
             const deadline = alarmTime + 3;
             const buddyWallet = Keypair.generate();
 
+            await fundKeypair(buddyWallet);
+
             const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
             const [vault] = deriveVaultPda(alarm);
 
@@ -3366,21 +3368,22 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Wait past deadline
+            // Wait past deadline (still within buddy-only window)
             await new Promise(resolve => setTimeout(resolve, 7000));
 
             const buddyBefore = await provider.connection.getBalance(buddyWallet.publicKey);
 
-            // Slash — should send to buddy wallet
+            // Slash — buddy is the caller during buddy-only window
             await program.methods
                 .slash()
                 .accounts({
                     alarm,
                     vault,
                     penaltyRecipient: buddyWallet.publicKey,
-                    caller: owner.publicKey,
+                    caller: buddyWallet.publicKey,
                     systemProgram: SystemProgram.programId,
                 })
+                .signers([buddyWallet])
                 .rpc();
 
             const buddyAfter = await provider.connection.getBalance(buddyWallet.publicKey);

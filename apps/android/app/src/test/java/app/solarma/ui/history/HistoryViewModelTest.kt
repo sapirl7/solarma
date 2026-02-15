@@ -6,8 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -18,12 +17,12 @@ import org.junit.Test
 
 /**
  * Tests for HistoryViewModel.
- * Uses a fake DAO to verify StateFlow emission and delete behavior.
+ * Uses UnconfinedTestDispatcher so stateIn collection dispatches eagerly.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
 
-    private val testDispatcher = StandardTestDispatcher()
+    private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var fakeDao: FakePendingTransactionDao
     private lateinit var viewModel: HistoryViewModel
 
@@ -41,7 +40,6 @@ class HistoryViewModelTest {
 
     @Test
     fun `transactions starts with empty list`() = runTest {
-        advanceUntilIdle()
         assertTrue(viewModel.transactions.value.isEmpty())
     }
 
@@ -49,7 +47,6 @@ class HistoryViewModelTest {
     fun `transactions reflects DAO emissions`() = runTest {
         val tx = makeTx(id = 1, type = "CLAIM")
         fakeDao.emit(listOf(tx))
-        advanceUntilIdle()
         assertEquals(1, viewModel.transactions.value.size)
         assertEquals("CLAIM", viewModel.transactions.value[0].type)
     }
@@ -58,7 +55,6 @@ class HistoryViewModelTest {
     fun `deleteTransaction calls DAO delete`() = runTest {
         val tx = makeTx(id = 1, type = "CLAIM")
         viewModel.deleteTransaction(tx)
-        advanceUntilIdle()
         assertEquals(1, fakeDao.deletedTransactions.size)
         assertEquals(tx, fakeDao.deletedTransactions[0])
     }
@@ -66,22 +62,18 @@ class HistoryViewModelTest {
     @Test
     fun `multiple emissions update flow`() = runTest {
         fakeDao.emit(listOf(makeTx(1, "CLAIM")))
-        advanceUntilIdle()
         assertEquals(1, viewModel.transactions.value.size)
 
         fakeDao.emit(listOf(makeTx(1, "CLAIM"), makeTx(2, "SLASH")))
-        advanceUntilIdle()
         assertEquals(2, viewModel.transactions.value.size)
     }
 
     @Test
     fun `empty emission clears list`() = runTest {
         fakeDao.emit(listOf(makeTx(1, "CLAIM")))
-        advanceUntilIdle()
         assertEquals(1, viewModel.transactions.value.size)
 
         fakeDao.emit(emptyList())
-        advanceUntilIdle()
         assertTrue(viewModel.transactions.value.isEmpty())
     }
 
