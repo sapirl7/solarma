@@ -1,0 +1,5 @@
+[*.{kt,kts}]
+# Disable argument-list-wrapping: it crashes on multiline lambdas
+# passed as named arguments (known ktlint issue).
+# https://github.com/pinterest/ktlint/issues
+ktlint_standard_argument-list-wrapping = disabled
