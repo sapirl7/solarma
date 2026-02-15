@@ -1,6 +1,6 @@
 //! Slash instruction - transfer deposit after deadline (permissionless)
 
-use crate::constants::BURN_SINK;
+use crate::constants::{BUDDY_ONLY_SECONDS, BURN_SINK};
 use crate::error::SolarmaError;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
@@ -9,8 +9,8 @@ use anchor_lang::prelude::*;
 pub struct Slash<'info> {
     #[account(
         mut,
-        // H3: Allow slash from both Created and Acknowledged states
-        constraint = (alarm.status == AlarmStatus::Created || alarm.status == AlarmStatus::Acknowledged) @ SolarmaError::InvalidAlarmState
+        // Slash is only possible while alarm is still unresolved (Created).
+        constraint = alarm.status == AlarmStatus::Created @ SolarmaError::InvalidAlarmState
     )]
     pub alarm: Account<'info, Alarm>,
 
@@ -58,14 +58,31 @@ pub fn process_slash(ctx: Context<Slash>) -> Result<()> {
                 SolarmaError::InvalidPenaltyRecipient
             );
         }
-        PenaltyRoute::Donate | PenaltyRoute::Buddy => {
-            if let Some(expected) = alarm.penalty_destination {
-                require!(
-                    ctx.accounts.penalty_recipient.key() == expected,
-                    SolarmaError::InvalidPenaltyRecipient
-                );
-            } else {
-                return Err(SolarmaError::PenaltyDestinationNotSet.into());
+        PenaltyRoute::Donate => {
+            let expected = alarm
+                .penalty_destination
+                .ok_or(SolarmaError::PenaltyDestinationNotSet)?;
+            require!(
+                ctx.accounts.penalty_recipient.key() == expected,
+                SolarmaError::InvalidPenaltyRecipient
+            );
+        }
+        PenaltyRoute::Buddy => {
+            let expected = alarm
+                .penalty_destination
+                .ok_or(SolarmaError::PenaltyDestinationNotSet)?;
+            require!(
+                ctx.accounts.penalty_recipient.key() == expected,
+                SolarmaError::InvalidPenaltyRecipient
+            );
+
+            // During the first buddy-only window, only buddy can slash.
+            let buddy_only_end = alarm
+                .deadline
+                .checked_add(BUDDY_ONLY_SECONDS)
+                .ok_or(SolarmaError::Overflow)?;
+            if clock.unix_timestamp < buddy_only_end {
+                require!(caller_key == expected, SolarmaError::BuddyOnlyWindow);
             }
         }
     }

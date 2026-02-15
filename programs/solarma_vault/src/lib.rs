@@ -50,7 +50,7 @@ pub mod solarma_vault {
         )
     }
 
-    /// Claim the remaining deposit (before deadline)
+    /// Claim the remaining deposit (for acknowledged alarms, with grace)
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::claim::process_claim(ctx)
     }
@@ -61,9 +61,14 @@ pub mod solarma_vault {
         instructions::snooze::process_snooze(ctx, expected_snooze_count)
     }
 
-    /// Slash the deposit after deadline (permissionless)
+    /// Slash the deposit after deadline (Created only; buddy-only subwindow for Buddy route)
     pub fn slash(ctx: Context<Slash>) -> Result<()> {
         instructions::slash::process_slash(ctx)
+    }
+
+    /// Permissionless sweep after claim grace for acknowledged alarms.
+    pub fn sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()> {
+        instructions::sweep_acknowledged::process_sweep_acknowledged(ctx)
     }
 
     /// Emergency refund - owner can cancel before alarm time

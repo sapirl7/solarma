@@ -382,6 +382,15 @@ describe("solarma_vault", () => {
             // Wait for alarm_time to pass
             await new Promise(resolve => setTimeout(resolve, 3000));
 
+            // Claim now requires ack_awake first
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
+
             const balanceBefore = await provider.connection.getBalance(owner.publicKey);
 
             // Claim
@@ -440,9 +449,9 @@ describe("solarma_vault", () => {
                         systemProgram: SystemProgram.programId,
                     })
                     .rpc();
-                expect.fail("Should have thrown TooEarly error");
+                expect.fail("Should have thrown InvalidAlarmState error");
             } catch (err: any) {
-                expect(err.message).to.include("TooEarly");
+                expect(err.message).to.include("InvalidAlarmState");
             }
         });
     });
@@ -968,7 +977,7 @@ describe("solarma_vault", () => {
             }
         });
 
-        it("Slash with Buddy route sends to buddy", async () => {
+        it("Slash with Buddy route works when buddy is caller (buddy-only window)", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
             const alarmTime = now + 2;
@@ -1009,9 +1018,10 @@ describe("solarma_vault", () => {
                     alarm,
                     vault,
                     penaltyRecipient: buddy.publicKey,
-                    caller: owner.publicKey,
+                    caller: buddy.publicKey,
                     systemProgram: SystemProgram.programId,
                 })
+                .signers([buddy])
                 .rpc();
 
             const buddyBalanceAfter = await provider.connection.getBalance(buddy.publicKey);
@@ -1019,6 +1029,55 @@ describe("solarma_vault", () => {
 
             const alarmAccount = await program.account.alarm.fetch(alarm);
             expect(alarmAccount.status).to.deep.equal({ slashed: {} });
+        });
+
+        it("FAILS: Buddy route slash by non-buddy during buddy-only window", async () => {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 3;
+            const buddy = Keypair.generate();
+
+            await fundKeypair(buddy);
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    2, // Buddy route
+                    buddy.publicKey
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            // Inside buddy-only window (deadline passed, but < deadline + 120s)
+            await new Promise(resolve => setTimeout(resolve, 7000));
+
+            try {
+                await program.methods
+                    .slash()
+                    .accounts({
+                        alarm,
+                        vault,
+                        penaltyRecipient: buddy.publicKey,
+                        caller: owner.publicKey, // non-buddy caller
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .rpc();
+                expect.fail("Should have thrown BuddyOnlyWindow");
+            } catch (err: any) {
+                expect(err.message).to.include("BuddyOnlyWindow");
+            }
         });
     });
 
@@ -1298,7 +1357,7 @@ describe("solarma_vault", () => {
             expect(balanceAfter).to.be.greaterThan(balanceBefore);
         });
 
-        it("Claim also works directly from Created (without ack)", async () => {
+        it("FAILS: Claim directly from Created without ack_awake", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
             const alarmTime = now + 2;
@@ -1327,19 +1386,20 @@ describe("solarma_vault", () => {
             // Wait for alarm_time to pass (extra buffer)
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            // Claim directly without ack_awake — should still work
-            await program.methods
-                .claim()
-                .accounts({
-                    alarm,
-                    vault,
-                    owner: owner.publicKey,
-                    systemProgram: SystemProgram.programId,
-                })
-                .rpc();
-
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+            try {
+                await program.methods
+                    .claim()
+                    .accounts({
+                        alarm,
+                        vault,
+                        owner: owner.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .rpc();
+                expect.fail("Should have thrown InvalidAlarmState");
+            } catch (err: any) {
+                expect(err.message).to.include("InvalidAlarmState");
+            }
         });
     });
 
@@ -1374,6 +1434,14 @@ describe("solarma_vault", () => {
                 .rpc();
 
             await new Promise(resolve => setTimeout(resolve, 2000));
+
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
 
             // First claim succeeds
             await program.methods
@@ -1555,6 +1623,14 @@ describe("solarma_vault", () => {
 
             await new Promise(resolve => setTimeout(resolve, 2000));
 
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
+
             // Claim first
             await program.methods
                 .claim()
@@ -1727,6 +1803,14 @@ describe("solarma_vault", () => {
 
             await new Promise(resolve => setTimeout(resolve, 2000));
 
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
+
             // Claim the alarm
             await program.methods
                 .claim()
@@ -1786,6 +1870,14 @@ describe("solarma_vault", () => {
 
             // Wait for alarm_time to pass
             await new Promise(resolve => setTimeout(resolve, 2000));
+
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
 
             // Claim zero-deposit alarm — should succeed without error
             await program.methods
@@ -1891,14 +1983,14 @@ describe("solarma_vault", () => {
     });
 
     // =========================================================================
-    // TIMING EDGE CASES — DeadlinePassed for claim, snooze, ack_awake
+    // TIMING EDGE CASES — claim grace + deadline guards
     // =========================================================================
     describe("Timing Edge Cases", () => {
-        it("FAILS: Claim after deadline (DeadlinePassed)", async () => {
+        it("Claim succeeds shortly after deadline if ACKed (within claim grace)", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
-            const alarmTime = now + 3;
-            const deadline = alarmTime + 3; // Short deadline
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 3; // short deadline for fast test
 
             const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
             const [vault] = deriveVaultPda(alarm);
@@ -1920,8 +2012,72 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Wait past deadline
-            await new Promise(resolve => setTimeout(resolve, 7000));
+            // Wait for alarm_time, then ACK.
+            await new Promise(resolve => setTimeout(resolve, 3500));
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
+
+            // Wait a bit more so we're after deadline, but still inside 120s grace.
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            await program.methods
+                .claim()
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            const alarmAccount = await program.account.alarm.fetch(alarm);
+            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+        });
+
+        it("Sweep after grace succeeds and claim after grace fails @slow", async function () {
+            this.timeout(180_000);
+
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + 2;
+            const deadline = alarmTime + 2;
+
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(deadline),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
+
+            // CLAIM_GRACE_SECONDS = 120s, wait beyond grace
+            await new Promise(resolve => setTimeout(resolve, 125000));
 
             try {
                 await program.methods
@@ -1937,6 +2093,20 @@ describe("solarma_vault", () => {
             } catch (err: any) {
                 expect(err.message).to.include("DeadlinePassed");
             }
+
+            await program.methods
+                .sweepAcknowledged()
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    caller: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            const alarmAccount = await program.account.alarm.fetch(alarm);
+            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
         });
 
         it("FAILS: Snooze after deadline (DeadlinePassed)", async () => {
@@ -2150,10 +2320,10 @@ describe("solarma_vault", () => {
     });
 
     // =========================================================================
-    // H3 SLASH SCENARIOS — Slash from Acknowledged + permissionless caller
+    // SLASH SCENARIOS — slash from Created only + permissionless caller
     // =========================================================================
-    describe("Slash Scenarios (H3)", () => {
-        it("Slash works from Acknowledged state (H3)", async () => {
+    describe("Slash Scenarios", () => {
+        it("FAILS: Slash from Acknowledged state (InvalidAlarmState)", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
             const alarmTime = now + 3;
@@ -2197,20 +2367,21 @@ describe("solarma_vault", () => {
             // Wait for deadline to pass
             await new Promise(resolve => setTimeout(resolve, 7000));
 
-            // Slash from Acknowledged state — should work per H3
-            await program.methods
-                .slash()
-                .accounts({
-                    alarm,
-                    vault,
-                    penaltyRecipient: BURN_SINK,
-                    caller: owner.publicKey,
-                    systemProgram: SystemProgram.programId,
-                })
-                .rpc();
-
-            alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ slashed: {} });
+            try {
+                await program.methods
+                    .slash()
+                    .accounts({
+                        alarm,
+                        vault,
+                        penaltyRecipient: BURN_SINK,
+                        caller: owner.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .rpc();
+                expect.fail("Should have thrown InvalidAlarmState");
+            } catch (err: any) {
+                expect(err.message).to.include("InvalidAlarmState");
+            }
         });
 
         it("Third-party can slash after deadline (permissionless)", async () => {
@@ -2361,6 +2532,14 @@ describe("solarma_vault", () => {
             const balanceBefore = await provider.connection.getBalance(owner.publicKey);
 
             await new Promise(resolve => setTimeout(resolve, 2000));
+
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
 
             await program.methods
                 .claim()
@@ -3211,7 +3390,7 @@ describe("solarma_vault", () => {
             expect(alarmState.status).to.deep.equal({ slashed: {} });
         });
 
-        it("Slash from Acknowledged state succeeds", async () => {
+        it("FAILS: Slash from Acknowledged state", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
             const alarmTime = now + 2;
@@ -3251,22 +3430,24 @@ describe("solarma_vault", () => {
             const acked = await program.account.alarm.fetch(alarm);
             expect(acked.status).to.deep.equal({ acknowledged: {} });
 
-            // Wait past deadline — slash should still work on Acknowledged alarm
+            // Wait past deadline — slash must fail on Acknowledged alarm
             await new Promise(resolve => setTimeout(resolve, 4000));
 
-            await program.methods
-                .slash()
-                .accounts({
-                    alarm,
-                    vault,
-                    penaltyRecipient: BURN_SINK,
-                    caller: owner.publicKey,
-                    systemProgram: SystemProgram.programId,
-                })
-                .rpc();
-
-            const slashed = await program.account.alarm.fetch(alarm);
-            expect(slashed.status).to.deep.equal({ slashed: {} });
+            try {
+                await program.methods
+                    .slash()
+                    .accounts({
+                        alarm,
+                        vault,
+                        penaltyRecipient: BURN_SINK,
+                        caller: owner.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .rpc();
+                expect.fail("Should have thrown InvalidAlarmState");
+            } catch (err: any) {
+                expect(err.message).to.include("InvalidAlarmState");
+            }
         });
 
         it("Zero-deposit alarm: create and claim lifecycle", async () => {
@@ -3303,6 +3484,14 @@ describe("solarma_vault", () => {
 
             // Wait for alarm time and claim
             await new Promise(resolve => setTimeout(resolve, 3000));
+
+            await program.methods
+                .ackAwake()
+                .accounts({
+                    alarm,
+                    owner: owner.publicKey,
+                })
+                .rpc();
 
             await program.methods
                 .claim()

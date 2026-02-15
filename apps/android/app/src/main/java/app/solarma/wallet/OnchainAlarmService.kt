@@ -1,13 +1,9 @@
 package app.solarma.wallet
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Log
 import app.solarma.data.local.AlarmEntity
 import app.solarma.alarm.AlarmTiming
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -21,7 +17,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class OnchainAlarmService @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val networkChecker: NetworkChecker,
     private val walletManager: WalletManager,
     private val transactionBuilder: TransactionBuilder,
     private val rpcClient: SolanaRpcClient
@@ -37,16 +33,19 @@ class OnchainAlarmService @Inject constructor(
         val signature: String,
         val pda: String
     ) : Exception("Transaction pending confirmation")
-    
+
     /**
-     * Check if network is available.
+     * Sign via MWA, then fan-out to all RPCs for maximum landing probability.
      */
-    private fun isNetworkAvailable(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    private suspend fun signAndSendFanOut(
+        activityResultSender: ActivityResultSender,
+        txBytes: ByteArray
+    ): Result<String> {
+        val signResult = walletManager.signTransaction(activityResultSender, txBytes)
+        val signedTx = signResult.getOrElse { return Result.failure(it) }
+        return rpcClient.sendTransactionFanOut(signedTx)
     }
+    
     
     /**
      * Create onchain alarm with deposit.
@@ -61,7 +60,7 @@ class OnchainAlarmService @Inject constructor(
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             // Check network first
-            if (!isNetworkAvailable()) {
+            if (!networkChecker.isNetworkAvailable()) {
                 return@withContext Result.failure(Exception("No internet connection. Please connect to the internet and try again."))
             }
             
@@ -102,7 +101,7 @@ class OnchainAlarmService @Inject constructor(
             )
             
             // Sign and send via MWA
-            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Failed to create onchain alarm", e)
                 return@withContext Result.failure(e)
@@ -144,7 +143,7 @@ class OnchainAlarmService @Inject constructor(
                 alarmPda = alarmPda
             )
             
-            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Failed to claim deposit", e)
                 return@withContext Result.failure(e)
@@ -185,7 +184,7 @@ class OnchainAlarmService @Inject constructor(
                 snoozeCount = alarm.snoozeCount
             )
             
-            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Failed to snooze alarm", e)
                 return@withContext Result.failure(e)
@@ -225,7 +224,7 @@ class OnchainAlarmService @Inject constructor(
                 alarmPda = alarmPda
             )
             
-            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Emergency refund failed", e)
                 return@withContext Result.failure(e)
@@ -268,7 +267,7 @@ class OnchainAlarmService @Inject constructor(
                 penaltyDestination = alarm.penaltyDestination
             )
 
-            val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
+            val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Slash failed", e)
                 return@withContext Result.failure(e)
@@ -288,13 +287,13 @@ class OnchainAlarmService @Inject constructor(
         }
     }
 
-    private sealed class ConfirmationResult {
+    internal sealed class ConfirmationResult {
         object Confirmed : ConfirmationResult()
         data class Failed(val error: String) : ConfirmationResult()
         object Pending : ConfirmationResult()
     }
 
-    private suspend fun awaitConfirmation(signature: String): ConfirmationResult {
+    internal suspend fun awaitConfirmation(signature: String): ConfirmationResult {
         repeat(CONFIRM_ATTEMPTS) { attempt ->
             val status = rpcClient.getSignatureStatus(signature).getOrNull()
             if (status != null) {
@@ -333,7 +332,7 @@ class OnchainAlarmService @Inject constructor(
     suspend fun syncOnchainAlarms(alarmDao: app.solarma.data.local.AlarmDao): Int = 
         withContext(Dispatchers.IO) {
             try {
-                if (!isNetworkAvailable()) return@withContext 0
+                if (!networkChecker.isNetworkAvailable()) return@withContext 0
                 
                 val ownerBase58 = walletManager.getConnectedWallet() ?: return@withContext 0
                 val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()

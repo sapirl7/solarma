@@ -51,4 +51,7 @@ pub enum SolarmaError {
 
     #[msg("Cannot request refund after alarm time has passed")]
     TooLateForRefund,
+
+    #[msg("Only buddy can slash during buddy-only window")]
+    BuddyOnlyWindow,
 }

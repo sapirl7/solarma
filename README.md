@@ -46,7 +46,7 @@
 
 **Flexible Penalties** — Choose burn, donate, or send to accountability buddy
 
-**Permissionless Slash** — Anyone can trigger penalty after deadline passes
+**Fair Slash Window** — Buddy route has a short buddy-only window, then permissionless slash
 
 ---
 
@@ -104,7 +104,8 @@ flowchart LR
 |------|--------|--------|
 | 1️⃣ | **Create alarm** with SOL deposit | Funds locked in vault |
 | 2️⃣ | **Wake up** and complete verification | Prove you're awake |
-| 3️⃣ | **Claim** before deadline | Get 100% deposit back |
+| 3️⃣ | **ACK + Claim** by `deadline + grace` | Get 100% deposit back |
+| 4️⃣ | **If ACKed but claim missed** | `sweep_acknowledged` returns owner funds |
 | ❌ | **Miss deadline** | Penalty applied (burn/donate/buddy) |
 
 > **Snooze penalty:** 10% of remaining deposit × 2^n (doubles each use, compounds on shrinking balance)
@@ -273,10 +274,11 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 | `initialize` | Create user profile |
 | `create_alarm` | Create alarm and deposit SOL to vault |
 | `ack_awake` | Record wake proof completion on-chain |
-| `claim` | Reclaim deposit after alarm time, before deadline |
+| `claim` | Reclaim deposit after ACK, until `deadline + CLAIM_GRACE_SECONDS` |
+| `sweep_acknowledged` | Permissionless return-to-owner sweep after claim grace |
 | `snooze` | Extend deadline with 10% penalty (doubles each use) |
 | `emergency_refund` | Cancel before alarm time with 5% penalty |
-| `slash` | Permissionless penalty trigger after deadline |
+| `slash` | Penalty trigger after deadline (`Created` only; Buddy has short buddy-only window) |
 
 **Program ID (Devnet)**
 ```

@@ -5,8 +5,8 @@
 //! coverage reflects actual domain-level correctness.
 
 use crate::constants::{
-    DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT,
-    MIN_DEPOSIT_LAMPORTS,
+    BUDDY_ONLY_SECONDS, CLAIM_GRACE_SECONDS, DEFAULT_SNOOZE_PERCENT,
+    EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
 };
 use crate::state::PenaltyRoute;
 
@@ -93,9 +93,51 @@ pub fn is_claim_window(alarm_time: i64, deadline: i64, current_time: i64) -> boo
     current_time >= alarm_time && current_time < deadline
 }
 
+/// Compute claim deadline including post-deadline claim grace.
+pub fn claim_deadline_with_grace(deadline: i64) -> Option<i64> {
+    deadline.checked_add(CLAIM_GRACE_SECONDS)
+}
+
+/// Check whether claim is valid for acknowledged alarms.
+///
+/// Valid when `current_time >= alarm_time AND current_time <= deadline + CLAIM_GRACE_SECONDS`.
+pub fn is_claim_window_with_grace(alarm_time: i64, deadline: i64, current_time: i64) -> bool {
+    if current_time < alarm_time {
+        return false;
+    }
+    let Some(claim_deadline) = claim_deadline_with_grace(deadline) else {
+        return false;
+    };
+    current_time <= claim_deadline
+}
+
+/// Check whether sweep is valid for acknowledged alarms.
+///
+/// Valid only strictly after claim grace expires:
+/// `current_time > deadline + CLAIM_GRACE_SECONDS`.
+pub fn is_sweep_window(deadline: i64, current_time: i64) -> bool {
+    let Some(claim_deadline) = claim_deadline_with_grace(deadline) else {
+        return false;
+    };
+    current_time > claim_deadline
+}
+
 /// Check whether a slash is valid (after deadline).
 pub fn is_slash_window(deadline: i64, current_time: i64) -> bool {
     current_time >= deadline
+}
+
+/// Check whether current time falls into buddy-only slash subwindow.
+///
+/// Valid for `deadline <= current_time < deadline + BUDDY_ONLY_SECONDS`.
+pub fn is_buddy_only_window(deadline: i64, current_time: i64) -> bool {
+    if current_time < deadline {
+        return false;
+    }
+    let Some(buddy_only_end) = deadline.checked_add(BUDDY_ONLY_SECONDS) else {
+        return false;
+    };
+    current_time < buddy_only_end
 }
 
 /// Check whether an emergency refund is valid (before alarm time).

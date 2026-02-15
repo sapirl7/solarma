@@ -28,6 +28,12 @@ class AlarmRepository @Inject constructor(
     private val transactionQueue: app.solarma.wallet.TransactionQueue,
     private val rpcClient: SolanaRpcClient
 ) {
+    /**
+     * Parser function for on-chain alarm data.
+     * Defaults to OnchainAlarmParser::parse but can be overridden in tests.
+     */
+    internal var parseAlarm: (String, String) -> app.solarma.wallet.OnchainAlarmAccount? =
+        app.solarma.wallet.OnchainAlarmParser::parse
     companion object {
         private const val TAG = "Solarma.AlarmRepository"
     }
@@ -336,7 +342,7 @@ class AlarmRepository @Inject constructor(
             val now = System.currentTimeMillis()
 
             for (account in accounts) {
-                val parsed = OnchainAlarmParser.parse(account.pubkey, account.dataBase64)
+                val parsed = parseAlarm(account.pubkey, account.dataBase64)
                 if (parsed == null) {
                     skipped++
                     continue

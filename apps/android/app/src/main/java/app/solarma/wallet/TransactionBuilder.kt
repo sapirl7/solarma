@@ -23,6 +23,50 @@ class TransactionBuilder @Inject constructor(
         
         // Burn sink address (matches BURN_SINK in constants.rs)
         val BURN_SINK = PublicKey("1nc1nerator11111111111111111111111111111111")
+
+        // Compute Budget program (native Solana program)
+        val COMPUTE_BUDGET_PROGRAM = PublicKey("ComputeBudget111111111111111111111111")
+
+        /** Max compute units per transaction (default Solana is 200k) */
+        const val COMPUTE_UNIT_LIMIT = 200_000
+
+        /** Priority fee in micro-lamports per compute unit.
+         *  50_000 μL/CU × 200k CU = 10_000_000_000 μL = 0.01 SOL max fee */
+        const val COMPUTE_UNIT_PRICE = 50_000L
+    }
+
+    // ── Compute Budget instruction builders ──
+
+    /**
+     * Build SetComputeUnitLimit instruction.
+     * Instruction index = 2, data = [2u8, limit_u32_le].
+     */
+    private fun buildSetComputeUnitLimitIx(units: Int): SolarmaInstruction {
+        val data = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
+            .put(2) // instruction index
+            .putInt(units)
+            .array()
+        return SolarmaInstruction(
+            programId = COMPUTE_BUDGET_PROGRAM,
+            accounts = emptyList(),
+            data = data
+        )
+    }
+
+    /**
+     * Build SetComputeUnitPrice instruction.
+     * Instruction index = 3, data = [3u8, microLamports_u64_le].
+     */
+    private fun buildSetComputeUnitPriceIx(microLamports: Long): SolarmaInstruction {
+        val data = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
+            .put(3) // instruction index
+            .putLong(microLamports)
+            .array()
+        return SolarmaInstruction(
+            programId = COMPUTE_BUDGET_PROGRAM,
+            accounts = emptyList(),
+            data = data
+        )
     }
     
     /**
@@ -215,7 +259,7 @@ class TransactionBuilder @Inject constructor(
     }
     
     /**
-     * Build and serialize a transaction.
+     * Build and serialize a transaction with compute budget instructions.
      */
     private suspend fun buildTransaction(
         feePayer: PublicKey,
@@ -224,9 +268,16 @@ class TransactionBuilder @Inject constructor(
         // Get recent blockhash
         val blockhash = rpcClient.getLatestBlockhash()
         Log.d(TAG, "Blockhash: $blockhash")
-        
+
+        // Prepend compute budget instructions
+        val allInstructions = listOf(
+            buildSetComputeUnitLimitIx(COMPUTE_UNIT_LIMIT),
+            buildSetComputeUnitPriceIx(COMPUTE_UNIT_PRICE),
+            instruction
+        )
+
         // Build sorted account list with metadata
-        val sortedAccounts = buildSortedAccountMetas(feePayer, instruction)
+        val sortedAccounts = buildSortedAccountMetas(feePayer, allInstructions)
         Log.d(TAG, "Sorted accounts (${sortedAccounts.size}):")
         sortedAccounts.forEachIndexed { i, acc ->
             Log.d(TAG, "  [$i] ${acc.pubkey.toBase58()} signer=${acc.isSigner} writable=${acc.isWritable}")
@@ -242,12 +293,12 @@ class TransactionBuilder @Inject constructor(
         // Log instruction data
         Log.d(TAG, "Instruction data (${instruction.data.size} bytes): ${instruction.data.joinToString("") { "%02x".format(it) }}")
         
-        // Build message with proper header
-        val message = buildMessage(blockhash, sortedAccounts, instruction)
+        // Build message with all instructions
+        val message = buildMessage(blockhash, sortedAccounts, allInstructions)
         
         // Return message for MWA signing
         val tx = buildUnsignedTransaction(message)
-        Log.i(TAG, "Final TX size: ${tx.size} bytes")
+        Log.i(TAG, "Final TX size: ${tx.size} bytes (3 instructions: 2 compute budget + 1 program)")
         Log.d(TAG, "Final TX hex: ${tx.joinToString("") { "%02x".format(it) }}")
         return tx
     }
@@ -262,14 +313,16 @@ class TransactionBuilder @Inject constructor(
      * - message/transaction serialization
      *
      * It does NOT touch the network (no RPC calls).
+     * NOTE: Does NOT include compute budget instructions for deterministic output.
      */
     internal fun buildUnsignedTransactionForSnapshot(
         feePayer: PublicKey,
         instruction: SolarmaInstruction,
         recentBlockhash: String
     ): ByteArray {
-        val sortedAccounts = buildSortedAccountMetas(feePayer, instruction)
-        val message = buildMessage(recentBlockhash, sortedAccounts, instruction)
+        val instructions = listOf(instruction)
+        val sortedAccounts = buildSortedAccountMetas(feePayer, instructions)
+        val message = buildMessage(recentBlockhash, sortedAccounts, instructions)
         return buildUnsignedTransaction(message)
     }
     
@@ -283,38 +336,40 @@ class TransactionBuilder @Inject constructor(
     )
     
     /**
-     * Build unique sorted account metas list.
+     * Build unique sorted account metas list from multiple instructions.
      * Solana ordering: writable signers, readonly signers, writable non-signers, readonly non-signers
      */
     private fun buildSortedAccountMetas(
         feePayer: PublicKey,
-        instruction: SolarmaInstruction
+        instructions: List<SolarmaInstruction>
     ): List<SortedAccountMeta> {
         val accountMap = mutableMapOf<String, SortedAccountMeta>()
         
         // Fee payer is always first signer and writable
         accountMap[feePayer.toBase58()] = SortedAccountMeta(feePayer, isSigner = true, isWritable = true)
         
-        // Add instruction accounts
-        for (meta in instruction.accounts) {
-            val key = meta.pubkey.toBase58()
-            val existing = accountMap[key]
-            if (existing != null) {
-                // Merge flags - more permissive wins
-                accountMap[key] = SortedAccountMeta(
-                    existing.pubkey,
-                    existing.isSigner || meta.isSigner,
-                    existing.isWritable || meta.isWritable
-                )
-            } else {
-                accountMap[key] = SortedAccountMeta(meta.pubkey, meta.isSigner, meta.isWritable)
+        for (instruction in instructions) {
+            // Add instruction accounts
+            for (meta in instruction.accounts) {
+                val key = meta.pubkey.toBase58()
+                val existing = accountMap[key]
+                if (existing != null) {
+                    // Merge flags - more permissive wins
+                    accountMap[key] = SortedAccountMeta(
+                        existing.pubkey,
+                        existing.isSigner || meta.isSigner,
+                        existing.isWritable || meta.isWritable
+                    )
+                } else {
+                    accountMap[key] = SortedAccountMeta(meta.pubkey, meta.isSigner, meta.isWritable)
+                }
             }
-        }
-        
-        // Add program ID (always readonly non-signer)
-        val programKey = instruction.programId.toBase58()
-        if (!accountMap.containsKey(programKey)) {
-            accountMap[programKey] = SortedAccountMeta(instruction.programId, isSigner = false, isWritable = false)
+
+            // Add program ID (always readonly non-signer)
+            val programKey = instruction.programId.toBase58()
+            if (!accountMap.containsKey(programKey)) {
+                accountMap[programKey] = SortedAccountMeta(instruction.programId, isSigner = false, isWritable = false)
+            }
         }
         
         // Sort according to Solana rules:
@@ -331,11 +386,12 @@ class TransactionBuilder @Inject constructor(
     
     /**
      * Build transaction message with proper Solana serialization.
+     * Supports multiple instructions (e.g., compute budget + program instruction).
      */
     private fun buildMessage(
         blockhash: String,
         sortedAccounts: List<SortedAccountMeta>,
-        instruction: SolarmaInstruction
+        instructions: List<SolarmaInstruction>
     ): ByteArray {
         // Count signers and read-only accounts from sorted list
         var numSigners = 0
@@ -371,26 +427,27 @@ class TransactionBuilder @Inject constructor(
         buffer.put(blockhashBytes)
         
         // Instructions array with compact-u16 length
-        writeCompactU16(buffer, 1) // 1 instruction
-        
-        // Compiled instruction:
-        // - program_id_index: u8
-        // - accounts: compact-u16 length + u8[] indices
-        // - data: compact-u16 length + u8[] data
-        
-        val programIndex = accountKeys.indexOfFirst { it.toBase58() == instruction.programId.toBase58() }
-        buffer.put(programIndex.toByte())
-        
-        // Account indices with compact-u16 length
-        writeCompactU16(buffer, instruction.accounts.size)
-        for (meta in instruction.accounts) {
-            val idx = accountKeys.indexOfFirst { it.toBase58() == meta.pubkey.toBase58() }
-            buffer.put(idx.toByte())
+        writeCompactU16(buffer, instructions.size)
+
+        for (instruction in instructions) {
+            // Compiled instruction:
+            // - program_id_index: u8
+            // - accounts: compact-u16 length + u8[] indices
+            // - data: compact-u16 length + u8[] data
+            val programIndex = accountKeys.indexOfFirst { it.toBase58() == instruction.programId.toBase58() }
+            buffer.put(programIndex.toByte())
+
+            // Account indices with compact-u16 length
+            writeCompactU16(buffer, instruction.accounts.size)
+            for (meta in instruction.accounts) {
+                val idx = accountKeys.indexOfFirst { it.toBase58() == meta.pubkey.toBase58() }
+                buffer.put(idx.toByte())
+            }
+
+            // Instruction data with compact-u16 length
+            writeCompactU16(buffer, instruction.data.size)
+            buffer.put(instruction.data)
         }
-        
-        // Instruction data with compact-u16 length
-        writeCompactU16(buffer, instruction.data.size)
-        buffer.put(instruction.data)
         
         // Return trimmed array
         val result = ByteArray(buffer.position())

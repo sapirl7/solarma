@@ -1,14 +1,10 @@
 package app.solarma.wallet
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Log
 import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.StatsEntity
 import app.solarma.data.local.StatsDao
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -22,7 +18,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class TransactionProcessor @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val networkChecker: NetworkChecker,
     private val transactionDao: PendingTransactionDao,
     private val walletManager: WalletManager,
     private val transactionBuilder: TransactionBuilder,
@@ -59,7 +55,7 @@ class TransactionProcessor @Inject constructor(
     suspend fun processPendingTransactionsWithUi(activityResultSender: ActivityResultSender) {
         if (!processingMutex.tryLock()) return
         try {
-            if (!isNetworkAvailable()) {
+            if (!networkChecker.isNetworkAvailable()) {
                 Log.d(TAG, "No network, skipping pending transactions")
                 return
             }
@@ -144,8 +140,30 @@ class TransactionProcessor @Inject constructor(
                                 buddyAddress = buddyAddress?.let { org.sol4k.PublicKey(it) }
                             )
                         }
-                        "CLAIM" -> transactionBuilder.buildClaimTransactionByPubkey(owner, alarmPda)
-                        "ACK_AWAKE" -> transactionBuilder.buildAckAwakeTransactionByPubkey(owner, alarmPda)
+                        "CLAIM" -> {
+                            if (isDeadlinePassed(alarm.alarmTimeMillis, System.currentTimeMillis())) {
+                                transactionDao.updateStatus(
+                                    tx.id, "FAILED",
+                                    "Deadline passed — claim no longer possible",
+                                    System.currentTimeMillis()
+                                )
+                                Log.w(TAG, "Claim skipped: deadline passed for alarm ${alarm.id}")
+                                continue
+                            }
+                            transactionBuilder.buildClaimTransactionByPubkey(owner, alarmPda)
+                        }
+                        "ACK_AWAKE" -> {
+                            if (isDeadlinePassed(alarm.alarmTimeMillis, System.currentTimeMillis())) {
+                                transactionDao.updateStatus(
+                                    tx.id, "FAILED",
+                                    "Deadline passed — ack no longer possible",
+                                    System.currentTimeMillis()
+                                )
+                                Log.w(TAG, "AckAwake skipped: deadline passed for alarm ${alarm.id}")
+                                continue
+                            }
+                            transactionBuilder.buildAckAwakeTransactionByPubkey(owner, alarmPda)
+                        }
                         "SNOOZE" -> transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda, alarm.snoozeCount)
                         "SLASH" -> {
                             val deadlineMillis = alarm.alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
@@ -177,15 +195,26 @@ class TransactionProcessor @Inject constructor(
                         }
                     }
 
-                    val result = walletManager.signAndSendTransaction(activityResultSender, txBytes)
-                    if (result.isFailure) {
-                        val e = result.exceptionOrNull()
+                    // Sign via MWA, then fan-out to all RPCs for max landing probability
+                    val signResult = walletManager.signTransaction(activityResultSender, txBytes)
+                    if (signResult.isFailure) {
+                        val e = signResult.exceptionOrNull()
                         transactionDao.updateStatus(tx.id, "PENDING", e?.message, System.currentTimeMillis())
                         transactionDao.incrementRetry(tx.id)
-                        Log.e(TAG, "Transaction ${tx.id} failed", e)
+                        Log.e(TAG, "Transaction ${tx.id} signing failed", e)
                         continue
                     }
-                    val signature = result.getOrThrow()
+                    val signedTx = signResult.getOrThrow()
+
+                    val sendResult = rpcClient.sendTransactionFanOut(signedTx)
+                    if (sendResult.isFailure) {
+                        val e = sendResult.exceptionOrNull()
+                        transactionDao.updateStatus(tx.id, "PENDING", e?.message, System.currentTimeMillis())
+                        transactionDao.incrementRetry(tx.id)
+                        Log.e(TAG, "Transaction ${tx.id} fan-out send failed", e)
+                        continue
+                    }
+                    val signature = sendResult.getOrThrow()
 
                     val status = rpcClient.getSignatureStatus(signature).getOrNull()
                     if (status != null && status.err != null) {
@@ -212,8 +241,15 @@ class TransactionProcessor @Inject constructor(
                                 continue
                             }
                         }
-                        transactionDao.updateStatus(tx.id, "FAILED", status.err, System.currentTimeMillis())
-                        Log.w(TAG, "Transaction ${tx.id} failed: ${status.err}")
+                        val errCategory = ErrorClassifier.classify(status.err)
+                        if (errCategory == ErrorClassifier.Category.NON_RETRYABLE) {
+                            transactionDao.updateStatus(tx.id, "FAILED", status.err, System.currentTimeMillis())
+                            Log.w(TAG, "Transaction ${tx.id} permanently failed: ${status.err}")
+                        } else {
+                            transactionDao.updateStatus(tx.id, "PENDING", status.err, System.currentTimeMillis())
+                            transactionDao.incrementRetry(tx.id)
+                            Log.w(TAG, "Transaction ${tx.id} status.err retryable: ${status.err}")
+                        }
                         continue
                     }
                     val confirmed = status?.confirmationStatus == "confirmed" ||
@@ -314,19 +350,12 @@ class TransactionProcessor @Inject constructor(
             processingMutex.unlock()
         }
     }
-    
-    private fun isNetworkAvailable(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return false
-        val capabilities = cm.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
 
     internal fun computeSnoozeCost(remaining: Long, snoozeCount: Int): Long {
         if (remaining <= 0) return 0
         val baseCost = remaining * OnchainParameters.SNOOZE_BASE_PERCENT / 100
         if (baseCost <= 0) return 0
-        val safeCount = snoozeCount.coerceAtMost(30)
+        val safeCount = snoozeCount.coerceIn(0, 30)
         val multiplier = 1L shl safeCount
         // Guard against overflow: if baseCost * multiplier exceeds Long range,
         // the result wraps negative/garbage. Cap at remaining instead.
@@ -336,6 +365,15 @@ class TransactionProcessor @Inject constructor(
             baseCost * multiplier
         }
         return min(cost, remaining)
+    }
+
+    /**
+     * Check if the alarm's deadline has passed.
+     * deadline = alarmTimeMillis + GRACE_PERIOD_MILLIS
+     */
+    internal fun isDeadlinePassed(alarmTimeMillis: Long, nowMillis: Long): Boolean {
+        val deadlineMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+        return nowMillis >= deadlineMillis
     }
 
     private fun resolveAlarmPda(

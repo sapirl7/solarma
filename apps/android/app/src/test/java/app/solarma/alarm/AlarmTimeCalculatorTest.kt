@@ -49,17 +49,18 @@ class AlarmTimeCalculatorTest {
     }
 
     @Test
-    fun `exactly current time wraps to next day`() {
-        // Edge: alarm at EXACTLY now → should wrap to next day
-        // (isBefore at same time returns false, so it stays today... but equals is NOT before)
+    fun `exactly current time stays same day - isBefore contract`() {
+        // Contract: LocalDateTime.isBefore(same) == false, so no plusDays(1).
+        // This means alarm scheduled for NOW fires today, not tomorrow.
         val clock = clockAt(8, 0)
         val alarmTime = LocalTime.of(8, 0)
         val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
 
         val result = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC)
-        // LocalDateTime.isBefore returns false for equal times, so no +1 day
-        assertEquals(11, result.dayOfMonth)
+        assertEquals("Same day because isBefore returns false for equal", 11, result.dayOfMonth)
         assertEquals(8, result.hour)
+        assertEquals(0, result.minute)
+        assertEquals(0, result.second)
     }
 
     @Test
@@ -136,5 +137,98 @@ class AlarmTimeCalculatorTest {
         val result = Instant.ofEpochMilli(millis).atZone(zone)
         assertEquals(10, result.hour)
         assertEquals(11, result.dayOfMonth)
+    }
+
+    // ── DST edge cases ──
+
+    @Test
+    fun `DST spring forward - alarm in gap is pushed to 3_00`() {
+        // Europe/Warsaw: 2026-03-29, clocks skip 02:00 → 03:00 (CET→CEST)
+        val zone = ZoneId.of("Europe/Warsaw")
+        val instant = java.time.LocalDate.of(2026, 3, 29)
+            .atTime(1, 0)
+            .atZone(zone)
+            .toInstant()
+        val clock = Clock.fixed(instant, zone)
+
+        // 2:30 AM doesn't exist — Java LocalDateTime.atZone pushes it to 3:30
+        val alarmTime = LocalTime.of(2, 30)
+        val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
+
+        assertTrue("Result should be in the future", millis > clock.millis())
+        val result = Instant.ofEpochMilli(millis).atZone(zone)
+        assertEquals(29, result.dayOfMonth) // Same day
+        // Gap: 2:30 → pushed to 3:30 (CEST = UTC+2)
+        assertEquals(3, result.hour)
+        assertEquals(30, result.minute)
+        assertEquals("+02:00", result.offset.toString()) // CEST
+    }
+
+    @Test
+    fun `DST fall back - alarm in repeated hour uses first offset`() {
+        // Europe/Warsaw: 2026-10-25, clocks go 03:00 → 02:00 (CEST→CET)
+        val zone = ZoneId.of("Europe/Warsaw")
+        val instant = java.time.LocalDate.of(2026, 10, 25)
+            .atTime(1, 0)
+            .atZone(zone)
+            .toInstant()
+        val clock = Clock.fixed(instant, zone)
+
+        // 2:30 AM occurs twice: once in CEST (+02), once in CET (+01)
+        val alarmTime = LocalTime.of(2, 30)
+        val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
+
+        assertTrue("Result should be in the future", millis > clock.millis())
+        val result = Instant.ofEpochMilli(millis).atZone(zone)
+        assertEquals(25, result.dayOfMonth)
+        assertEquals(2, result.hour)
+        assertEquals(30, result.minute)
+        assertEquals(0, result.second)
+        // Java atZone picks the first occurrence (summer time, +02:00)
+        assertEquals("+02:00", result.offset.toString())
+    }
+
+    @Test
+    fun `alarm at 23_59_59 edge with second precision`() {
+        val clock = clockAt(23, 58)
+        val alarmTime = LocalTime.of(23, 59, 59)
+        val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
+
+        val result = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC)
+        assertEquals(11, result.dayOfMonth)
+        assertEquals(23, result.hour)
+        assertEquals(59, result.minute)
+        assertEquals(59, result.second)
+    }
+
+    @Test
+    fun `alarm at 00_00_01 just after midnight`() {
+        val clock = clockAt(0, 0)
+        val alarmTime = LocalTime.of(0, 0, 1)
+        val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
+
+        val result = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC)
+        // 00:00:01 is after 00:00:00, should be same day
+        assertEquals(11, result.dayOfMonth)
+        assertEquals(0, result.hour)
+    }
+
+    @Test
+    fun `result always in future across multiple timezones`() {
+        val zones = listOf("UTC", "Europe/Warsaw", "America/New_York", "Asia/Tokyo", "Pacific/Auckland")
+        for (zoneStr in zones) {
+            val zone = ZoneId.of(zoneStr)
+            for (nowHour in listOf(0, 6, 12, 18, 23)) {
+                val clock = clockAt(nowHour, 0, zone)
+                for (alarmHour in listOf(0, 6, 12, 18, 23)) {
+                    val alarmTime = LocalTime.of(alarmHour, 0)
+                    val millis = AlarmTimeCalculator.nextTriggerMillis(alarmTime, clock)
+                    assertTrue(
+                        "Alarm should be >= now for zone=$zoneStr, now=$nowHour:00, alarm=$alarmHour:00",
+                        millis >= clock.millis()
+                    )
+                }
+            }
+        }
     }
 }

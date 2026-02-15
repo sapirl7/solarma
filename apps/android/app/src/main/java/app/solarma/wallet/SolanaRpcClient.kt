@@ -3,6 +3,9 @@ package app.solarma.wallet
 import android.util.Log
 import app.solarma.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -241,6 +244,77 @@ class SolanaRpcClient @Inject constructor() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "sendTransaction failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Send signed transaction to ALL healthy endpoints in parallel (fan-out).
+     * Returns the first successful signature. If all fail, returns combined error.
+     *
+     * Why: Wallet→single-RPC can silently drop transactions during congestion.
+     * Fan-out to multiple RPCs maximises landing probability.
+     */
+    suspend fun sendTransactionFanOut(signedTx: ByteArray): Result<String> = withContext(Dispatchers.IO) {
+        val base64Tx = android.util.Base64.encodeToString(signedTx, android.util.Base64.NO_WRAP)
+        val params = """["$base64Tx", {"encoding": "base64"}]"""
+        val now = System.currentTimeMillis()
+
+        // Collect healthy endpoints (not in backoff)
+        val healthyEndpoints = currentEndpoints.filter { endpoint ->
+            val lastFailed = endpointLastFailedAt[endpoint]
+            val failures = endpointFailureCount[endpoint] ?: 0
+            val cooldown = (BASE_BACKOFF_MS * (1L shl failures.coerceAtMost(6)))
+                .coerceAtMost(MAX_BACKOFF_MS)
+            lastFailed == null || now - lastFailed >= cooldown
+        }
+
+        if (healthyEndpoints.isEmpty()) {
+            return@withContext Result.failure(Exception("All RPC endpoints are in backoff"))
+        }
+
+        Log.i(TAG, "Fan-out sendTransaction to ${healthyEndpoints.size} endpoints")
+
+        try {
+            supervisorScope {
+                val jobs = healthyEndpoints.map { endpoint ->
+                    async {
+                        try {
+                            val response = makeRpcCall(endpoint, "sendTransaction", params)
+                            val result = parseResultValue(response)
+                            val signature = result as? String ?: ""
+                            if (signature.isNotEmpty() && signature.length >= 64) {
+                                // Clear failure tracking on success
+                                endpointFailureCount.remove(endpoint)
+                                endpointLastFailedAt.remove(endpoint)
+                                Log.i(TAG, "Fan-out success from $endpoint: $signature")
+                                Result.success(signature)
+                            } else {
+                                throw Exception("Invalid signature from $endpoint: $response")
+                            }
+                        } catch (e: Exception) {
+                            // Track failure for backoff
+                            val failures = (endpointFailureCount[endpoint] ?: 0) + 1
+                            endpointFailureCount[endpoint] = failures.coerceAtMost(10)
+                            endpointLastFailedAt[endpoint] = System.currentTimeMillis()
+                            Log.w(TAG, "Fan-out failed on $endpoint: ${e.message}")
+                            Result.failure(e)
+                        }
+                    }
+                }
+
+                val results = jobs.awaitAll()
+                // Return first success, otherwise combined failure
+                results.firstOrNull { it.isSuccess }
+                    ?: Result.failure(
+                        Exception(
+                            "Fan-out: all ${healthyEndpoints.size} endpoints failed:\n" +
+                            results.mapNotNull { it.exceptionOrNull()?.message }.joinToString("\n")
+                        )
+                    )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "sendTransactionFanOut failed", e)
             Result.failure(e)
         }
     }

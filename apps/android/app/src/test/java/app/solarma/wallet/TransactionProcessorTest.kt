@@ -18,7 +18,7 @@ class TransactionProcessorTest {
         if (remaining <= 0) return 0
         val baseCost = remaining * OnchainParameters.SNOOZE_BASE_PERCENT / 100
         if (baseCost <= 0) return 0
-        val safeCount = snoozeCount.coerceAtMost(30)
+        val safeCount = snoozeCount.coerceIn(0, 30)
         val multiplier = 1L shl safeCount
         val cost = if (multiplier > 0 && baseCost > Long.MAX_VALUE / multiplier) {
             remaining
@@ -115,9 +115,31 @@ class TransactionProcessorTest {
     }
 
     @Test
-    fun `negative snooze count does not crash`() {
+    fun `negative snooze count produces non-negative cost`() {
         val cost = computeSnoozeCost(1_000_000L, -1)
-        assertTrue(cost >= 0)
+        assertTrue("Negative snooze count must not produce negative cost", cost >= 0)
+        assertTrue("Cost must not exceed remaining", cost <= 1_000_000L)
+    }
+
+    @Test
+    fun `snooze count 20 with 10 SOL overflows safely`() {
+        // 10_000_000_000 * 10% = 1_000_000_000 baseCost
+        // multiplier = 2^20 = 1_048_576
+        // 1_000_000_000 * 1_048_576 > Long.MAX_VALUE → overflow guard caps at remaining
+        val remaining = 10_000_000_000L
+        val cost = computeSnoozeCost(remaining, 20)
+        assertTrue("Cost must be non-negative", cost >= 0)
+        assertTrue("Cost must not exceed remaining", cost <= remaining)
+    }
+
+    @Test
+    fun `snooze cost never exceeds remaining for any count 0-30`() {
+        val remaining = 5_000_000_000L
+        for (count in 0..30) {
+            val cost = computeSnoozeCost(remaining, count)
+            assertTrue("count=$count: cost=$cost must be >= 0", cost >= 0)
+            assertTrue("count=$count: cost=$cost must be <= remaining", cost <= remaining)
+        }
     }
 
     // ── Snooze cost progression ──
@@ -160,5 +182,100 @@ class TransactionProcessorTest {
         val deposit = OnchainParameters.MIN_DEPOSIT_LAMPORTS
         val penalty = deposit * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
         assertEquals(50_000L, penalty)
+    }
+
+    @Test
+    fun `emergency refund penalty on zero deposit`() {
+        val deposit = 0L
+        val penalty = deposit * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
+        assertEquals(0L, penalty)
+    }
+
+    @Test
+    fun `emergency refund penalty splits correctly`() {
+        val deposit = 2_000_000_000L  // 2 SOL
+        val penalty = deposit * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
+        val refund = deposit - penalty
+        assertEquals(100_000_000L, penalty)
+        assertEquals(1_900_000_000L, refund)
+        assertEquals(deposit, penalty + refund)
+    }
+
+    @Test
+    fun `emergency refund penalty rounds down for small amounts`() {
+        // 19 lamports * 5 / 100 = 0 (integer division)
+        val penalty = 19L * OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT / 100
+        assertEquals(0L, penalty)
+    }
+
+    // ── isDeadlinePassed (deadline guard for CLAIM / ACK_AWAKE) ──
+
+    @Test
+    fun `deadline not passed when now is before alarm time`() {
+        val alarmTimeMillis = 1_000_000_000L
+        val nowMillis = 500_000_000L // Way before alarm time
+        assertFalse(isDeadlinePassed(alarmTimeMillis, nowMillis))
+    }
+
+    @Test
+    fun `deadline not passed when now is between alarm time and deadline`() {
+        val alarmTimeMillis = 1_000_000_000L
+        val nowMillis = alarmTimeMillis + 1000L // 1 second after alarm, still within grace period
+        assertFalse(isDeadlinePassed(alarmTimeMillis, nowMillis))
+    }
+
+    @Test
+    fun `deadline passed exactly at deadline boundary`() {
+        val alarmTimeMillis = 1_000_000_000L
+        val deadlineMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+        assertTrue(isDeadlinePassed(alarmTimeMillis, deadlineMillis))
+    }
+
+    @Test
+    fun `deadline passed well after grace period`() {
+        val alarmTimeMillis = 1_000_000_000L
+        val nowMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS + 60_000L
+        assertTrue(isDeadlinePassed(alarmTimeMillis, nowMillis))
+    }
+
+    @Test
+    fun `deadline not passed one ms before boundary`() {
+        val alarmTimeMillis = 1_000_000_000L
+        val deadlineMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+        assertFalse(isDeadlinePassed(alarmTimeMillis, deadlineMillis - 1))
+    }
+
+    @Test
+    fun `grace period is 30 minutes`() {
+        assertEquals(1_800_000L, app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS)
+    }
+
+    // ── ErrorClassifier at status.err path ──
+
+    @Test
+    fun `status err InvalidAlarmState is NON_RETRYABLE`() {
+        // Simulates the status.err path in TransactionProcessor line 238
+        val statusErr = "InvalidAlarmState"
+        assertEquals(ErrorClassifier.Category.NON_RETRYABLE, ErrorClassifier.classify(statusErr))
+    }
+
+    @Test
+    fun `status err blockhash not found is RETRYABLE`() {
+        val statusErr = "blockhash not found"
+        assertEquals(ErrorClassifier.Category.RETRYABLE, ErrorClassifier.classify(statusErr))
+    }
+
+    @Test
+    fun `status err DeadlinePassed is NON_RETRYABLE`() {
+        val statusErr = "DeadlinePassed"
+        assertEquals(ErrorClassifier.Category.NON_RETRYABLE, ErrorClassifier.classify(statusErr))
+    }
+
+    companion object {
+        // Mirror isDeadlinePassed logic for testing without constructing TransactionProcessor
+        private fun isDeadlinePassed(alarmTimeMillis: Long, nowMillis: Long): Boolean {
+            val deadlineMillis = alarmTimeMillis + app.solarma.alarm.AlarmTiming.GRACE_PERIOD_MILLIS
+            return nowMillis >= deadlineMillis
+        }
     }
 }

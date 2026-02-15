@@ -28,3 +28,12 @@ pub const DEFAULT_GRACE_PERIOD: i64 = 1800;
 /// Default snooze extension (in seconds)
 /// Default: 5 minutes = 300 seconds
 pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300;
+
+/// Additional grace period for claim after deadline (in seconds).
+/// Default: 120 seconds.
+pub const CLAIM_GRACE_SECONDS: i64 = 120;
+
+/// Buddy-only slash window after deadline (in seconds).
+/// For Buddy route, only buddy can slash during this window.
+/// Default: 120 seconds.
+pub const BUDDY_ONLY_SECONDS: i64 = 120;

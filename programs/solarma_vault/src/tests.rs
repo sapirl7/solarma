@@ -4,8 +4,9 @@
 //! the pure business logic in `helpers.rs`, and all edge cases.
 
 use crate::constants::{
-    DEFAULT_GRACE_PERIOD, DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT,
-    EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
+    BUDDY_ONLY_SECONDS, CLAIM_GRACE_SECONDS, DEFAULT_GRACE_PERIOD,
+    DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT,
+    MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
 };
 use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, UserProfile, Vault};
@@ -47,7 +48,7 @@ mod unit_tests {
         assert_ne!(s, AlarmStatus::Created);
         assert_ne!(s, AlarmStatus::Claimed);
 
-        // Acknowledged is non-terminal (can transition to Claimed or Slashed)
+        // Acknowledged is non-terminal (can transition to Claimed)
         let s = AlarmStatus::Acknowledged;
         assert_ne!(s, AlarmStatus::Created);
     }
@@ -357,6 +358,63 @@ mod unit_tests {
     #[test]
     fn test_claim_window_after_deadline() {
         assert!(!helpers::is_claim_window(100, 200, 201));
+    }
+
+    // =========================================================================
+    // helpers::is_claim_window_with_grace / is_sweep_window / is_buddy_only_window
+    // =========================================================================
+
+    #[test]
+    fn test_claim_window_with_grace_at_deadline() {
+        // Boundary: exactly at deadline is still claimable with grace.
+        assert!(helpers::is_claim_window_with_grace(100, 200, 200));
+    }
+
+    #[test]
+    fn test_claim_window_with_grace_at_deadline_plus_grace() {
+        let deadline = 200i64;
+        let at_grace_end = deadline + CLAIM_GRACE_SECONDS;
+        assert!(helpers::is_claim_window_with_grace(
+            100,
+            deadline,
+            at_grace_end
+        ));
+    }
+
+    #[test]
+    fn test_claim_window_with_grace_after_grace() {
+        let deadline = 200i64;
+        let after_grace = deadline + CLAIM_GRACE_SECONDS + 1;
+        assert!(!helpers::is_claim_window_with_grace(
+            100,
+            deadline,
+            after_grace
+        ));
+    }
+
+    #[test]
+    fn test_sweep_window_starts_strictly_after_grace() {
+        let deadline = 200i64;
+        let at_grace_end = deadline + CLAIM_GRACE_SECONDS;
+        let after_grace = at_grace_end + 1;
+
+        assert!(!helpers::is_sweep_window(deadline, deadline));
+        assert!(!helpers::is_sweep_window(deadline, at_grace_end));
+        assert!(helpers::is_sweep_window(deadline, after_grace));
+    }
+
+    #[test]
+    fn test_buddy_only_window_boundaries() {
+        let deadline = 1_000i64;
+        let buddy_window_end = deadline + BUDDY_ONLY_SECONDS;
+
+        assert!(!helpers::is_buddy_only_window(deadline, deadline - 1));
+        assert!(helpers::is_buddy_only_window(deadline, deadline));
+        assert!(helpers::is_buddy_only_window(
+            deadline,
+            buddy_window_end - 1
+        ));
+        assert!(!helpers::is_buddy_only_window(deadline, buddy_window_end));
     }
 
     // =========================================================================
@@ -1393,6 +1451,7 @@ mod fuzz_tests {
         Snooze { expected_snooze_count: u8 },
         Claim,
         Slash,
+        Sweep,
         Refund,
     }
 
@@ -1531,12 +1590,10 @@ mod fuzz_tests {
                     Ok(())
                 }
                 Op::Claim => {
-                    if !(self.status == AlarmStatus::Created
-                        || self.status == AlarmStatus::Acknowledged)
-                    {
+                    if self.status != AlarmStatus::Acknowledged {
                         return Err(());
                     }
-                    if !(now >= self.alarm_time && now < self.deadline) {
+                    if !helpers::is_claim_window_with_grace(self.alarm_time, self.deadline, now) {
                         return Err(());
                     }
                     self.status = AlarmStatus::Claimed;
@@ -1546,15 +1603,26 @@ mod fuzz_tests {
                     Ok(())
                 }
                 Op::Slash => {
-                    if !(self.status == AlarmStatus::Created
-                        || self.status == AlarmStatus::Acknowledged)
-                    {
+                    if self.status != AlarmStatus::Created {
                         return Err(());
                     }
                     if now < self.deadline {
                         return Err(());
                     }
                     self.status = AlarmStatus::Slashed;
+                    self.remaining_amount = 0;
+                    self.vault_closed = true;
+                    self.vault_lamports = 0;
+                    Ok(())
+                }
+                Op::Sweep => {
+                    if self.status != AlarmStatus::Acknowledged {
+                        return Err(());
+                    }
+                    if !helpers::is_sweep_window(self.deadline, now) {
+                        return Err(());
+                    }
+                    self.status = AlarmStatus::Claimed;
                     self.remaining_amount = 0;
                     self.vault_closed = true;
                     self.vault_lamports = 0;
@@ -1644,13 +1712,14 @@ mod fuzz_tests {
         }
 
         fn pick_op(&mut self) -> Op {
-            match self.next_u64() % 5 {
+            match self.next_u64() % 6 {
                 0 => Op::Ack,
                 1 => Op::Snooze {
                     expected_snooze_count: self.next_u8(),
                 },
                 2 => Op::Claim,
                 3 => Op::Slash,
+                4 => Op::Sweep,
                 _ => Op::Refund,
             }
         }
@@ -1760,6 +1829,39 @@ mod fuzz_tests {
             }
         }
     }
+
+    #[test]
+    fn model_ack_disables_slash_but_claim_within_grace_is_allowed() {
+        let alarm_time = 1_000i64;
+        let deadline = 2_000i64;
+        let mut m = ModelAlarm::new(alarm_time, deadline, 1_000_000_000, 1_000_000);
+
+        assert!(m.apply(Op::Ack, alarm_time).is_ok());
+        assert_eq!(m.status, AlarmStatus::Acknowledged);
+
+        // Slash must be rejected once acknowledged.
+        assert!(m.apply(Op::Slash, deadline).is_err());
+
+        // Claim is valid exactly at deadline + grace.
+        let at_grace_end = deadline + CLAIM_GRACE_SECONDS;
+        assert!(m.apply(Op::Claim, at_grace_end).is_ok());
+        assert_eq!(m.status, AlarmStatus::Claimed);
+    }
+
+    #[test]
+    fn model_sweep_after_grace_and_claim_after_grace_fails() {
+        let alarm_time = 1_000i64;
+        let deadline = 2_000i64;
+        let mut m = ModelAlarm::new(alarm_time, deadline, 1_000_000_000, 1_000_000);
+
+        assert!(m.apply(Op::Ack, alarm_time).is_ok());
+        assert_eq!(m.status, AlarmStatus::Acknowledged);
+
+        let after_grace = deadline + CLAIM_GRACE_SECONDS + 1;
+        assert!(m.apply(Op::Claim, after_grace).is_err());
+        assert!(m.apply(Op::Sweep, after_grace).is_ok());
+        assert_eq!(m.status, AlarmStatus::Claimed);
+    }
 }
 
 /// Integration test scenarios (require local validator)
@@ -1834,6 +1936,20 @@ mod constants_tests {
     fn test_snooze_extension_is_positive() {
         assert!(DEFAULT_SNOOZE_EXTENSION_SECONDS > 0);
         assert_eq!(DEFAULT_SNOOZE_EXTENSION_SECONDS, 300); // 5 minutes
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn test_claim_grace_is_positive() {
+        assert!(CLAIM_GRACE_SECONDS > 0);
+        assert_eq!(CLAIM_GRACE_SECONDS, 120);
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn test_buddy_only_window_is_positive() {
+        assert!(BUDDY_ONLY_SECONDS > 0);
+        assert_eq!(BUDDY_ONLY_SECONDS, 120);
     }
 
     #[test]
