@@ -7,14 +7,17 @@ Solarma is a commitment-based alarm application built on Solana. This document p
 ## Smart Contract (Anchor)
 
 ### Program ID (Devnet)
+
 ```
 F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP
 ```
+
 *Note: Mainnet Program ID will differ when deployed.*
 
 ### Account Structures
 
 #### UserProfile Account
+
 ```rust
 pub struct UserProfile {
     pub owner: Pubkey,          // 32 bytes
@@ -24,6 +27,7 @@ pub struct UserProfile {
 ```
 
 #### Alarm Account
+
 ```rust
 pub struct Alarm {
     pub owner: Pubkey,           // 32 bytes
@@ -42,6 +46,7 @@ pub struct Alarm {
 ```
 
 #### Vault Account
+
 ```rust
 pub struct Vault {
     pub alarm: Pubkey,  // 32 bytes - Associated alarm
@@ -62,17 +67,21 @@ seeds = ["vault", alarm.key()]
 ### Instructions
 
 #### initialize
+
 Creates a user profile PDA (currently reserved for future on-chain tag binding).
 
 **Accounts:**
+
 1. `user_profile` (init) - UserProfile PDA
 2. `owner` (signer, mut) - Profile owner
 3. `system_program` - System program
 
 #### create_alarm
+
 Creates a new alarm with optional SOL deposit.
 
 **Parameters:**
+
 - `alarm_id: u64` - Unique identifier (typically timestamp)
 - `alarm_time: i64` - When alarm should ring
 - `deadline: i64` - When claim period ends
@@ -81,29 +90,36 @@ Creates a new alarm with optional SOL deposit.
 - `penalty_destination: Option<Pubkey>` - Required for Donate or Buddy routes
 
 **Accounts:**
+
 1. `alarm` (init) - Alarm PDA
 2. `vault` (init) - Vault PDA
 3. `owner` (signer, mut) - Alarm creator
 4. `system_program` - System program
 
 #### claim
-Returns deposit to owner. Must be after `alarm_time` and before `deadline`.
+
+Returns deposit to owner. Must be in `Acknowledged` state, after `alarm_time` and before `deadline + CLAIM_GRACE_SECONDS`.
 
 **Accounts:**
+
 1. `alarm` (mut) - Alarm account
 2. `vault` (mut, close) - Vault, closed to owner
 3. `owner` (signer, mut) - Must match alarm.owner
 4. `system_program` - System program
 
 **Errors:**
+
 - `TooEarly` - Called before alarm_time
-- `InvalidAlarmState` - Not in Created or Acknowledged status
+- `DeadlinePassed` - Called after deadline + CLAIM_GRACE_SECONDS
+- `InvalidAlarmState` - Not in Acknowledged status
 
 #### snooze
+
 Deducts 10% from remaining deposit and doubles each use (10% → 20% → 40%...),
 extends alarm_time and deadline by 5 minutes.
 
 **Accounts:**
+
 1. `alarm` (mut) - Alarm account
 2. `vault` (mut) - Vault
 3. `sink` (mut) - Where snooze fee goes (BURN_SINK)
@@ -111,14 +127,17 @@ extends alarm_time and deadline by 5 minutes.
 5. `system_program` - System program
 
 **Errors:**
+
 - `TooEarly` - Called before alarm_time
 - `MaxSnoozesReached` - Already snoozed 10 times
 - `InsufficientDeposit` - <10% remaining
 
 #### slash
+
 Permissionless instruction. Transfers remaining deposit to penalty route.
 
 **Accounts:**
+
 1. `alarm` (mut) - Alarm account
 2. `vault` (mut, close) - Vault, closed to penalty_recipient
 3. `penalty_recipient` (mut) - Validated against route
@@ -126,13 +145,16 @@ Permissionless instruction. Transfers remaining deposit to penalty route.
 5. `system_program` - System program
 
 **Errors:**
+
 - `DeadlineNotPassed` - Called before deadline
 - `InvalidPenaltyRecipient` - Wrong recipient for route
 
 #### emergency_refund
+
 Owner cancels alarm before it rings. 5% fee applies.
 
 **Accounts:**
+
 1. `alarm` (mut) - Alarm account
 2. `vault` (mut, close) - Vault, closed to owner
 3. `sink` (mut) - Penalty sink (BURN_SINK)
@@ -140,19 +162,41 @@ Owner cancels alarm before it rings. 5% fee applies.
 5. `system_program` - System program
 
 **Errors:**
+
 - `TooLateForRefund` - Called after alarm_time
 
 #### ack_awake (H3)
+
 Records wake proof completion on-chain by transitioning `Created -> Acknowledged`.
 
 **Accounts:**
+
 1. `alarm` (mut) - Alarm account
 2. `owner` (signer, mut) - Must match alarm.owner
 
 **Errors:**
+
 - `TooEarly` - Called before alarm_time
 - `DeadlinePassed` - Called at/after deadline
 - `InvalidAlarmState` - Not in Created status
+
+#### sweep_acknowledged
+
+Permissionless return of deposit to owner after claim grace window expires.
+Safety net for acknowledged alarms that missed the claim window.
+
+**Accounts:**
+
+1. `alarm` (mut) - Alarm account
+2. `vault` (mut, close) - Vault, closed to owner
+3. `owner` (CHECK, mut) - Must match alarm.owner
+4. `caller` (signer) - Anyone can call
+5. `system_program` - System program
+
+**Errors:**
+
+- `InvalidAlarmState` - Not in Acknowledged status
+- `TooEarly` - Called before deadline + CLAIM_GRACE_SECONDS + 1
 
 ### Constants
 
@@ -164,6 +208,8 @@ pub const MIN_DEPOSIT_LAMPORTS: u64 = 1_000_000; // 0.001 SOL
 pub const EMERGENCY_REFUND_PENALTY_PERCENT: u64 = 5;
 pub const DEFAULT_GRACE_PERIOD: i64 = 1800; // 30 minutes
 pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300; // 5 minutes
+pub const CLAIM_GRACE_SECONDS: i64 = 120; // 2 minutes after deadline for claim
+pub const BUDDY_ONLY_SECONDS: i64 = 120; // 2 minutes buddy-exclusive window
 ```
 
 ### Error Codes (Names)
@@ -185,12 +231,15 @@ pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300; // 5 minutes
 - PenaltyDestinationNotSet
 - TooEarly
 - TooLateForRefund
+- BuddyOnlyWindow
+- ClaimGraceExpired
 
 ---
 
 ## Android Architecture
 
 ### Package Structure
+
 ```
 app.solarma/
 ├── alarm/
@@ -221,6 +270,7 @@ app.solarma/
 ```
 
 ### Key Dependencies
+
 - **Jetpack Compose** - UI
 - **Hilt** - DI
 - **Room** - Local DB
@@ -267,12 +317,14 @@ app.solarma/
 The app uses a fallback list of public endpoints:
 
 **Devnet**
+
 - `https://api.devnet.solana.com`
 - `https://devnet.helius-rpc.com`
 - `https://rpc-devnet.solflare.com`
 - `https://devnet.genesysgo.net`
 
 **Mainnet**
+
 - `https://api.mainnet-beta.solana.com`
 - `https://solana-mainnet.g.alchemy.com/v2/demo`
 - `https://rpc.helius.xyz`
@@ -282,6 +334,7 @@ For production, use a dedicated provider with API keys.
 ### Transaction Structure
 
 All transactions use Anchor's instruction format:
+
 - First 8 bytes: Discriminator (sha256 of instruction name)
 - Remaining bytes: Borsh-serialized parameters
 
@@ -290,16 +343,19 @@ All transactions use Anchor's instruction format:
 ## Testing
 
 ### Anchor Tests
+
 ```bash
 anchor test
 ```
 
 ### Android Tests
+
 ```bash
 ./gradlew test
 ```
 
 ### Manual Testing Checklist
+
 - [ ] Create alarm with deposit
 - [ ] Complete step challenge
 - [ ] Verify claim returns deposit

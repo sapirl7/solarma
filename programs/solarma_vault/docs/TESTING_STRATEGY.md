@@ -60,8 +60,8 @@ graph LR
 
 | Layer | Runtime | Focus | Target Count |
 |---|---|---|---|
-| **Unit (Rust)** | `cargo test` (~1s) | Math formulas, account sizes, overflow, enum safety | 22 ✅ (done) |
-| **Integration (TS)** | `anchor test` (~4min) | Per-instruction happy/negative, access control, timing, state | 68 ✅ (done) |
+| **Unit (Rust)** | `cargo test` (~1s) | Math formulas, account sizes, overflow, enum safety | 140 ✅ (done) |
+| **Integration (TS)** | `anchor test` (~4min) | Per-instruction happy/negative, access control, timing, state | 70 ✅ (done) |
 | **Scenario (TS)** | `anchor test` | Multi-step README flows end-to-end | 5 (to add) |
 | **Model-based (TS)** | `anchor test` | Random ix sequences, invariant checking | 1 (to add) |
 | **Property (Rust)** | `cargo test` | Penalty formula ↔ reference model, balance conservation | 3 (to add) |
@@ -71,7 +71,8 @@ graph LR
 ## Current Coverage Assessment
 
 ### ✅ Well-Covered
-- All 7 instructions have happy-path tests
+
+- All 8 instructions have happy-path tests
 - All 14 error codes tested (at least 1 trigger each)
 - Access control (`has_one` constraints) for claim/snooze/refund
 - Timing guards (TooEarly, DeadlinePassed, TooLateForRefund)
@@ -81,6 +82,7 @@ graph LR
 - Boundary values (MIN_DEPOSIT, PDA collision)
 
 ### ❌ Gaps to Fill (Phase B)
+
 1. **No formal scenario tests** — lifecycle flows exist ad-hoc but not as a dedicated suite
 2. **No model-based / state-machine test** — no random sequence with invariant checking
 3. **No property-based tests** — penalty formula not cross-validated with reference impl
@@ -108,6 +110,7 @@ graph LR
 **Target:** Stay under 10 min with new tests.
 
 ### CI Improvements (Phase B)
+
 - Add `--grep @model` for model tests (run in full suite only)
 - Add coverage via `tarpaulin` for Rust unit tests
 - Enforce minimum Rust test count in CI script

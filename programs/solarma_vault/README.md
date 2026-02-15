@@ -29,6 +29,7 @@ F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP
 | `snooze` | Owner | Pay penalty for extra time (exponential cost) |
 | `emergency_refund` | Owner | Cancel alarm before alarm time (5% penalty) |
 | `slash` | Anyone | Forfeit deposit after deadline (permissionless) |
+| `sweep_acknowledged` | Anyone | Return ACKed deposit after claim grace (permissionless) |
 
 ## Penalty Routes
 
@@ -44,10 +45,10 @@ F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP
 # Build
 anchor build
 
-# Run Rust unit tests (21 tests, instant)
+# Run Rust unit tests (140 tests, instant)
 cargo test
 
-# Run integration tests against devnet (61 tests, ~20 min with timing tests)
+# Run integration tests against devnet (70 tests, ~20 min with timing tests)
 ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
 ANCHOR_WALLET=~/.config/solana/id.json \
 npx ts-mocha -p tsconfig.json -t 500000 tests/solarma_vault.ts
@@ -69,6 +70,7 @@ All alarm events include `alarm_id` for off-chain indexer correlation.
 | `AlarmSlashed` | `slash` |
 | `EmergencyRefundExecuted` | `emergency_refund` |
 | `WakeAcknowledged` | `ack_awake` |
+| `SweepExecuted` | `sweep_acknowledged` |
 
 ## Security
 
@@ -76,6 +78,9 @@ All alarm events include `alarm_id` for off-chain indexer correlation.
 - **Checked arithmetic** everywhere — all math uses `checked_*` operations
 - **Idempotent snooze** (H1) — `expected_snooze_count` parameter prevents duplicate snoozing on retry
 - **Permissionless slash** — anyone can trigger after deadline, validated against penalty recipient
+- **Buddy-only window** — buddy gets a 120s exclusive slash window before permissionless opens
+- **Claim grace window** — 120s grace after deadline for acknowledged alarms to claim
+- **Sweep safety net** — permissionless return-to-owner after grace expires, no penalty
 - **Time validation** — strict ordering: alarm_time < deadline, with appropriate guards on each instruction
 
 ## License
