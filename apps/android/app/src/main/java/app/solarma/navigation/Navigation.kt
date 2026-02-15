@@ -49,7 +49,7 @@ fun SolarmaNavHost(
         composable(Screen.Home.route) {
             HomeScreen(
                 onAddAlarm = { navController.navigate(Screen.CreateAlarm.route) },
-                onAlarmClick = { id -> 
+                onAlarmClick = { id ->
                     navController.navigate(Screen.AlarmDetails.withId(id))
                 },
                 onSettingsClick = {

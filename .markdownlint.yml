@@ -22,3 +22,35 @@ MD034: false
 
 # Allow trailing punctuation in headings (e.g., "What went wrong?")
 MD026: false
+
+# --- Relaxed rules (pre-existing docs use compact formatting) ---
+
+# Allow headings without surrounding blank lines (compact checklists, specs)
+MD022: false
+
+# Allow lists without surrounding blank lines
+MD032: false
+
+# Allow fenced code blocks without surrounding blank lines
+MD031: false
+
+# Allow fenced code blocks without language specifiers
+MD040: false
+
+# Allow first line to be non-heading (README uses centered HTML)
+MD041: false
+
+# Allow emphasis as pseudo-headings (used in TECHNICAL_SPEC.md)
+MD036: false
+
+# Allow tables without surrounding blank lines
+MD058: false
+
+# Allow multiple consecutive blank lines (used for visual separation)
+MD012: false
+
+# Allow heading increment jumps (ADR format uses h1 → h3)
+MD001: false
+
+# Allow ordered list prefix styles (STATE_MACHINE.md uses continuation numbering)
+MD029: false
