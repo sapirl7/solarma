@@ -2,12 +2,12 @@ package app.solarma.ui.components
 
 /**
  * Display utilities for penalty routes.
- * 
+ *
  * Maps on-chain penalty route integers to user-facing labels and emoji.
  * Single source of truth — avoids duplicating `when` blocks across screens.
  */
 object PenaltyRouteDisplay {
-    
+
     data class PenaltyInfo(
         val emoji: String,
         val label: String
@@ -23,7 +23,7 @@ object PenaltyRouteDisplay {
 
     /**
      * Map on-chain penalty route integer to display info.
-     * 
+     *
      * @param route 0=Burn, 1=Donate, 2=Buddy (matches PenaltyRoute Anchor enum)
      */
     fun fromRoute(route: Int): PenaltyInfo = when (route) {

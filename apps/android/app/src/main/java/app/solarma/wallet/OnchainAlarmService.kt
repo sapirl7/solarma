@@ -45,8 +45,8 @@ class OnchainAlarmService @Inject constructor(
         val signedTx = signResult.getOrElse { return Result.failure(it) }
         return rpcClient.sendTransactionFanOut(signedTx)
     }
-    
-    
+
+
     /**
      * Create onchain alarm with deposit.
      * Returns the alarm PDA pubkey for local storage.
@@ -63,19 +63,19 @@ class OnchainAlarmService @Inject constructor(
             if (!networkChecker.isNetworkAvailable()) {
                 return@withContext Result.failure(Exception("No internet connection. Please connect to the internet and try again."))
             }
-            
+
             val ownerAddress = walletManager.getConnectedWallet()
                 ?: return@withContext Result.failure(Exception("Wallet not connected"))
-            
+
             val ownerPubkey = PublicKey(ownerAddress)
             val alarmId = alarm.onchainAlarmId ?: alarm.id
-            
+
             // Calculate deadline (alarm_time + grace period)
             val alarmTimeUnix = alarm.alarmTimeMillis / 1000
             val deadlineUnix = alarmTimeUnix + AlarmTiming.GRACE_PERIOD_SECONDS
-            
+
             Log.i(TAG, "Creating onchain alarm: id=$alarmId, deposit=$depositLamports")
-            
+
             // Validate and parse buddy address if provided
             val buddyPubkey = buddyAddress?.let { addr ->
                 try {
@@ -88,7 +88,7 @@ class OnchainAlarmService @Inject constructor(
                     )
                 }
             }
-            
+
             // Build transaction
             val txBytes = transactionBuilder.buildCreateAlarmTransaction(
                 owner = ownerPubkey,
@@ -99,7 +99,7 @@ class OnchainAlarmService @Inject constructor(
                 penaltyRoute = penaltyRoute,
                 buddyAddress = buddyPubkey
             )
-            
+
             // Sign and send via MWA
             val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
@@ -122,7 +122,7 @@ class OnchainAlarmService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Claim deposit after completing wake proof.
      */
@@ -133,16 +133,16 @@ class OnchainAlarmService @Inject constructor(
         try {
             val ownerAddress = walletManager.getConnectedWallet()
                 ?: return@withContext Result.failure(Exception("Wallet not connected"))
-            
+
             Log.i(TAG, "Claiming deposit for alarm: ${alarm.id}")
-            
+
             val owner = PublicKey(ownerAddress)
             val alarmPda = resolveAlarmPda(alarm, owner)
             val txBytes = transactionBuilder.buildClaimTransactionByPubkey(
                 owner = owner,
                 alarmPda = alarmPda
             )
-            
+
             val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Failed to claim deposit", e)
@@ -162,7 +162,7 @@ class OnchainAlarmService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Snooze alarm (reduces deposit).
      */
@@ -173,9 +173,9 @@ class OnchainAlarmService @Inject constructor(
         try {
             val ownerAddress = walletManager.getConnectedWallet()
                 ?: return@withContext Result.failure(Exception("Wallet not connected"))
-            
+
             Log.i(TAG, "Snoozing alarm: ${alarm.id}")
-            
+
             val owner = PublicKey(ownerAddress)
             val alarmPda = resolveAlarmPda(alarm, owner)
             val txBytes = transactionBuilder.buildSnoozeTransactionByPubkey(
@@ -183,7 +183,7 @@ class OnchainAlarmService @Inject constructor(
                 alarmPda = alarmPda,
                 snoozeCount = alarm.snoozeCount
             )
-            
+
             val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Failed to snooze alarm", e)
@@ -203,7 +203,7 @@ class OnchainAlarmService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Emergency refund before alarm time.
      */
@@ -214,16 +214,16 @@ class OnchainAlarmService @Inject constructor(
         try {
             val ownerAddress = walletManager.getConnectedWallet()
                 ?: return@withContext Result.failure(Exception("Wallet not connected"))
-            
+
             Log.i(TAG, "Emergency refund for alarm: ${alarm.id}")
-            
+
             val owner = PublicKey(ownerAddress)
             val alarmPda = resolveAlarmPda(alarm, owner)
             val txBytes = transactionBuilder.buildEmergencyRefundTransactionByPubkey(
                 owner = owner,
                 alarmPda = alarmPda
             )
-            
+
             val result = signAndSendFanOut(activityResultSender, txBytes)
             val signature = result.getOrElse { e ->
                 Log.e(TAG, "Emergency refund failed", e)
@@ -319,7 +319,7 @@ class OnchainAlarmService @Inject constructor(
         val alarmId = alarm.onchainAlarmId ?: alarm.id
         return transactionBuilder.instructionBuilder.deriveAlarmPda(owner, alarmId).address
     }
-    
+
     /**
      * M3: Sync on-chain alarms with the local Room database.
      * Fetches all program accounts owned by the current wallet and inserts
@@ -329,27 +329,27 @@ class OnchainAlarmService @Inject constructor(
      * @param alarmDao the DAO to check/insert local alarms
      * @return number of new alarms synced from on-chain, or -1 on error
      */
-    suspend fun syncOnchainAlarms(alarmDao: app.solarma.data.local.AlarmDao): Int = 
+    suspend fun syncOnchainAlarms(alarmDao: app.solarma.data.local.AlarmDao): Int =
         withContext(Dispatchers.IO) {
             try {
                 if (!networkChecker.isNetworkAvailable()) return@withContext 0
-                
+
                 val ownerBase58 = walletManager.getConnectedWallet() ?: return@withContext 0
                 val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()
-                
+
                 val result = rpcClient.getProgramAccounts(programId, ownerBase58)
                 val accounts = result.getOrNull() ?: return@withContext -1
-                
+
                 var synced = 0
                 for (account in accounts) {
                     try {
                     // Decode on-chain data
                     val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
                     if (data.size < 110) continue
-                    
+
                     // Check if this on-chain alarm exists locally
                     val existing = alarmDao.getByOnchainPubkey(account.pubkey)
-                    
+
                     // Parse key fields from Borsh-serialized data
                     // Rust Alarm struct layout (state.rs):
                     //   8 disc | 32 owner | 8 alarm_id | 8 alarm_time | 8 deadline |
@@ -372,10 +372,10 @@ class OnchainAlarmService @Inject constructor(
                     }
                     val snoozeCount = buf.get().toInt() and 0xFF
                     val status = buf.get().toInt() and 0xFF
-                    
+
                     // AlarmStatus: Created=0, Acknowledged=1, Claimed=2, Slashed=3
                     val isResolved = status >= 2 || remainingAmount <= 0
-                    
+
                     if (existing != null) {
                         // Alarm exists locally — update deposit state from on-chain
                         if (isResolved && existing.hasDeposit) {
@@ -389,10 +389,10 @@ class OnchainAlarmService @Inject constructor(
                         }
                         continue  // Don't re-insert
                     }
-                    
+
                     // Skip resolved alarms — no need to import them as new
                     if (isResolved) continue
-                    
+
                     // Create local alarm record for this NEW on-chain alarm
                     val alarm = AlarmEntity(
                         alarmTimeMillis = alarmTime * 1000,
@@ -412,7 +412,7 @@ class OnchainAlarmService @Inject constructor(
                         Log.w(TAG, "Failed to decode on-chain alarm: ${account.pubkey}", e)
                     }
                 }
-                
+
                 if (synced > 0) {
                     Log.i(TAG, "M3: Synced $synced on-chain alarms to local DB")
                 }

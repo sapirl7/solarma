@@ -21,7 +21,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 fun generateQrBitmap(text: String, size: Int = 512): Bitmap {
     val writer = QRCodeWriter()
     val bitMatrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size)
-    
+
     val bitmap = createBitmap(size, size)
     for (x in 0 until size) {
         for (y in 0 until size) {
@@ -43,7 +43,7 @@ fun QrCodeImage(
     val bitmap = remember(text) {
         generateQrBitmap(text, 512)
     }
-    
+
     Image(
         bitmap = bitmap.asImageBitmap(),
         contentDescription = "QR Code for $text",

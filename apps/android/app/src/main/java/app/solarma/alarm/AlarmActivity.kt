@@ -54,37 +54,37 @@ import androidx.work.WorkManager
  */
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
-    
+
     companion object {
         private const val TAG = "Solarma.AlarmActivity"
     }
-    
+
     @Inject
     lateinit var alarmRepository: AlarmRepository
-    
+
     @Inject
     lateinit var wakeProofEngine: WakeProofEngine
-    
+
     @Inject
     lateinit var transactionQueue: app.solarma.wallet.TransactionQueue
-    
+
     @Inject
     lateinit var nfcScanner: NfcScanner
-    
+
     @Inject
     lateinit var qrScanner: QrScanner
-    
+
     // ActivityResultSender for MWA transactions (claim/snooze)
     private val activityResultSender by lazy {
         ActivityResultSender(this)
     }
-    
+
     private var alarmId: Long = -1
     private var currentAlarm: AlarmEntity? = null
     private var pendingPermissionAlarm: AlarmEntity? = null
     private var nfcAdapter: NfcAdapter? = null
     private var nfcPendingIntent: PendingIntent? = null
-    
+
     // Permission launcher for step counter (Android 10+)
     private val stepPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -97,15 +97,15 @@ class AlarmActivity : ComponentActivity() {
     ) { isGranted ->
         handlePermissionResult(isGranted, WakeProofEngine.TYPE_QR)
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         alarmId = intent.getLongExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
-        
+
         // Show over lock screen
         setupLockScreenFlags()
-        
+
         // Initialize NFC foreground dispatch
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         nfcPendingIntent = PendingIntent.getActivity(
@@ -115,7 +115,7 @@ class AlarmActivity : ComponentActivity() {
         )
 
         startWakeProof()
-        
+
         // Observe wake proof completion
         lifecycleScope.launch {
             wakeProofEngine.isComplete.collect { isComplete ->
@@ -135,11 +135,11 @@ class AlarmActivity : ComponentActivity() {
                 }
             }
         }
-        
+
         setContent {
             val progress by wakeProofEngine.progress.collectAsState()
             val isComplete by wakeProofEngine.isComplete.collectAsState()
-            
+
             SolarmaTheme {
                 AlarmScreen(
                     progress = progress,
@@ -185,7 +185,7 @@ class AlarmActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun startWakeProof() {
         lifecycleScope.launch {
             try {
@@ -264,12 +264,12 @@ class AlarmActivity : ComponentActivity() {
 
         pendingPermissionAlarm = null
     }
-    
+
     private fun setupLockScreenFlags() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            
+
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             keyguardManager.requestDismissKeyguard(this, null)
         } else {
@@ -280,22 +280,22 @@ class AlarmActivity : ComponentActivity() {
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
             )
         }
-        
+
         // Keep screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
-    
+
     /**
      * Dismiss alarm - ONLY called when wake proof is complete.
      */
     private fun dismissAlarm() {
         wakeProofEngine.stop()
-        
+
         // SECURITY: Cancel pending slash worker — user proved they're awake
         WorkManager.getInstance(this)
             .cancelUniqueWork("slash_alarm_$alarmId")
         Log.i(TAG, "Cancelled slash worker for alarm $alarmId")
-        
+
         // Stop the alarm service
         val intent = Intent(this, AlarmService::class.java).apply {
             action = AlarmService.ACTION_STOP_ALARM
@@ -303,7 +303,7 @@ class AlarmActivity : ComponentActivity() {
         startService(intent)
         finish()
     }
-    
+
     private fun snoozeAlarm() {
         lifecycleScope.launch {
             alarmRepository.snooze(alarmId)
@@ -315,14 +315,14 @@ class AlarmActivity : ComponentActivity() {
             }
         }
         wakeProofEngine.stop()
-        
+
         val intent = Intent(this, AlarmService::class.java).apply {
             action = AlarmService.ACTION_SNOOZE
         }
         startService(intent)
         finish()
     }
-    
+
     /**
      * Queue snooze transaction for processing.
      */
@@ -337,7 +337,7 @@ class AlarmActivity : ComponentActivity() {
             Log.e(TAG, "Failed to queue snooze transaction", e)
         }
     }
-    
+
     /**
      * Queue claim transaction for processing.
      * Since we're on lock screen, MWA can't open wallet popup.
@@ -360,7 +360,7 @@ class AlarmActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun queueClaimDeposit(alarm: AlarmEntity) {
         lifecycleScope.launch {
             try {
@@ -369,20 +369,20 @@ class AlarmActivity : ComponentActivity() {
                     alarmId = alarm.id
                 )
                 Log.i(TAG, "Claim transaction queued: queueId=$queueId, alarmId=${alarm.id}")
-                
+
                 // Show toast to user
                 android.widget.Toast.makeText(
                     this@AlarmActivity,
                     "Deposit claim queued. Open app to complete.",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to queue claim transaction", e)
             }
         }
     }
-    
+
     override fun onDestroy() {
         wakeProofEngine.stop()
         super.onDestroy()
@@ -406,7 +406,7 @@ fun AlarmScreen(
         }
     }
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    
+
     // Pulsing animation for the sun icon
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
@@ -418,7 +418,7 @@ fun AlarmScreen(
         ),
         label = "scale"
     )
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -440,7 +440,7 @@ fun AlarmScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Spacer(modifier = Modifier.height(48.dp))
-            
+
             // Time display
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -450,23 +450,23 @@ fun AlarmScreen(
                     fontSize = 80.sp,
                     modifier = Modifier.scale(scale)
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
                     text = currentTime.format(timeFormatter),
                     fontSize = 72.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-                
+
                 Text(
                     text = if (isComplete) "Good morning!" else "Wake up!",
                     fontSize = 24.sp,
                     color = if (isComplete) Color(0xFF4CAF50) else Color(0xFFFFD700)
                 )
             }
-            
+
             // Challenge progress
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -509,7 +509,7 @@ fun AlarmScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                
+
                 // Error display
                 progress.error?.let { error ->
                     Text(
@@ -537,7 +537,7 @@ fun AlarmScreen(
                     }
                 }
             }
-            
+
             // Snooze button (always available)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -550,7 +550,7 @@ fun AlarmScreen(
                 ) {
                     Text("😴 Snooze (5 min)", fontSize = 14.sp)
                 }
-                
+
                 // Deposit warning
                 if (alarm?.hasDeposit == true) {
                     Text(
@@ -560,7 +560,7 @@ fun AlarmScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -577,9 +577,9 @@ fun StepsProgressView(progress: WakeProgress) {
             fontSize = 16.sp,
             color = Color.White.copy(alpha = 0.7f)
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Progress bar
         @Suppress("DEPRECATION")
         LinearProgressIndicator(
@@ -590,9 +590,9 @@ fun StepsProgressView(progress: WakeProgress) {
             color = Color(0xFFFF8C00),
             trackColor = Color.White.copy(alpha = 0.2f)
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = "${progress.currentValue} / ${progress.targetValue} steps",
             fontSize = 24.sp,
@@ -611,9 +611,9 @@ fun NfcProgressView(progress: WakeProgress) {
             text = "📱",
             fontSize = 64.sp
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Text(
             text = progress.message,
             fontSize = 18.sp,
@@ -633,9 +633,9 @@ fun NoProofView(onConfirm: () -> Unit) {
             fontSize = 16.sp,
             color = Color.White.copy(alpha = 0.7f)
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Button(
             onClick = onConfirm,
             modifier = Modifier
@@ -683,18 +683,18 @@ fun QrProgressView(
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = progress.message,
             fontSize = 14.sp,
             color = Color.White.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Camera preview
         QrCameraPreview(
             qrScanner = qrScanner,
@@ -702,7 +702,7 @@ fun QrProgressView(
                 .fillMaxWidth()
                 .height(300.dp)
         )
-        
+
         // Error message if any
         if (progress.error != null) {
             Spacer(modifier = Modifier.height(8.dp))

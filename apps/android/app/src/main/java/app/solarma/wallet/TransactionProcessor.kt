@@ -33,7 +33,7 @@ class TransactionProcessor @Inject constructor(
     }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val processingMutex = Mutex()
-    
+
     /**
      * Background polling is intentionally disabled.
      * MWA requires an ActivityResultSender, so transactions can only be
@@ -43,7 +43,7 @@ class TransactionProcessor @Inject constructor(
     fun start() {
         Log.d(TAG, "TransactionProcessor.start() — no-op, use processPendingTransactionsWithUi()")
     }
-    
+
     fun stop() {
         Log.d(TAG, "TransactionProcessor.stop() — no-op")
     }

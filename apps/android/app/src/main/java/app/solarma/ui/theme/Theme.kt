@@ -16,31 +16,31 @@ private val DeFiColorScheme = darkColorScheme(
     onPrimary = DeepBlack,
     primaryContainer = SolanaGreenDark,
     onPrimaryContainer = Color.White,
-    
+
     secondary = SolanaPurple,
     onSecondary = Color.White,
     secondaryContainer = SolanaPurpleDark,
     onSecondaryContainer = Color.White,
-    
+
     tertiary = GraphiteSurface,
     onTertiary = TextPrimary,
     tertiaryContainer = Graphite,
     onTertiaryContainer = TextPrimary,
-    
+
     error = ErrorCrimson,
     onError = Color.White,
     errorContainer = ErrorCrimson,
     onErrorContainer = Color.White,
-    
+
     background = DeepBlack,
     onBackground = TextPrimary,
-    
+
     surface = Graphite,
     onSurface = TextPrimary,
-    
+
     surfaceVariant = GraphiteSurface,
     onSurfaceVariant = TextSecondary,
-    
+
     outline = Color(0x33FFFFFF),
     outlineVariant = Color(0x1AFFFFFF),
 )

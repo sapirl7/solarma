@@ -54,16 +54,16 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     // Get ActivityResultSender from CompositionLocal
     val activityResultSender = LocalActivityResultSender.current
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "SOLARMA",
@@ -91,7 +91,7 @@ fun HomeScreen(
                     actions = {
                         IconButton(onClick = onSettingsClick) {
                             Icon(
-                                Icons.Default.Settings, 
+                                Icons.Default.Settings,
                                 contentDescription = stringResource(R.string.settings),
                                 tint = TextSecondary
                             )
@@ -125,7 +125,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Rounded.Add, 
+                            Icons.Rounded.Add,
                             contentDescription = "Add Alarm",
                             modifier = Modifier.size(32.dp)
                         )
@@ -153,7 +153,7 @@ fun HomeScreen(
                         )
                     }
                 }
-                
+
                 // Wallet status with glow effect
                 item {
                     WalletStatusCard(
@@ -163,7 +163,7 @@ fun HomeScreen(
                         onConnectClick = { viewModel.connectWallet(activityResultSender) }
                     )
                 }
-                
+
                 // Section header
                 item {
                     SectionHeader(
@@ -171,7 +171,7 @@ fun HomeScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                
+
                 // Alarm list with staggered animation
                 if (uiState.alarms.isEmpty()) {
                     item {
@@ -198,7 +198,7 @@ fun HomeScreen(
                         }
                     }
                 }
-                
+
                 // Bottom spacer for FAB
                 item { Spacer(modifier = Modifier.height(100.dp)) }
             }
@@ -268,16 +268,16 @@ fun StatsCard(
 
 @Composable
 fun StatItem(
-    value: String, 
-    label: String, 
+    value: String,
+    label: String,
     emoji: String,
     color: Color = TextPrimary
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = emoji, 
-            style = MaterialTheme.typography.labelSmall, 
-            fontWeight = FontWeight.Bold, 
+            text = emoji,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
             color = TextMuted
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -303,13 +303,13 @@ fun WalletStatusCard(
     onConnectClick: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
-    val backgroundColor = if (isConnected) 
-        SolanaGreen.copy(alpha = 0.1f) 
-    else 
+    val backgroundColor = if (isConnected)
+        SolanaGreen.copy(alpha = 0.1f)
+    else
         GraphiteSurface
-    
+
     val showFaucetButton = isConnected && (balance == null || balance < 0.1)
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = AlarmCardShape,
@@ -357,7 +357,7 @@ fun WalletStatusCard(
                         }
                     }
                 }
-                
+
                 if (!isConnected) {
                     GradientButton(
                         text = "Connect",
@@ -380,7 +380,7 @@ fun WalletStatusCard(
                     }
                 }
             }
-            
+
             // Devnet testing notice — always visible when connected
             if (isConnected) {
                 Row(
@@ -416,7 +416,7 @@ fun AlarmCard(
     )
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val dayFormatter = DateTimeFormatter.ofPattern("EEE, d MMM")
-    
+
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -471,7 +471,7 @@ fun AlarmCard(
                     }
                 }
             }
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -487,7 +487,7 @@ fun AlarmCard(
                     text = proofText,
                     color = SolanaPurple
                 )
-                
+
                 // Modern switch
                 Switch(
                     checked = alarm.isEnabled,
@@ -499,7 +499,7 @@ fun AlarmCard(
                         uncheckedTrackColor = Graphite
                     )
                 )
-                
+
                 // Delete button — hide if alarm has onchain deposit
                 if (alarm.onchainPubkey == null) {
                     IconButton(
@@ -534,7 +534,7 @@ fun EmptyAlarmsCard(onAddClick: () -> Unit) {
                 .padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            
+
             Text("NO ALARMS", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextMuted)
             Spacer(modifier = Modifier.height(24.dp))
             Text(

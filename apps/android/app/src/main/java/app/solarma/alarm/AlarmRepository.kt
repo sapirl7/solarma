@@ -37,7 +37,7 @@ class AlarmRepository @Inject constructor(
     companion object {
         private const val TAG = "Solarma.AlarmRepository"
     }
-    
+
     /**
      * Create a new alarm: save to DB and schedule with AlarmManager.
      * @return Alarm ID
@@ -46,7 +46,7 @@ class AlarmRepository @Inject constructor(
         // Insert into database
         val id = alarmDao.insert(alarm)
         Log.i(TAG, "Alarm created: id=$id, time=${alarm.alarmTimeMillis}")
-        
+
         // Schedule with AlarmManager
         if (alarm.isEnabled) {
             alarmScheduler.schedule(id, alarm.alarmTimeMillis)
@@ -55,39 +55,39 @@ class AlarmRepository @Inject constructor(
         // Update stats
         ensureStatsExist()
         statsDao.incrementTotalAlarms()
-        
+
         return id
     }
-    
+
     /**
      * Get alarm by ID.
      */
     suspend fun getAlarm(id: Long): AlarmEntity? {
         return alarmDao.getById(id)
     }
-    
+
     /**
      * Get all active (enabled) alarms.
      */
     fun getActiveAlarms(): Flow<List<AlarmEntity>> {
         return alarmDao.getEnabledAlarms()
     }
-    
+
     /**
      * Get all alarms.
      */
     fun getAllAlarms(): Flow<List<AlarmEntity>> {
         return alarmDao.getAllAlarms()
     }
-    
+
     /**
      * Enable or disable an alarm.
      */
     suspend fun setEnabled(id: Long, enabled: Boolean) {
         alarmDao.setEnabled(id, enabled)
-        
+
         val alarm = alarmDao.getById(id) ?: return
-        
+
         if (enabled) {
             // If alarm time is in the past, advance to next occurrence
             var triggerTime = alarm.alarmTimeMillis
@@ -104,10 +104,10 @@ class AlarmRepository @Inject constructor(
         } else {
             alarmScheduler.cancel(id)
         }
-        
+
         Log.i(TAG, "Alarm $id enabled=$enabled")
     }
-    
+
     /**
      * Mark alarm as triggered.
      */
@@ -116,7 +116,7 @@ class AlarmRepository @Inject constructor(
         alarmDao.updateLastTriggered(id, timestamp)
         Log.i(TAG, "Alarm $id triggered at $timestamp")
     }
-    
+
     /**
      * Mark alarm as completed (wake proof passed).
      */
@@ -137,7 +137,7 @@ class AlarmRepository @Inject constructor(
             statsDao.resetStreak()
             Log.i(TAG, "Alarm $id failed, streak reset")
         }
-        
+
         // Handle one-time alarms
         if (alarm.repeatDays == 0) {
             if (success && !alarm.hasDeposit) {
@@ -151,7 +151,7 @@ class AlarmRepository @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Update next ring time (for snooze or repeat).
      */
@@ -161,7 +161,7 @@ class AlarmRepository @Inject constructor(
         alarmScheduler.schedule(id, nextAtMillis)
         Log.i(TAG, "Alarm $id rescheduled to $nextAtMillis")
     }
-    
+
     /**
      * Handle snooze: reschedule alarm, increment stats.
      */
@@ -171,7 +171,7 @@ class AlarmRepository @Inject constructor(
         statsDao.incrementSnoozes()
         Log.i(TAG, "Alarm $id snoozed for $snoozeMinutes minutes")
     }
-    
+
     /**
      * Delete an alarm.
      */
@@ -180,7 +180,7 @@ class AlarmRepository @Inject constructor(
         alarmDao.deleteById(id)
         Log.i(TAG, "Alarm $id deleted")
     }
-    
+
     /**
      * Restore all alarms after boot.
      * Called from BootReceiver/WorkManager.
@@ -189,7 +189,7 @@ class AlarmRepository @Inject constructor(
         val alarms = alarmDao.getEnabledAlarms().first()
         val now = System.currentTimeMillis()
         var missedCount = 0
-        
+
         for (alarm in alarms) {
             if (alarm.alarmTimeMillis > now) {
                 alarmScheduler.schedule(alarm.id, alarm.alarmTimeMillis)
@@ -198,15 +198,15 @@ class AlarmRepository @Inject constructor(
                 // Alarm time passed while device was off
                 Log.w(TAG, "Alarm ${alarm.id} missed while device was off")
                 missedCount++
-                
+
                 // Mark as failed and disable one-time alarms
                 markCompleted(alarm.id, success = false)
                 alarmDao.updateLastTriggered(alarm.id, alarm.alarmTimeMillis)
-                
+
                 if (alarm.repeatDays == 0) {
                     alarmDao.setEnabled(alarm.id, false)
                 }
-                
+
                 // Note: if alarm.hasDeposit, funds are lost (penalty applied)
                 if (alarm.hasDeposit) {
                     Log.e(TAG, "Alarm ${alarm.id} missed with deposit! Penalty will be applied.")
@@ -214,11 +214,11 @@ class AlarmRepository @Inject constructor(
                 }
             }
         }
-        
+
         Log.i(TAG, "Restored ${alarms.size - missedCount} alarms, $missedCount missed")
         return missedCount
     }
-    
+
     /**
      * Ensure stats row exists.
      */
@@ -248,7 +248,7 @@ class AlarmRepository @Inject constructor(
             Log.w(TAG, "Queued slash for alarm ${alarm.id}")
         }
     }
-    
+
     /**
      * Update onchain PDA address after successful transaction.
      */
@@ -257,7 +257,7 @@ class AlarmRepository @Inject constructor(
         alarmDao.update(alarm.copy(onchainPubkey = pdaAddress))
         Log.i(TAG, "Alarm $id onchain address updated: $pdaAddress")
     }
-    
+
     /**
      * Update deposit status (e.g., if user skips signing).
      */

@@ -29,7 +29,7 @@ class SettingsViewModel @Inject constructor(
     private val alarmRepository: AlarmRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-    
+
     companion object {
         val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
         val KEY_QR_CODE = stringPreferencesKey("qr_code")
@@ -38,13 +38,13 @@ class SettingsViewModel @Inject constructor(
         val KEY_DEFAULT_DEPOSIT = stringPreferencesKey("default_deposit")
         val KEY_DEFAULT_PENALTY = intPreferencesKey("default_penalty")
     }
-    
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
-    
+
     init {
         // Load saved settings
         viewModelScope.launch {
@@ -65,7 +65,7 @@ class SettingsViewModel @Inject constructor(
                 rpcClient.setNetwork(!isDevnet)
             }
         }
-        
+
         // Observe wallet connection state
         viewModelScope.launch {
             walletManager.connectionState.collect { state ->
@@ -75,7 +75,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     suspend fun connect(activityResultSender: com.solana.mobilewalletadapter.clientlib.ActivityResultSender) {
         walletManager.connect(activityResultSender)
             .onSuccess { pubkey ->
@@ -84,12 +84,12 @@ class SettingsViewModel @Inject constructor(
                 )
             }
     }
-    
+
     fun disconnect() {
         walletManager.disconnect()
         _uiState.value = _uiState.value.copy(walletAddress = null)
     }
-    
+
     fun setDevnet(enabled: Boolean) {
         val wasDevnet = _uiState.value.isDevnet
         _uiState.value = _uiState.value.copy(isDevnet = enabled)
@@ -105,11 +105,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun setVibration(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(vibrationEnabled = enabled)
     }
-    
+
     fun setDefaultSteps(steps: Int) {
         _uiState.value = _uiState.value.copy(defaultSteps = steps)
         viewModelScope.launch {
@@ -118,7 +118,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun setDefaultDeposit(sol: Double) {
         _uiState.value = _uiState.value.copy(defaultDepositSol = sol)
         viewModelScope.launch {
@@ -127,7 +127,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun setDefaultPenalty(penalty: Int) {
         _uiState.value = _uiState.value.copy(defaultPenalty = penalty)
         viewModelScope.launch {
@@ -136,7 +136,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Register NFC tag hash for wake proof.
      */
@@ -151,7 +151,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
-    
+
     /**
      * Clear registered NFC tag.
      */
@@ -166,7 +166,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
-    
+
     /**
      * Generate new QR code for wake proof.
      */
@@ -183,7 +183,7 @@ class SettingsViewModel @Inject constructor(
         }
         return code
     }
-    
+
     /**
      * Clear registered QR code.
      */
@@ -226,18 +226,18 @@ data class SettingsUiState(
     // Wallet
     val walletAddress: String? = null,
     val isDevnet: Boolean = true,
-    
+
     // Alarm Defaults
     val defaultSteps: Int = 50,
     val defaultDepositSol: Double = 0.1,
     val defaultPenalty: Int = 0, // 0=burn, 1=donate, 2=buddy
-    
+
     // Wake Proof
     val nfcTagRegistered: Boolean = false,
     val nfcTagHash: String? = null,
     val qrCodeRegistered: Boolean = false,
     val qrCode: String? = null,
-    
+
     // Sound
     val soundName: String = "Sunrise Glow",
     val vibrationEnabled: Boolean = true

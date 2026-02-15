@@ -20,7 +20,7 @@ class TransactionBuilder @Inject constructor(
 ) {
     companion object {
         private const val TAG = "Solarma.TxBuilder"
-        
+
         // Burn sink address (matches BURN_SINK in constants.rs)
         val BURN_SINK = PublicKey("1nc1nerator11111111111111111111111111111111")
 
@@ -68,7 +68,7 @@ class TransactionBuilder @Inject constructor(
             data = data
         )
     }
-    
+
     /**
      * Build create_alarm transaction.
      * Returns serialized transaction ready for MWA signing.
@@ -83,7 +83,7 @@ class TransactionBuilder @Inject constructor(
         buddyAddress: PublicKey? = null
     ): ByteArray = withContext(Dispatchers.IO) {
         Log.i(TAG, "Building create_alarm tx: alarmId=$alarmId, deposit=$depositLamports")
-        
+
         val instruction = instructionBuilder.buildCreateAlarm(
             owner = owner,
             alarmId = alarmId,
@@ -97,10 +97,10 @@ class TransactionBuilder @Inject constructor(
                 else -> null
             }
         )
-        
+
         buildTransaction(owner, instruction)
     }
-    
+
     /**
      * Build claim transaction.
      */
@@ -109,7 +109,7 @@ class TransactionBuilder @Inject constructor(
         alarmId: Long
     ): ByteArray = withContext(Dispatchers.IO) {
         Log.i(TAG, "Building claim tx: alarmId=$alarmId")
-        
+
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
         buildClaimTransactionByPubkey(owner, alarmPda.address)
     }
@@ -130,7 +130,7 @@ class TransactionBuilder @Inject constructor(
 
         buildTransaction(owner, instruction)
     }
-    
+
     /**
      * H3: Build ack_awake transaction to record wake proof on-chain.
      */
@@ -147,7 +147,7 @@ class TransactionBuilder @Inject constructor(
 
         buildTransaction(owner, instruction)
     }
-    
+
     /**
      * Build snooze transaction.
      */
@@ -157,7 +157,7 @@ class TransactionBuilder @Inject constructor(
         snoozeCount: Int = 0
     ): ByteArray = withContext(Dispatchers.IO) {
         Log.i(TAG, "Building snooze tx: alarmId=$alarmId")
-        
+
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
         buildSnoozeTransactionByPubkey(owner, alarmPda.address, snoozeCount)
     }
@@ -181,7 +181,7 @@ class TransactionBuilder @Inject constructor(
 
         buildTransaction(owner, instruction)
     }
-    
+
     /**
      * Build emergency_refund transaction.
      */
@@ -190,7 +190,7 @@ class TransactionBuilder @Inject constructor(
         alarmId: Long
     ): ByteArray = withContext(Dispatchers.IO) {
         Log.i(TAG, "Building emergency_refund tx: alarmId=$alarmId")
-        
+
         val alarmPda = instructionBuilder.deriveAlarmPda(owner, alarmId)
         buildEmergencyRefundTransactionByPubkey(owner, alarmPda.address)
     }
@@ -257,7 +257,7 @@ class TransactionBuilder @Inject constructor(
 
         buildTransaction(owner, instruction)
     }
-    
+
     /**
      * Build and serialize a transaction with compute budget instructions.
      */
@@ -282,20 +282,20 @@ class TransactionBuilder @Inject constructor(
         sortedAccounts.forEachIndexed { i, acc ->
             Log.d(TAG, "  [$i] ${acc.pubkey.toBase58()} signer=${acc.isSigner} writable=${acc.isWritable}")
         }
-        
+
         // Log instruction accounts order
         Log.d(TAG, "Instruction accounts order:")
         instruction.accounts.forEachIndexed { i, meta ->
             val idx = sortedAccounts.indexOfFirst { it.pubkey.toBase58() == meta.pubkey.toBase58() }
             Log.d(TAG, "  [$i] -> index $idx (${meta.pubkey.toBase58()})")
         }
-        
+
         // Log instruction data
         Log.d(TAG, "Instruction data (${instruction.data.size} bytes): ${instruction.data.joinToString("") { "%02x".format(it) }}")
-        
+
         // Build message with all instructions
         val message = buildMessage(blockhash, sortedAccounts, allInstructions)
-        
+
         // Return message for MWA signing
         val tx = buildUnsignedTransaction(message)
         Log.i(TAG, "Final TX size: ${tx.size} bytes (3 instructions: 2 compute budget + 1 program)")
@@ -325,7 +325,7 @@ class TransactionBuilder @Inject constructor(
         val message = buildMessage(recentBlockhash, sortedAccounts, instructions)
         return buildUnsignedTransaction(message)
     }
-    
+
     /**
      * Account info for sorting and header computation
      */
@@ -334,7 +334,7 @@ class TransactionBuilder @Inject constructor(
         val isSigner: Boolean,
         val isWritable: Boolean
     )
-    
+
     /**
      * Build unique sorted account metas list from multiple instructions.
      * Solana ordering: writable signers, readonly signers, writable non-signers, readonly non-signers
@@ -344,10 +344,10 @@ class TransactionBuilder @Inject constructor(
         instructions: List<SolarmaInstruction>
     ): List<SortedAccountMeta> {
         val accountMap = mutableMapOf<String, SortedAccountMeta>()
-        
+
         // Fee payer is always first signer and writable
         accountMap[feePayer.toBase58()] = SortedAccountMeta(feePayer, isSigner = true, isWritable = true)
-        
+
         for (instruction in instructions) {
             // Add instruction accounts
             for (meta in instruction.accounts) {
@@ -371,10 +371,10 @@ class TransactionBuilder @Inject constructor(
                 accountMap[programKey] = SortedAccountMeta(instruction.programId, isSigner = false, isWritable = false)
             }
         }
-        
+
         // Sort according to Solana rules:
         // 1. Writable signers
-        // 2. Readonly signers  
+        // 2. Readonly signers
         // 3. Writable non-signers
         // 4. Readonly non-signers
         return accountMap.values.sortedWith(compareBy(
@@ -383,7 +383,7 @@ class TransactionBuilder @Inject constructor(
             { it.pubkey.toBase58() }    // Stable sort by address
         ))
     }
-    
+
     /**
      * Build transaction message with proper Solana serialization.
      * Supports multiple instructions (e.g., compute budget + program instruction).
@@ -397,7 +397,7 @@ class TransactionBuilder @Inject constructor(
         var numSigners = 0
         var numReadOnlySigners = 0
         var numReadOnlyNonSigners = 0
-        
+
         for (acc in sortedAccounts) {
             if (acc.isSigner) {
                 numSigners++
@@ -406,26 +406,26 @@ class TransactionBuilder @Inject constructor(
                 if (!acc.isWritable) numReadOnlyNonSigners++
             }
         }
-        
+
         val buffer = ByteBuffer.allocate(2048).order(ByteOrder.LITTLE_ENDIAN)
-        
+
         // Message Header: 3 bytes
         // [num_required_signatures, num_readonly_signed_accounts, num_readonly_unsigned_accounts]
         buffer.put(numSigners.toByte())
         buffer.put(numReadOnlySigners.toByte())
         buffer.put(numReadOnlyNonSigners.toByte())
-        
+
         // Account keys array with compact-u16 length
         val accountKeys = sortedAccounts.map { it.pubkey }
         writeCompactU16(buffer, accountKeys.size)
         for (key in accountKeys) {
             buffer.put(key.bytes())
         }
-        
+
         // Recent blockhash (32 bytes)
         val blockhashBytes = decodeBase58(blockhash)
         buffer.put(blockhashBytes)
-        
+
         // Instructions array with compact-u16 length
         writeCompactU16(buffer, instructions.size)
 
@@ -448,14 +448,14 @@ class TransactionBuilder @Inject constructor(
             writeCompactU16(buffer, instruction.data.size)
             buffer.put(instruction.data)
         }
-        
+
         // Return trimmed array
         val result = ByteArray(buffer.position())
         buffer.flip()
         buffer.get(result)
         return result
     }
-    
+
     /**
      * Write a compact-u16 encoded integer.
      * Solana uses this for variable-length encoding.
@@ -474,7 +474,7 @@ class TransactionBuilder @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Build unsigned transaction for MWA.
      * MWA signAndSendTransactions expects full transaction with signature placeholder.
@@ -483,7 +483,7 @@ class TransactionBuilder @Inject constructor(
     private fun buildUnsignedTransaction(message: ByteArray): ByteArray {
         Log.d(TAG, "Message size: ${message.size} bytes")
         Log.d(TAG, "Message header: ${message.take(10).joinToString(" ") { "%02x".format(it) }}")
-        
+
         // Transaction format: [sig_count] + [signatures...] + [message]
         // sig_count = 1 (compact-u16, fits in 1 byte for values < 128)
         // signature = 64 bytes of zeros (wallet will fill in)
@@ -491,13 +491,13 @@ class TransactionBuilder @Inject constructor(
         tx.put(0x01.toByte())  // 1 signature required
         tx.put(ByteArray(64))   // Empty signature placeholder
         tx.put(message)
-        
+
         val result = tx.array()
         Log.d(TAG, "Full TX size: ${result.size} bytes (1 + 64 + ${message.size})")
         Log.d(TAG, "TX start: ${result.take(10).joinToString(" ") { "%02x".format(it) }}")
         return result
     }
-    
+
     /**
      * Decode Base58 string to 32 bytes.
      * Uses sol4k's PublicKey decoder which correctly handles leading zero bytes

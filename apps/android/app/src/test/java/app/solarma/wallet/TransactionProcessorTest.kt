@@ -6,7 +6,7 @@ import org.junit.Test
 /**
  * Tests for TransactionProcessor.computeSnoozeCost — pure math that mirrors
  * the Rust on-chain logic: baseCost = remaining * 10% then doubled per snooze.
- * 
+ *
  * OnchainParameters constants are validated separately in OnchainParametersTest.
  */
 class TransactionProcessorTest {

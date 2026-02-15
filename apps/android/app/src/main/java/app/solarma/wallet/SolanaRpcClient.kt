@@ -20,10 +20,10 @@ import javax.inject.Singleton
  */
 @Singleton
 class SolanaRpcClient @Inject constructor() {
-    
+
     companion object {
         private const val TAG = "Solarma.RpcClient"
-        
+
         // Default Devnet RPC endpoints (fallback order)
         private val DEFAULT_DEVNET_ENDPOINTS = listOf(
             "https://api.devnet.solana.com",
@@ -31,7 +31,7 @@ class SolanaRpcClient @Inject constructor() {
             "https://rpc-devnet.solflare.com",
             "https://devnet.genesysgo.net"
         )
-        
+
         // Default Mainnet RPC endpoints (fallback order)
         private val DEFAULT_MAINNET_ENDPOINTS = listOf(
             "https://api.mainnet-beta.solana.com",
@@ -42,11 +42,11 @@ class SolanaRpcClient @Inject constructor() {
         private const val BASE_BACKOFF_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L
     }
-    
+
     private var isMainnet: Boolean = false
     private val endpointFailureCount = mutableMapOf<String, Int>()
     private val endpointLastFailedAt = mutableMapOf<String, Long>()
-    
+
     internal fun parseEndpoints(raw: String): List<String> {
         return raw.split(',')
             .map { it.trim() }
@@ -63,12 +63,12 @@ class SolanaRpcClient @Inject constructor() {
 
     private val currentEndpoints: List<String>
         get() = if (isMainnet) mainnetEndpoints else devnetEndpoints
-    
+
     fun setNetwork(mainnet: Boolean) {
         isMainnet = mainnet
         Log.i(TAG, "Network set to: ${if (mainnet) "Mainnet" else "Devnet"}")
     }
-    
+
     /**
      * Get account balance in lamports.
      */
@@ -86,7 +86,7 @@ class SolanaRpcClient @Inject constructor() {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Get latest blockhash for transaction.
      * Throws on error for use in TransactionBuilder.
@@ -99,7 +99,7 @@ class SolanaRpcClient @Inject constructor() {
         val result = parseResultObject(response)
         val blockhash = result.getJSONObject("value").getString("blockhash")
         Log.d(TAG, "Parsed blockhash: $blockhash")
-        
+
         if (blockhash.isNotEmpty() && blockhash.length >= 32 && blockhash.length <= 44) {
             blockhash
         } else {
@@ -107,7 +107,7 @@ class SolanaRpcClient @Inject constructor() {
             throw Exception("Invalid blockhash response: $blockhash")
         }
     }
-    
+
     /**
      * Get account info.
      */
@@ -125,7 +125,7 @@ class SolanaRpcClient @Inject constructor() {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Confirm transaction signature.
      */
@@ -223,7 +223,7 @@ class SolanaRpcClient @Inject constructor() {
                 Result.failure(e)
             }
         }
-    
+
     /**
      * Send signed transaction to network.
      */
@@ -318,13 +318,13 @@ class SolanaRpcClient @Inject constructor() {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Make RPC call with automatic fallback to next endpoint on failure.
      */
     private fun makeRpcCallWithFallback(method: String, params: String): String {
         val errors = mutableListOf<String>()
-        
+
         val now = System.currentTimeMillis()
         for ((index, endpoint) in currentEndpoints.withIndex()) {
             try {
@@ -354,22 +354,22 @@ class SolanaRpcClient @Inject constructor() {
                 // Continue to next endpoint
             }
         }
-        
+
         // All endpoints failed
         throw Exception("All RPC endpoints failed:\n${errors.joinToString("\n")}")
     }
-    
+
     private fun makeRpcCall(rpcUrl: String, method: String, params: String): String {
         val url = URL(rpcUrl)
         val connection = url.openConnection() as HttpURLConnection
-        
+
         return try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.connectTimeout = 5000  // 5 second timeout
             connection.readTimeout = 10000    // 10 second read timeout
             connection.doOutput = true
-            
+
             val paramsStr = if (params.isEmpty()) "[]" else params
             val bodyJson = JSONObject().apply {
                 put("jsonrpc", "2.0")
@@ -379,7 +379,7 @@ class SolanaRpcClient @Inject constructor() {
             }
             val body = bodyJson.toString()
             connection.outputStream.write(body.toByteArray())
-            
+
             if (connection.responseCode == 200) {
                 connection.inputStream.bufferedReader().readText()
             } else {
@@ -408,7 +408,7 @@ class SolanaRpcClient @Inject constructor() {
         }
         return json.opt("result")
     }
-    
+
     /**
      * H2: Check clock drift between device and Solana network.
      * Compares device wall clock with the on-chain block time of the latest slot.
@@ -424,7 +424,7 @@ class SolanaRpcClient @Inject constructor() {
             )
             val slot = parseResultValue(slotResponse) as? Number
                 ?: return@withContext null
-            
+
             // Get block time for that slot
             val blockTimeResponse = makeRpcCallWithFallback(
                 method = "getBlockTime",
@@ -432,16 +432,16 @@ class SolanaRpcClient @Inject constructor() {
             )
             val blockTimeUnix = parseResultValue(blockTimeResponse) as? Number
                 ?: return@withContext null
-            
+
             val deviceTimeUnix = System.currentTimeMillis() / 1000
             val drift = deviceTimeUnix - blockTimeUnix.toLong()
-            
+
             Log.i(TAG, "Time drift: device=$deviceTimeUnix, chain=${blockTimeUnix.toLong()}, drift=${drift}s")
-            
+
             if (kotlin.math.abs(drift) > 300) { // 5 minutes
                 Log.w(TAG, "⚠️ Significant time drift detected: ${drift}s. Alarm deadlines may be missed!")
             }
-            
+
             drift
         } catch (e: Exception) {
             Log.e(TAG, "checkTimeDrift failed", e)

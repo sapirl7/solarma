@@ -32,24 +32,24 @@ fun QrCameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     val previewView = remember { PreviewView(context) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    
+
     DisposableEffect(Unit) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        
+
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
-                
+
                 // Preview use case
                 val preview = Preview.Builder()
                     .build()
                     .also {
                         it.surfaceProvider = previewView.surfaceProvider
                     }
-                
+
                 // Image analysis for QR scanning
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -57,10 +57,10 @@ fun QrCameraPreview(
                     .also {
                         it.setAnalyzer(cameraExecutor, qrScanner.createAnalyzer())
                     }
-                
+
                 // Select back camera
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-                
+
                 // Unbind and rebind
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
@@ -69,18 +69,18 @@ fun QrCameraPreview(
                     preview,
                     imageAnalyzer
                 )
-                
+
                 Log.d("QrCameraPreview", "Camera bound successfully")
             } catch (e: Exception) {
                 Log.e("QrCameraPreview", "Camera binding failed", e)
             }
         }, ContextCompat.getMainExecutor(context))
-        
+
         onDispose {
             cameraExecutor.shutdown()
         }
     }
-    
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
@@ -89,7 +89,7 @@ fun QrCameraPreview(
             factory = { previewView },
             modifier = Modifier.fillMaxSize()
         )
-        
+
         // Scan indicator overlay
         Box(
             modifier = Modifier

@@ -23,11 +23,11 @@ class AlarmScheduler @Inject constructor(
         private const val REQUEST_CODE_BASE = 10000
         private const val REQUEST_CODE_MOD = 1_000_000
     }
-    
+
     private val alarmManager: AlarmManager by lazy {
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     }
-    
+
     /**
      * Schedule an alarm for the given time.
      * @param alarmId Unique identifier for the alarm
@@ -37,14 +37,14 @@ class AlarmScheduler @Inject constructor(
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
         }
-        
+
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCodeFor(alarmId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         // Use setExactAndAllowWhileIdle for maximum reliability
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Android 12+: Check canScheduleExactAlarms
@@ -74,7 +74,7 @@ class AlarmScheduler @Inject constructor(
             Log.i(TAG, "Alarm scheduled: id=$alarmId, time=$triggerAtMillis")
         }
     }
-    
+
     /**
      * Cancel a scheduled alarm.
      */
@@ -86,11 +86,11 @@ class AlarmScheduler @Inject constructor(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         alarmManager.cancel(pendingIntent)
         Log.i(TAG, "Alarm cancelled: id=$alarmId")
     }
-    
+
     /**
      * Check if exact alarms can be scheduled (Android 12+).
      */

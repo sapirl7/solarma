@@ -24,16 +24,16 @@ class HomeViewModel @Inject constructor(
     private val walletManager: WalletManager,
     private val rpcClient: SolanaRpcClient
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-    
+
     init {
         observeAlarms()
         observeStats()
         observeWallet()
     }
-    
+
     private fun observeAlarms() {
         viewModelScope.launch {
             alarmDao.getAllAlarms().collect { alarms ->
@@ -41,12 +41,12 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-    
+
     private fun observeStats() {
         viewModelScope.launch {
             statsDao.getStats().collect { stats ->
                 if (stats != null) {
-                    _uiState.update { 
+                    _uiState.update {
                         it.copy(
                             currentStreak = stats.currentStreak,
                             totalWakes = stats.totalWakes,
@@ -57,13 +57,13 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-    
+
     private fun observeWallet() {
         viewModelScope.launch {
             walletManager.connectionState.collect { state ->
                 when (state) {
                     is WalletConnectionState.Connected -> {
-                        _uiState.update { 
+                        _uiState.update {
                             it.copy(
                                 walletConnected = true,
                                 walletAddress = state.publicKeyBase58
@@ -73,7 +73,7 @@ class HomeViewModel @Inject constructor(
                         fetchBalance(state.publicKey)
                     }
                     else -> {
-                        _uiState.update { 
+                        _uiState.update {
                             it.copy(walletConnected = false, walletBalance = null, walletAddress = null)
                         }
                     }
@@ -81,18 +81,18 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-    
+
     private fun fetchBalance(publicKey: ByteArray) {
         viewModelScope.launch {
             val pubkeyBase58 = publicKey.toBase58()
             rpcClient.getBalance(pubkeyBase58).onSuccess { lamports ->
-                _uiState.update { 
+                _uiState.update {
                     it.copy(walletBalance = lamports / 1_000_000_000.0)
                 }
             }
         }
     }
-    
+
     fun connectWallet(activityResultSender: com.solana.mobilewalletadapter.clientlib.ActivityResultSender) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -109,7 +109,7 @@ class HomeViewModel @Inject constructor(
             )
         }
     }
-    
+
     /**
      * Toggle alarm enabled/disabled.
      */
@@ -118,7 +118,7 @@ class HomeViewModel @Inject constructor(
             alarmDao.setEnabled(alarmId, enabled)
         }
     }
-    
+
     /**
      * Delete an alarm.
      * Blocks deletion if alarm has an active onchain deposit.
@@ -136,14 +136,14 @@ class HomeViewModel @Inject constructor(
             alarmDao.deleteById(alarmId)
         }
     }
-    
+
     /**
      * Clear error message.
      */
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
-    
+
     private fun ByteArray.toBase58(): String {
         val alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         var num = java.math.BigInteger(1, this)

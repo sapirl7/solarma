@@ -29,14 +29,14 @@ class QrScanner @Inject constructor(
     companion object {
         private const val TAG = "Solarma.QrScanner"
     }
-    
+
     private val _scanResult = MutableStateFlow<QrScanResult>(QrScanResult.Idle)
     val scanResult: StateFlow<QrScanResult> = _scanResult.asStateFlow()
-    
+
     private var expectedCode: String? = null
     private var cameraExecutor: ExecutorService? = null
     private var imageAnalyzer: ImageAnalysis? = null
-    
+
     /**
      * Start waiting for QR code scan.
      * @param code Expected QR code to validate against
@@ -46,14 +46,14 @@ class QrScanner @Inject constructor(
         _scanResult.value = QrScanResult.Waiting
         Log.d(TAG, "Started QR scanning for code: $code")
     }
-    
+
     /**
      * Create image analyzer for camera preview.
      */
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     fun createAnalyzer(): ImageAnalysis.Analyzer {
         val scanner = BarcodeScanning.getClient()
-        
+
         return ImageAnalysis.Analyzer { imageProxy ->
             val mediaImage = imageProxy.image
             if (mediaImage != null && expectedCode != null) {
@@ -61,14 +61,14 @@ class QrScanner @Inject constructor(
                     mediaImage,
                     imageProxy.imageInfo.rotationDegrees
                 )
-                
+
                 scanner.process(image)
                     .addOnSuccessListener { barcodes ->
                         for (barcode in barcodes) {
                             val rawValue = barcode.rawValue
                             if (rawValue != null) {
                                 Log.d(TAG, "QR code scanned: $rawValue")
-                                
+
                                 if (rawValue == expectedCode) {
                                     _scanResult.value = QrScanResult.Success
                                     Log.i(TAG, "QR code validated!")
@@ -90,7 +90,7 @@ class QrScanner @Inject constructor(
             }
         }
     }
-    
+
     fun stopScanning() {
         expectedCode = null
         _scanResult.value = QrScanResult.Idle

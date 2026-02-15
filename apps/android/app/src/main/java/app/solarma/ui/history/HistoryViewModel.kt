@@ -16,11 +16,11 @@ import javax.inject.Inject
 class HistoryViewModel @Inject constructor(
     private val transactionDao: PendingTransactionDao
 ) : ViewModel() {
-    
-    val transactions: StateFlow<List<PendingTransaction>> = 
+
+    val transactions: StateFlow<List<PendingTransaction>> =
         transactionDao.getAllTransactions()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    
+
     /**
      * Delete a confirmed transaction from history.
      */

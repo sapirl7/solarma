@@ -26,36 +26,36 @@ import javax.inject.Singleton
 class WalletManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    
+
     companion object {
         private const val TAG = "Solarma.WalletManager"
-        
+
         // Solarma app identity
         private const val APP_IDENTITY_NAME = "Solarma"
         private val APP_IDENTITY_URI = "https://solarma.app".toUri()
         // Icon must be relative URI for MWA (relative to identityUri)
         private val APP_IDENTITY_ICON = "/icon.png".toUri()
-        
+
         // SharedPreferences
         private const val PREFS_NAME = "solarma_wallet"
         private const val KEY_WALLET_ADDRESS = "wallet_address"
     }
-    
+
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
-    
+
     private val _connectionState = MutableStateFlow<WalletConnectionState>(WalletConnectionState.Disconnected)
     val connectionState: StateFlow<WalletConnectionState> = _connectionState.asStateFlow()
-    
+
     private var publicKey: ByteArray? = null
     private var publicKeyBase58: String? = null
-    
+
     init {
         // Restore wallet from SharedPreferences on init
         restoreWalletFromPrefs()
     }
-    
+
     private fun restoreWalletFromPrefs() {
         val savedAddress = prefs.getString(KEY_WALLET_ADDRESS, null)
         if (savedAddress != null) {
@@ -74,17 +74,17 @@ class WalletManager @Inject constructor(
             }
         }
     }
-    
+
     private fun saveWalletToPrefs(address: String) {
         prefs.edit { putString(KEY_WALLET_ADDRESS, address) }
         Log.d(TAG, "Wallet address saved to prefs")
     }
-    
+
     private fun clearWalletPrefs() {
         prefs.edit { remove(KEY_WALLET_ADDRESS) }
         Log.d(TAG, "Wallet prefs cleared")
     }
-    
+
     // MWA adapter instance
     private val mobileWalletAdapter by lazy {
         MobileWalletAdapter(
@@ -97,7 +97,7 @@ class WalletManager @Inject constructor(
             blockchain = Solana.Devnet
         }
     }
-    
+
     /**
      * Connect to wallet using MWA on Seeker device.
      * This will open the native wallet for authorization.
@@ -108,7 +108,7 @@ class WalletManager @Inject constructor(
         return try {
             _connectionState.value = WalletConnectionState.Connecting
             Log.i(TAG, "Starting MWA connection...")
-            
+
             when (val result = mobileWalletAdapter.connect(activityResultSender)) {
                 is TransactionResult.Success -> {
                     val authResult = result.authResult
@@ -116,10 +116,10 @@ class WalletManager @Inject constructor(
                         val account = authResult.accounts.first()
                         val pubKeyBytes = account.publicKey
                         val pubKeyString = toBase58(pubKeyBytes)
-                        
+
                         publicKey = pubKeyBytes
                         publicKeyBase58 = pubKeyString
-                        
+
                         _connectionState.value = WalletConnectionState.Connected(
                             publicKey = pubKeyBytes,
                             publicKeyBase58 = pubKeyString,
@@ -151,7 +151,7 @@ class WalletManager @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Sign and send a transaction using MWA.
      * Returns the transaction signature as Base58.
@@ -163,9 +163,9 @@ class WalletManager @Inject constructor(
         if (!isConnected()) {
             return Result.failure(Exception("Wallet not connected"))
         }
-        
+
         Log.i(TAG, "Signing and sending transaction...")
-        
+
         return when (val result = mobileWalletAdapter.transact(activityResultSender) { authResult ->
             val response = signAndSendTransactions(arrayOf(transaction))
             response.signatures.firstOrNull()
@@ -189,7 +189,7 @@ class WalletManager @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Sign transaction without sending (for inspection or custom RPC).
      */
@@ -200,9 +200,9 @@ class WalletManager @Inject constructor(
         if (!isConnected()) {
             return Result.failure(Exception("Wallet not connected"))
         }
-        
+
         Log.i(TAG, "Signing transaction...")
-        
+
         return when (val result = mobileWalletAdapter.transact(activityResultSender) { authResult ->
             val response = signTransactions(arrayOf(transaction))
             response.signedPayloads.firstOrNull()
@@ -225,7 +225,7 @@ class WalletManager @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Disconnect wallet and clear stored credentials.
      */
@@ -245,22 +245,22 @@ class WalletManager @Inject constructor(
         mobileWalletAdapter.blockchain = if (isDevnet) Solana.Devnet else Solana.Mainnet
         Log.i(TAG, "MWA network set to: ${if (isDevnet) "Devnet" else "Mainnet"}")
     }
-    
+
     /**
      * Check if wallet is connected.
      */
     fun isConnected(): Boolean = connectionState.value is WalletConnectionState.Connected
-    
+
     /**
      * Get connected public key bytes.
      */
     fun getPublicKey(): ByteArray? = publicKey
-    
+
     /**
      * Get connected public key as Base58 string.
      */
     fun getConnectedWallet(): String? = publicKeyBase58
-    
+
     /**
      * Encode bytes to Base58.
      */
@@ -279,7 +279,7 @@ class WalletManager @Inject constructor(
         }
         return sb.toString()
     }
-    
+
     /**
      * Decode Base58 string to bytes.
      */
@@ -291,17 +291,17 @@ class WalletManager @Inject constructor(
             if (index < 0) throw IllegalArgumentException("Invalid Base58 character: $char")
             num = num.multiply(java.math.BigInteger.valueOf(58)).add(java.math.BigInteger.valueOf(index.toLong()))
         }
-        
+
         // Convert to bytes
         var bytes = num.toByteArray()
         // Remove leading zero if present (from BigInteger sign bit)
         if (bytes.isNotEmpty() && bytes[0] == 0.toByte()) {
             bytes = bytes.copyOfRange(1, bytes.size)
         }
-        
+
         // Count leading '1's in input (they represent leading zeros)
         val leadingZeros = input.takeWhile { it == '1' }.length
-        
+
         // Prepend leading zeros
         return ByteArray(leadingZeros) + bytes
     }
@@ -321,7 +321,7 @@ sealed class WalletConnectionState {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Connected) return false
-            return publicKey.contentEquals(other.publicKey) && 
+            return publicKey.contentEquals(other.publicKey) &&
                    publicKeyBase58 == other.publicKeyBase58 &&
                    walletName == other.walletName
         }

@@ -39,13 +39,13 @@ fun HistoryScreen(
     onBack: () -> Unit = {}
 ) {
     val transactions by viewModel.transactions.collectAsState()
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             "Transaction History",
                             fontWeight = FontWeight.Bold,
@@ -102,11 +102,11 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
-                    
+
                     items(transactions, key = { it.id }) { tx ->
                         TransactionCard(tx)
                     }
-                    
+
                     item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
             }
@@ -117,7 +117,7 @@ fun HistoryScreen(
 @Composable
 fun TransactionCard(tx: PendingTransaction) {
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
-    
+
     val (iconText, label, color) = when (tx.type) {
         "CREATE_ALARM" -> {
             val title = if (tx.status == "CONFIRMED") "Deposit" else "Deposit Pending"
@@ -129,14 +129,14 @@ fun TransactionCard(tx: PendingTransaction) {
         "EMERGENCY_REFUND" -> Triple("REF", "Emergency Refund", SolanaPurple)
         else -> Triple("TX", tx.type, TextSecondary)
     }
-    
+
     val statusColor = when (tx.status) {
         "CONFIRMED" -> SolanaGreen
         "PENDING", "SENDING" -> SolanaPurple
         "FAILED" -> ErrorCrimson
         else -> TextMuted
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = SolarmaShapes.medium,
@@ -162,15 +162,15 @@ fun TransactionCard(tx: PendingTransaction) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    iconText, 
-                    fontSize = 12.sp, 
+                    iconText,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = color
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -193,7 +193,7 @@ fun TransactionCard(tx: PendingTransaction) {
                     )
                 }
             }
-            
+
             // Status chip
             Surface(
                 shape = SolarmaShapes.small,

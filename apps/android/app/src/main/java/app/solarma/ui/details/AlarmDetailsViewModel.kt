@@ -23,17 +23,17 @@ class AlarmDetailsViewModel @Inject constructor(
     private val onchainAlarmService: OnchainAlarmService,
     private val pendingTransactionDao: PendingTransactionDao
 ) : ViewModel() {
-    
+
     private val _alarm = MutableStateFlow<AlarmEntity?>(null)
     val alarm: StateFlow<AlarmEntity?> = _alarm.asStateFlow()
-    
+
     private val _refundState = MutableStateFlow<RefundState>(RefundState.Idle)
     val refundState: StateFlow<RefundState> = _refundState.asStateFlow()
 
     private val _pendingCreate = MutableStateFlow(false)
     val pendingCreate: StateFlow<Boolean> = _pendingCreate.asStateFlow()
     private var pendingJob: Job? = null
-    
+
     fun loadAlarm(id: Long) {
         viewModelScope.launch {
             _alarm.value = alarmRepository.getAlarm(id)
@@ -46,17 +46,17 @@ class AlarmDetailsViewModel @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Request emergency refund for deposit.
      */
     fun requestEmergencyRefund(activityResultSender: ActivityResultSender) {
         val currentAlarm = _alarm.value ?: return
         if (!currentAlarm.hasDeposit || currentAlarm.onchainPubkey == null) return
-        
+
         viewModelScope.launch {
             _refundState.value = RefundState.Processing
-            
+
             onchainAlarmService.emergencyRefund(activityResultSender, currentAlarm)
                 .onSuccess { signature ->
                     // Update local alarm and stats
@@ -78,10 +78,10 @@ class AlarmDetailsViewModel @Inject constructor(
                 }
         }
     }
-    
+
     private val _deleteState = MutableStateFlow<DeleteState>(DeleteState.Idle)
     val deleteState: StateFlow<DeleteState> = _deleteState.asStateFlow()
-    
+
     fun deleteAlarm() {
         viewModelScope.launch {
             _alarm.value?.let { alarm ->
@@ -94,11 +94,11 @@ class AlarmDetailsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun resetDeleteState() {
         _deleteState.value = DeleteState.Idle
     }
-    
+
     fun resetRefundState() {
         _refundState.value = RefundState.Idle
     }

@@ -29,33 +29,33 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class AlarmService : Service() {
-    
+
     companion object {
         private const val TAG = "Solarma.AlarmService"
         const val ACTION_ALARM_TRIGGERED = "app.solarma.ALARM_TRIGGERED"
         const val ACTION_RESTORE_ALARMS = "app.solarma.RESTORE_ALARMS"
         const val ACTION_STOP_ALARM = "app.solarma.STOP_ALARM"
         const val ACTION_SNOOZE = "app.solarma.SNOOZE"
-        
+
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "solarma_alarm_channel"
         private const val WAKELOCK_TAG = "Solarma:AlarmWakeLock"
     }
-    
+
     @Inject
     lateinit var alarmRepository: AlarmRepository
-    
+
     private var wakeLock: PowerManager.WakeLock? = null
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var currentAlarmId: Long = -1
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
     }
-    
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_ALARM_TRIGGERED -> {
@@ -76,12 +76,12 @@ class AlarmService : Service() {
                 Log.w(TAG, "Unknown action: ${intent?.action}")
             }
         }
-        
+
         return START_NOT_STICKY
     }
-    
+
     override fun onBind(intent: Intent?): IBinder? = null
-    
+
     private fun handleAlarmTriggered(alarmId: Long) {
         Log.i(TAG, "Handling alarm: id=$alarmId")
         currentAlarmId = alarmId
@@ -95,22 +95,22 @@ class AlarmService : Service() {
                 SlashAlarmWorker.enqueue(applicationContext, alarmId, delay)
             }
         }
-        
+
         // Acquire wake lock
         acquireWakeLock()
-        
+
         // Start foreground with notification
         val notification = buildAlarmNotification()
         startForeground(NOTIFICATION_ID, notification)
-        
+
         // Start alarm sound and vibration
         startAlarmSound()
         startVibration()
-        
+
         // Launch full-screen alarm activity
         launchAlarmActivity(alarmId)
     }
-    
+
     private fun restoreAlarms() {
         Log.i(TAG, "Restoring alarms after boot")
         serviceScope.launch {
@@ -122,23 +122,23 @@ class AlarmService : Service() {
             }
         }
     }
-    
+
     private fun handleSnooze() {
         Log.i(TAG, "Snooze requested for alarm: $currentAlarmId")
         // Stop current alarm sounds
         stopAlarmSound()
         stopVibration()
-        
+
         // NOTE: Do NOT call alarmRepository.snooze() here.
         // AlarmActivity.snoozeAlarm() already handles snooze logic
         // (reschedule + on-chain transaction). Calling it here too
         // would double-snooze and double-charge the on-chain penalty.
-        
+
         stopForeground(STOP_FOREGROUND_REMOVE)
         releaseWakeLock()
         stopSelf()
     }
-    
+
     fun stopAlarm() {
         Log.i(TAG, "Stopping alarm: $currentAlarmId")
         stopAlarmSound()
@@ -147,9 +147,9 @@ class AlarmService : Service() {
         releaseWakeLock()
         stopSelf()
     }
-    
+
     // ==================== Wake Lock ====================
-    
+
     private fun acquireWakeLock() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
@@ -160,7 +160,7 @@ class AlarmService : Service() {
         }
         Log.d(TAG, "Wake lock acquired")
     }
-    
+
     private fun releaseWakeLock() {
         wakeLock?.let {
             if (it.isHeld) {
@@ -170,14 +170,14 @@ class AlarmService : Service() {
         }
         wakeLock = null
     }
-    
+
     // ==================== Sound ====================
-    
+
     private fun startAlarmSound() {
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            
+
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, alarmUri)
                 setAudioAttributes(
@@ -195,7 +195,7 @@ class AlarmService : Service() {
             Log.e(TAG, "Failed to start alarm sound", e)
         }
     }
-    
+
     private fun stopAlarmSound() {
         mediaPlayer?.let {
             if (it.isPlaying) {
@@ -206,9 +206,9 @@ class AlarmService : Service() {
         mediaPlayer = null
         Log.d(TAG, "Alarm sound stopped")
     }
-    
+
     // ==================== Vibration ====================
-    
+
     private fun startVibration() {
         vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(android.os.VibratorManager::class.java)
@@ -224,15 +224,15 @@ class AlarmService : Service() {
             Log.d(TAG, "Vibration started")
         }
     }
-    
+
     private fun stopVibration() {
         vibrator?.cancel()
         vibrator = null
         Log.d(TAG, "Vibration stopped")
     }
-    
+
     // ==================== Notification ====================
-    
+
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -244,22 +244,22 @@ class AlarmService : Service() {
             enableVibration(false) // Vibration handled separately
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
-        
+
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
-    
+
     private fun buildAlarmNotification(): Notification {
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, currentAlarmId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
             this, 0, fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         val stopIntent = Intent(this, AlarmService::class.java).apply {
             action = ACTION_STOP_ALARM
         }
@@ -267,7 +267,7 @@ class AlarmService : Service() {
             this, 1, stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         val snoozeIntent = Intent(this, AlarmService::class.java).apply {
             action = ACTION_SNOOZE
         }
@@ -275,7 +275,7 @@ class AlarmService : Service() {
             this, 2, snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Solarma Alarm")
@@ -288,17 +288,17 @@ class AlarmService : Service() {
             .setOngoing(true)
             .build()
     }
-    
+
     private fun launchAlarmActivity(alarmId: Long) {
         val intent = Intent(this, AlarmActivity::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
         startActivity(intent)
     }
-    
+
     override fun onDestroy() {
         stopAlarmSound()
         stopVibration()

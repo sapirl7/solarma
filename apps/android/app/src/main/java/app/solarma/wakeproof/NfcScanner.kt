@@ -17,16 +17,16 @@ import javax.inject.Singleton
  */
 @Singleton
 class NfcScanner @Inject constructor() {
-    
+
     companion object {
         private const val TAG = "Solarma.NfcScanner"
     }
-    
+
     private val _scanResult = MutableStateFlow<NfcScanResult>(NfcScanResult.Idle)
     val scanResult: StateFlow<NfcScanResult> = _scanResult.asStateFlow()
-    
+
     private var expectedTagHash: ByteArray? = null
-    
+
     /**
      * Check if NFC is available on the device.
      */
@@ -34,7 +34,7 @@ class NfcScanner @Inject constructor() {
         val adapter = NfcAdapter.getDefaultAdapter(activity)
         return adapter != null && adapter.isEnabled
     }
-    
+
     /**
      * Start waiting for NFC tag scan.
      * @param tagHash Expected tag hash to validate against
@@ -44,7 +44,7 @@ class NfcScanner @Inject constructor() {
         _scanResult.value = NfcScanResult.Waiting
         Log.d(TAG, "Started NFC scanning")
     }
-    
+
     /**
      * Handle scanned NFC tag.
      * Called from Activity's onNewIntent.
@@ -52,15 +52,15 @@ class NfcScanner @Inject constructor() {
     fun handleTag(tag: Tag) {
         val tagId = tag.id
         val scannedHash = hashTagId(tagId)
-        
+
         Log.d(TAG, "Tag scanned: ${tagId.toHexString()}")
-        
+
         val expected = expectedTagHash
         if (expected == null) {
             _scanResult.value = NfcScanResult.Error("Not scanning")
             return
         }
-        
+
         if (scannedHash.contentEquals(expected)) {
             _scanResult.value = NfcScanResult.Success
             Log.i(TAG, "NFC tag validated!")
@@ -69,7 +69,7 @@ class NfcScanner @Inject constructor() {
             Log.w(TAG, "Wrong tag scanned")
         }
     }
-    
+
     /**
      * Hash tag ID for storage (privacy).
      */
@@ -77,12 +77,12 @@ class NfcScanner @Inject constructor() {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(tagId)
     }
-    
+
     fun stopScanning() {
         expectedTagHash = null
         _scanResult.value = NfcScanResult.Idle
     }
-    
+
     private fun ByteArray.toHexString(): String {
         return joinToString("") { "%02x".format(it) }
     }

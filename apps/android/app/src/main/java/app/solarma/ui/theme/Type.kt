@@ -23,7 +23,7 @@ val SolarmaTypography = Typography(
         lineHeight = 88.sp,
         letterSpacing = (-2).sp
     ),
-    
+
     // Large time display
     displayMedium = TextStyle(
         fontFamily = FontFamily.Default,
@@ -32,7 +32,7 @@ val SolarmaTypography = Typography(
         lineHeight = 64.sp,
         letterSpacing = (-1).sp
     ),
-    
+
     // Medium time display
     displaySmall = TextStyle(
         fontFamily = FontFamily.Default,
@@ -41,7 +41,7 @@ val SolarmaTypography = Typography(
         lineHeight = 52.sp,
         letterSpacing = (-0.5).sp
     ),
-    
+
     // Screen titles
     headlineLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -50,7 +50,7 @@ val SolarmaTypography = Typography(
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
-    
+
     headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -58,7 +58,7 @@ val SolarmaTypography = Typography(
         lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
-    
+
     headlineSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -66,7 +66,7 @@ val SolarmaTypography = Typography(
         lineHeight = 32.sp,
         letterSpacing = 0.sp
     ),
-    
+
     // Section titles
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -75,7 +75,7 @@ val SolarmaTypography = Typography(
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
-    
+
     titleMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
@@ -83,7 +83,7 @@ val SolarmaTypography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.15.sp
     ),
-    
+
     titleSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
@@ -91,7 +91,7 @@ val SolarmaTypography = Typography(
         lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
-    
+
     // Body text
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -100,7 +100,7 @@ val SolarmaTypography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp
     ),
-    
+
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
@@ -108,7 +108,7 @@ val SolarmaTypography = Typography(
         lineHeight = 20.sp,
         letterSpacing = 0.25.sp
     ),
-    
+
     bodySmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
@@ -116,7 +116,7 @@ val SolarmaTypography = Typography(
         lineHeight = 16.sp,
         letterSpacing = 0.4.sp
     ),
-    
+
     // Labels, buttons
     labelLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -125,7 +125,7 @@ val SolarmaTypography = Typography(
         lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
-    
+
     labelMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
@@ -133,7 +133,7 @@ val SolarmaTypography = Typography(
         lineHeight = 16.sp,
         letterSpacing = 0.5.sp
     ),
-    
+
     labelSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,

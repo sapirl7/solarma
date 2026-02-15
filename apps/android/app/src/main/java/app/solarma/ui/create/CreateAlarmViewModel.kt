@@ -42,7 +42,7 @@ class CreateAlarmViewModel @Inject constructor(
     private val pendingTransactionDao: PendingTransactionDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-    
+
     companion object {
         private const val TAG = "Solarma.CreateAlarmVM"
         private val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
@@ -51,13 +51,13 @@ class CreateAlarmViewModel @Inject constructor(
         /** Estimated rent + transaction fees in SOL */
         private const val ESTIMATED_FEES_SOL = 0.01
     }
-    
+
     private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
     val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
-    
+
     private var pendingAlarm: AlarmEntity? = null
     private var pendingState: CreateAlarmState? = null
-    
+
     /**
      * Save alarm from UI state.
      * Step 1: Save to local DB
@@ -66,7 +66,7 @@ class CreateAlarmViewModel @Inject constructor(
     fun save(state: CreateAlarmState) {
         viewModelScope.launch {
             _saveState.value = SaveState.Saving
-            
+
             try {
                 // Validate BUDDY address if that route is selected
                 if (state.hasDeposit && state.penaltyRoute == 2) {
@@ -91,7 +91,7 @@ class CreateAlarmViewModel @Inject constructor(
                         _saveState.value = SaveState.Error("Minimum deposit is $MIN_DEPOSIT_SOL SOL")
                         return@launch
                     }
-                    
+
                     // H2: Check clock drift before creating deposit alarms.
                     // A drifted clock may cause missed claim deadlines.
                     try {
@@ -108,7 +108,7 @@ class CreateAlarmViewModel @Inject constructor(
                         Log.w(TAG, "Clock drift check failed (non-blocking)", e)
                     }
                 }
-                
+
                 // Convert LocalTime to next occurrence
                 val triggerAtMillis = AlarmTimeCalculator.nextTriggerMillis(state.time)
                 val depositLamports = (state.depositAmount * 1_000_000_000L).roundToLong()
@@ -118,12 +118,12 @@ class CreateAlarmViewModel @Inject constructor(
                     else -> null
                 }
                 val onchainAlarmId = if (state.hasDeposit) generateOnchainAlarmId() else null
-                
+
                 // Get NFC/QR values from Settings DataStore
                 val prefs = context.dataStore.data.first()
                 val tagHash = prefs[KEY_NFC_TAG_HASH]
                 val qrCode = prefs[KEY_QR_CODE]
-                
+
                 // Create entity
                 val alarm = AlarmEntity(
                     alarmTimeMillis = triggerAtMillis,
@@ -141,13 +141,13 @@ class CreateAlarmViewModel @Inject constructor(
                     penaltyDestination = penaltyDestination,
                     onchainAlarmId = onchainAlarmId
                 )
-                
+
                 // Save and schedule locally
                 val id = alarmRepository.createAlarm(alarm)
                 val savedAlarm = alarm.copy(id = id)
-                
+
                 Log.i(TAG, "Alarm saved locally: id=$id, hasDeposit=${state.hasDeposit}")
-                
+
                 // If deposit required, need to sign transaction
                 if (state.hasDeposit && state.depositAmount > 0) {
                     pendingAlarm = savedAlarm
@@ -156,14 +156,14 @@ class CreateAlarmViewModel @Inject constructor(
                 } else {
                     _saveState.value = SaveState.Success(id)
                 }
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save alarm", e)
                 _saveState.value = SaveState.Error(e.message ?: "Failed to save alarm")
             }
         }
     }
-    
+
     /**
      * Sign and submit onchain transaction.
      * Called from UI when ActivityResultSender is available.
@@ -171,10 +171,10 @@ class CreateAlarmViewModel @Inject constructor(
     fun signDeposit(activityResultSender: ActivityResultSender) {
         val alarm = pendingAlarm ?: return
         val state = pendingState ?: return
-        
+
         viewModelScope.launch {
             _saveState.value = SaveState.Signing
-            
+
             try {
                 val depositLamports = if (alarm.depositLamports > 0) {
                     alarm.depositLamports
@@ -187,9 +187,9 @@ class CreateAlarmViewModel @Inject constructor(
                     else -> PenaltyRoute.BURN
                 }
                 val buddyAddress = if (state.penaltyRoute == 2) state.buddyAddress.ifEmpty { null } else null
-                
+
                 Log.i(TAG, "Signing deposit: ${state.depositAmount} SOL, route=${penaltyRoute}")
-                
+
                 // Pre-check balance before attempting MWA transaction
                 val connState = walletManager.connectionState.value
                 if (connState is WalletConnectionState.Connected) {
@@ -214,7 +214,7 @@ class CreateAlarmViewModel @Inject constructor(
                         Log.w(TAG, "Balance pre-check failed, proceeding anyway", e)
                     }
                 }
-                
+
                 val result = onchainAlarmService.createOnchainAlarm(
                     activityResultSender = activityResultSender,
                     alarm = alarm,
@@ -222,7 +222,7 @@ class CreateAlarmViewModel @Inject constructor(
                     penaltyRoute = penaltyRoute,
                     buddyAddress = buddyAddress
                 )
-                
+
                 result.fold(
                     onSuccess = { pdaAddress ->
                         Log.i(TAG, "Onchain alarm created: pda=$pdaAddress")
@@ -264,7 +264,7 @@ class CreateAlarmViewModel @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Skip signing and just save alarm without deposit.
      */
@@ -278,13 +278,13 @@ class CreateAlarmViewModel @Inject constructor(
             pendingState = null
         }
     }
-    
+
     private fun generateOnchainAlarmId(): Long {
         // Use random Long for on-chain ID. Previous approach (now shl 10 | rand)
         // truncated top bits, mixed identity with time, and was non-monotonic.
         return kotlin.random.Random.nextLong(1, Long.MAX_VALUE)
     }
-    
+
     fun resetState() {
         _saveState.value = SaveState.Idle
         pendingAlarm = null

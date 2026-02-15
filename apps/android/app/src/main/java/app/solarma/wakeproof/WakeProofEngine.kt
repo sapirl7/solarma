@@ -20,25 +20,25 @@ class WakeProofEngine @Inject constructor(
 ) {
     companion object {
         private const val TAG = "Solarma.WakeProofEngine"
-        
+
         // Wake proof types (match AlarmEntity.wakeProofType)
         const val TYPE_NONE = 0
         const val TYPE_STEPS = 1
         const val TYPE_NFC = 2
         const val TYPE_QR = 3
     }
-    
+
     private var scope: CoroutineScope? = null
     private var stepCollectionJob: kotlinx.coroutines.Job? = null
-    
+
     private val _progress = MutableStateFlow(WakeProgress())
     val progress: StateFlow<WakeProgress> = _progress.asStateFlow()
-    
+
     private val _isComplete = MutableStateFlow(false)
     val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
-    
+
     private var currentAlarm: AlarmEntity? = null
-    
+
     /**
      * Start wake proof challenge for the given alarm.
      * @param alarm the alarm entity to prove wake for
@@ -49,9 +49,9 @@ class WakeProofEngine @Inject constructor(
         scope = lifecycleScope
         currentAlarm = alarm
         _isComplete.value = false
-        
+
         Log.i(TAG, "Starting wake proof: type=${alarm.wakeProofType}, target=${alarm.targetSteps}")
-        
+
         when (alarm.wakeProofType) {
             TYPE_NONE -> {
                 // No proof required - but still require explicit action
@@ -61,19 +61,19 @@ class WakeProofEngine @Inject constructor(
                     requiresAction = true
                 )
             }
-            
+
             TYPE_STEPS -> {
                 startStepChallenge(alarm.targetSteps)
             }
-            
+
             TYPE_NFC -> {
                 startNfcChallenge(alarm.tagHash)
             }
-            
+
             TYPE_QR -> {
                 startQrChallenge(alarm.qrCode)
             }
-            
+
             else -> {
                 Log.w(TAG, "Unknown wake proof type: ${alarm.wakeProofType}")
                 _progress.value = WakeProgress(
@@ -84,14 +84,14 @@ class WakeProofEngine @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Start step counting challenge.
      * Falls back to manual confirm after 60 seconds if no progress.
      */
     private fun startStepChallenge(targetSteps: Int) {
         val hasDeposit = currentAlarm?.hasDeposit == true
-        
+
         if (!stepCounter.isAvailable()) {
             if (hasDeposit) {
                 // SECURITY: Deposit alarms must NOT get a free bypass
@@ -111,22 +111,22 @@ class WakeProofEngine @Inject constructor(
             }
             return
         }
-        
+
         _progress.value = WakeProgress(
             type = TYPE_STEPS,
             currentValue = 0,
             targetValue = targetSteps,
             message = "Walk $targetSteps steps"
         )
-        
+
         // Track start time for timeout
         val startTime = System.currentTimeMillis()
         var lastStepCount = 0
-        
+
         stepCollectionJob = scope?.launch {
             stepCounter.countSteps(targetSteps).collect { stepProgress ->
                 lastStepCount = stepProgress.currentSteps
-                
+
                 _progress.value = WakeProgress(
                     type = TYPE_STEPS,
                     currentValue = stepProgress.currentSteps,
@@ -134,14 +134,14 @@ class WakeProofEngine @Inject constructor(
                     progressPercent = stepProgress.progress,
                     message = "${stepProgress.currentSteps} / ${stepProgress.targetSteps} steps"
                 )
-                
+
                 if (stepProgress.isComplete) {
                     complete()
                 }
-                
+
                 // Check for timeout (60 seconds with no progress)
                 // SECURITY: No fallback for deposit alarms
-                if (stepProgress.currentSteps == 0 && 
+                if (stepProgress.currentSteps == 0 &&
                     System.currentTimeMillis() - startTime > 60_000 &&
                     !hasDeposit) {
                     Log.w(TAG, "Step challenge timeout, enabling manual fallback")
@@ -155,7 +155,7 @@ class WakeProofEngine @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Start NFC tag scanning challenge.
      */
@@ -178,15 +178,15 @@ class WakeProofEngine @Inject constructor(
             )
             return
         }
-        
+
         _progress.value = WakeProgress(
             type = TYPE_NFC,
             message = "Scan your registered NFC tag"
         )
-        
+
         // Start listening for NFC
         nfcScanner.startScanning(expectedHash)
-        
+
         scope?.launch {
             nfcScanner.scanResult.collect { result ->
                 when (result) {
@@ -215,7 +215,7 @@ class WakeProofEngine @Inject constructor(
             }
         }
     }
-    
+
     /**
      * For TYPE_NONE: manual confirmation.
      */
@@ -238,7 +238,7 @@ class WakeProofEngine @Inject constructor(
             error = null
         )
     }
-    
+
     /**
      * Mark challenge as complete.
      */
@@ -249,14 +249,14 @@ class WakeProofEngine @Inject constructor(
             message = "Challenge complete! ☀️",
             progressPercent = 1f
         )
-        
+
         // Cleanup all sensors and flows
         nfcScanner.stopScanning()
         qrScanner.stopScanning()
         stepCollectionJob?.cancel()
         stepCollectionJob = null
     }
-    
+
     /**
      * Stop and cleanup.
      */
@@ -268,7 +268,7 @@ class WakeProofEngine @Inject constructor(
         currentAlarm = null
         scope = null  // M5: Release lifecycle scope reference
     }
-    
+
     /**
      * Start QR code scanning challenge.
      */
@@ -281,15 +281,15 @@ class WakeProofEngine @Inject constructor(
             )
             return
         }
-        
+
         _progress.value = WakeProgress(
             type = TYPE_QR,
             message = "Point camera at your registered QR code"
         )
-        
+
         // Start QR scanning
         qrScanner.startScanning(expectedCode)
-        
+
         scope?.launch {
             qrScanner.scanResult.collect { result ->
                 when (result) {

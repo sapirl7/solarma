@@ -55,15 +55,15 @@ fun AlarmDetailsScreen(
     val pendingCreate by viewModel.pendingCreate.collectAsState()
     val context = LocalContext.current
     val activityResultSender = LocalActivityResultSender.current
-    
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRefundDialog by remember { mutableStateOf(false) }
     var showSlashDialog by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(alarmId) {
         viewModel.loadAlarm(alarmId)
     }
-    
+
     LaunchedEffect(refundState) {
         when (val state = refundState) {
             is RefundState.Success -> {
@@ -77,13 +77,13 @@ fun AlarmDetailsScreen(
             else -> {}
         }
     }
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             "Alarm Details",
                             fontWeight = FontWeight.Bold,
@@ -123,10 +123,10 @@ fun AlarmDetailsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Time card
                     AlarmTimeCard(currentAlarm)
-                    
+
                     // Deposit card (if applicable — only show when actual deposit exists)
                     val hasActiveDeposit = currentAlarm.hasDeposit && currentAlarm.depositLamports > 0
                     if (hasActiveDeposit) {
@@ -138,7 +138,7 @@ fun AlarmDetailsScreen(
                             onSlashClick = { showSlashDialog = true }
                         )
                     }
-                    
+
                     // Actions
                     OutlinedButton(
                         onClick = onViewHistory,
@@ -162,18 +162,18 @@ fun AlarmDetailsScreen(
             }
         }
     }
-    
+
     // Delete confirmation dialog
     if (showDeleteDialog) {
         val hasDeposit = alarm?.let { it.hasDeposit && it.depositLamports > 0 } == true
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text(if (hasDeposit) "Cannot Delete" else "Delete Alarm?") },
-            text = { 
+            text = {
                 Text(
-                    if (hasDeposit) 
+                    if (hasDeposit)
                         "This alarm has a locked deposit. Use Emergency Refund (before alarm time) or Resolve Deposit (after deadline) to release funds first."
-                    else 
+                    else
                         "Are you sure you want to delete this alarm?"
                 )
             },
@@ -203,13 +203,13 @@ fun AlarmDetailsScreen(
             }
         )
     }
-    
+
     // Refund confirmation dialog
     if (showRefundDialog) {
         AlertDialog(
             onDismissRequest = { showRefundDialog = false },
             title = { Text("EMERGENCY REFUND") },
-            text = { 
+            text = {
                 Text(
                     "Request emergency refund of your deposit?\n\n" +
                     "Note: A ${OnchainParameters.EMERGENCY_REFUND_PENALTY_PERCENT}% penalty applies for early cancellation."
@@ -232,7 +232,7 @@ fun AlarmDetailsScreen(
             }
         )
     }
-    
+
     // Slash (resolve expired alarm) dialog
     if (showSlashDialog) {
         val penaltyInfo = alarm?.let { PenaltyRouteDisplay.fromRoute(it.penaltyRoute) }
@@ -272,14 +272,14 @@ fun AlarmTimeCard(alarm: AlarmEntity) {
     )
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM")
-    
+
     val proofType = when (alarm.wakeProofType) {
         WakeProofEngine.TYPE_STEPS -> "STEPS (${alarm.targetSteps})"
         WakeProofEngine.TYPE_NFC -> "NFC TAG"
         WakeProofEngine.TYPE_QR -> "QR CODE"
         else -> "NONE"
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -337,7 +337,7 @@ fun DepositCard(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
-    
+
     // Deadline = alarm time + grace period (matches on-chain logic)
     val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
     val deadlineTime = LocalDateTime.ofInstant(
@@ -345,10 +345,10 @@ fun DepositCard(
         ZoneId.systemDefault()
     )
     val deadlineFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    
+
     // Penalty route info
     val penaltyInfo = PenaltyRouteDisplay.fromRoute(alarm.penaltyRoute)
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -378,7 +378,7 @@ fun DepositCard(
                         color = SolanaPurple
                     )
                 }
-                
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = if (pendingConfirmation) {
@@ -396,9 +396,9 @@ fun DepositCard(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Deadline and penalty info row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -446,9 +446,9 @@ fun DepositCard(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // PDA address — tap to copy
             alarm.onchainPubkey?.let { pubkey ->
                 Row(
@@ -476,9 +476,9 @@ fun DepositCard(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Determine which action is available
             val nowMillis = System.currentTimeMillis()
             val phase = when {

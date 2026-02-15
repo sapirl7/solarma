@@ -57,13 +57,13 @@ fun SolarmaNavHost(
                 }
             )
         }
-        
+
         composable(Screen.CreateAlarm.route) {
             CreateAlarmScreen(
                 onBack = { navController.popBackStack() }
             )
         }
-        
+
         composable(
             route = Screen.AlarmDetails.route,
             arguments = listOf(navArgument("id") { type = NavType.LongType })
@@ -75,13 +75,13 @@ fun SolarmaNavHost(
                 onViewHistory = { navController.navigate(Screen.History.route) }
             )
         }
-        
+
         composable(Screen.History.route) {
             HistoryScreen(
                 onBack = { navController.popBackStack() }
             )
         }
-        
+
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onBack = { navController.popBackStack() }

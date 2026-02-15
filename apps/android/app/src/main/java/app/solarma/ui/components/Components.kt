@@ -73,7 +73,7 @@ fun GradientButton(
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "button_scale"
     )
-    
+
     Button(
         onClick = onClick,
         enabled = enabled && !isLoading,
@@ -148,7 +148,7 @@ fun PulsingDot(
         ),
         label = "pulse_alpha"
     )
-    
+
     Box(
         modifier = modifier
             .size(12.dp)

@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -37,19 +37,19 @@ object DatabaseModule {
         )
         .build()
     }
-    
+
     @Provides
     @Singleton
     fun provideAlarmDao(database: SolarmaDatabase): AlarmDao {
         return database.alarmDao()
     }
-    
+
     @Provides
     @Singleton
     fun providePendingTransactionDao(database: SolarmaDatabase): PendingTransactionDao {
         return database.pendingTransactionDao()
     }
-    
+
     @Provides
     @Singleton
     fun provideStatsDao(database: SolarmaDatabase): StatsDao {

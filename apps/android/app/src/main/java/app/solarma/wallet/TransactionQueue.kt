@@ -12,28 +12,28 @@ import javax.inject.Singleton
 data class PendingTransaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    
+
     /** Transaction type: CREATE_ALARM, CLAIM, SNOOZE, SLASH */
     val type: String,
-    
+
     /** Serialized transaction bytes (Base64) - legacy field, no longer used */
     val transactionData: String = "",
-    
+
     /** Alarm ID this transaction relates to */
     val alarmId: Long?,
-    
+
     /** Number of retry attempts */
     val retryCount: Int = 0,
-    
+
     /** Last error message if any */
     val lastError: String? = null,
-    
+
     /** Created timestamp */
     val createdAt: Long = System.currentTimeMillis(),
-    
+
     /** Last attempt timestamp */
     val lastAttemptAt: Long? = null,
-    
+
     /** Transaction status: PENDING, SENDING, CONFIRMED, FAILED */
     val status: String = "PENDING"
 )
@@ -43,25 +43,25 @@ data class PendingTransaction(
  */
 @Dao
 interface PendingTransactionDao {
-    
+
     @Query("SELECT * FROM pending_transactions WHERE status = 'PENDING' ORDER BY createdAt ASC")
     fun getPendingTransactions(): Flow<List<PendingTransaction>>
-    
+
     @Query("SELECT * FROM pending_transactions ORDER BY createdAt DESC")
     fun getAllTransactions(): Flow<List<PendingTransaction>>
-    
+
     @Query("SELECT * FROM pending_transactions WHERE id = :id")
     suspend fun getById(id: Long): PendingTransaction?
-    
+
     @Insert
     suspend fun insert(tx: PendingTransaction): Long
-    
+
     @Update
     suspend fun update(tx: PendingTransaction)
-    
+
     @Delete
     suspend fun delete(tx: PendingTransaction)
-    
+
     @Query("UPDATE pending_transactions SET status = :status, lastError = :error, lastAttemptAt = :timestamp WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, error: String?, timestamp: Long)
 
@@ -70,10 +70,10 @@ interface PendingTransactionDao {
 
     @Query("SELECT COUNT(*) FROM pending_transactions WHERE type = :type AND alarmId = :alarmId AND status IN ('PENDING','SENDING')")
     suspend fun countActiveByTypeAndAlarm(type: String, alarmId: Long): Int
-    
+
     @Query("DELETE FROM pending_transactions WHERE status = 'CONFIRMED'")
     suspend fun deleteConfirmed()
-    
+
     @Query("SELECT COUNT(*) FROM pending_transactions WHERE status = 'PENDING'")
     suspend fun getPendingCount(): Int
 
@@ -99,21 +99,21 @@ class TransactionQueue @Inject constructor(
         )
         return pendingTransactionDao.insert(tx)
     }
-    
+
     /**
      * Get all pending transactions.
      */
     fun getPendingTransactions(): Flow<List<PendingTransaction>> {
         return pendingTransactionDao.getPendingTransactions()
     }
-    
+
     /**
      * Mark transaction as confirmed.
      */
     suspend fun markConfirmed(id: Long) {
         pendingTransactionDao.updateStatus(id, "CONFIRMED", null, System.currentTimeMillis())
     }
-    
+
     /**
      * Mark transaction as failed.
      */

@@ -66,7 +66,7 @@ fun CreateAlarmScreen(
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             alarmManager != null &&
             !alarmManager.canScheduleExactAlarms()
-    
+
     // Step permission launcher - request when user selects Steps method
     val stepPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -77,13 +77,13 @@ fun CreateAlarmScreen(
             Toast.makeText(context, "Step permission required for step counter", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     // Check if step permission is needed (Android 10+)
     val needsStepPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
-    
+
     val saveState by viewModel.saveState.collectAsState()
-    
+
     LaunchedEffect(saveState) {
         when (val currentState = saveState) {
             is SaveState.Success -> {
@@ -117,13 +117,13 @@ fun CreateAlarmScreen(
             else -> {}
         }
     }
-    
+
     SolarmaBackground {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
                             "New Alarm",
                             style = MaterialTheme.typography.titleLarge,
@@ -133,7 +133,7 @@ fun CreateAlarmScreen(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowBack, 
+                                Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
                                 tint = TextPrimary
                             )
@@ -194,7 +194,7 @@ fun CreateAlarmScreen(
                     time = state.time,
                     onClick = { showTimePicker = true }
                 )
-                
+
                 // LABEL INPUT
                 OutlinedTextField(
                     value = state.label,
@@ -210,10 +210,10 @@ fun CreateAlarmScreen(
                         focusedContainerColor = GraphiteSurface
                     )
                 )
-                
+
                 // WAKE PROOF SECTION
                 SectionHeader(title = "WAKE PROOF CHALLENGE")
-                
+
                 WakeProofSelector(
                     selectedType = state.wakeProofType,
                     targetSteps = state.targetSteps,
@@ -227,7 +227,7 @@ fun CreateAlarmScreen(
                     },
                     onStepsChange = { state = state.copy(targetSteps = it) }
                 )
-                
+
                 // DEPOSIT SECTION
                 Spacer(modifier = Modifier.height(8.dp))
                 DepositSection(
@@ -255,31 +255,31 @@ fun CreateAlarmScreen(
                     onDonationAddressChange = { state = state.copy(donationAddress = it) },
                     onBuddyAddressChange = { state = state.copy(buddyAddress = it) }
                 )
-                
+
                 Spacer(modifier = Modifier.weight(1f))
-                
+
                 // CREATE BUTTON
                 GradientButton(
-                    text = if (state.hasDeposit) 
-                        "Create Alarm (${state.depositAmount} SOL)" 
-                    else 
+                    text = if (state.hasDeposit)
+                        "Create Alarm (${state.depositAmount} SOL)"
+                    else
                         "Create Alarm",
                     onClick = { viewModel.save(state) },
                     enabled = saveState !is SaveState.Saving,
                     isLoading = saveState is SaveState.Saving,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
-    
+
     if (showTimePicker) {
         TimePickerDialog(
             initialTime = state.time,
             onDismiss = { showTimePicker = false },
-            onConfirm = { 
+            onConfirm = {
                 state = state.copy(time = it)
                 showTimePicker = false
             }
@@ -382,7 +382,7 @@ fun WakeProofSelector(
                 modifier = Modifier.weight(1f)
             )
         }
-        
+
         // Mode description card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -408,7 +408,7 @@ fun WakeProofSelector(
                 )
             }
         }
-        
+
         // Steps slider
         AnimatedVisibility(
             visible = selectedType == 1,
@@ -482,7 +482,7 @@ fun WakeProofChip(
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "chip_scale"
     )
-    
+
     val chipBorder = if (selected) {
         androidx.compose.foundation.BorderStroke(2.dp, SolanaPurple)
     } else {
@@ -587,7 +587,7 @@ fun DepositSection(
                     )
                 )
             }
-            
+
             AnimatedVisibility(
                 visible = hasDeposit,
                 enter = expandVertically() + fadeIn(),
@@ -611,7 +611,7 @@ fun DepositSection(
                             lineHeight = 18.sp
                         )
                     }
-                    
+
                     // Amount chips
                     Text(
                         text = "DEPOSIT AMOUNT",
@@ -626,7 +626,7 @@ fun DepositSection(
                             AmountChip(
                                 amount = sol,
                                 selected = amount == sol && customAmountText.isEmpty(),
-                                onClick = { 
+                                onClick = {
                                     onAmountChange(sol)
                                     onCustomAmountChange("")
                                 },
@@ -634,7 +634,7 @@ fun DepositSection(
                             )
                         }
                     }
-                    
+
                     // Custom amount input
                     OutlinedTextField(
                         value = customAmountText,
@@ -654,7 +654,7 @@ fun DepositSection(
                             focusedContainerColor = Graphite
                         )
                     )
-                    
+
                     // Penalty route
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -688,7 +688,7 @@ fun DepositSection(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    
+
                     // Penalty explanation
                     Text(
                         text = when (penaltyRoute) {
@@ -701,7 +701,7 @@ fun DepositSection(
                         lineHeight = 16.sp,
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
-                    
+
                     // Donate goes to fixed Solarma treasury - no input needed
                     AnimatedVisibility(
                         visible = penaltyRoute == 1,
@@ -715,7 +715,7 @@ fun DepositSection(
                             modifier = Modifier.padding(top = 8.dp, start = 4.dp)
                         )
                     }
-                    
+
                     // Buddy address input (visible when Buddy is selected)
                     AnimatedVisibility(
                         visible = penaltyRoute == 2,
@@ -830,12 +830,12 @@ fun TimePickerDialog(
         initialHour = initialTime.hour,
         initialMinute = initialTime.minute
     )
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
-                onClick = { 
+                onClick = {
                     onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
                 }
             ) {

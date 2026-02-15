@@ -89,7 +89,7 @@ fun SettingsScreen(
             else -> Unit
         }
     }
-    
+
     Scaffold(
         containerColor = DeepBlack,
         topBar = {
@@ -151,9 +151,9 @@ fun SettingsScreen(
                             }
                         }
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.Hub,
                         title = "Network",
@@ -198,9 +198,9 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Alarm Defaults Section
             SettingsSection(title = "Alarm Defaults") {
                 SettingsCard {
@@ -210,18 +210,18 @@ fun SettingsScreen(
                         subtitle = "${uiState.defaultSteps} steps to dismiss",
                         onClick = { showStepsDialog = true }
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.Payments,
                         title = "Default Deposit",
                         subtitle = "${uiState.defaultDepositSol} SOL",
                         onClick = { showDepositDialog = true }
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.LocalFireDepartment,
                         title = "Default Penalty",
@@ -234,10 +234,10 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Wake Proof Section  
+
+            // Wake Proof Section
             SettingsSection(title = "Wake Proof") {
                 SettingsCard {
                     SettingsRow(
@@ -246,9 +246,9 @@ fun SettingsScreen(
                         subtitle = if (uiState.nfcTagRegistered) "REGISTERED" else "Tap to set up",
                         onClick = { showNfcDialog = true }
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.QrCode2,
                         title = "QR Code",
@@ -257,9 +257,9 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Sound Section
             SettingsSection(title = "Sound & Vibration") {
                 SettingsCard {
@@ -269,9 +269,9 @@ fun SettingsScreen(
                         subtitle = uiState.soundName,
                         onClick = { /* Pick sound */ }
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.Vibration,
                         title = "Vibration",
@@ -289,13 +289,13 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Debug Section
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
-            
+
             SettingsSection(title = "Debug") {
                 SettingsCard {
                     SettingsRow(
@@ -313,19 +313,19 @@ fun SettingsScreen(
                                         val reader = BufferedReader(InputStreamReader(process.inputStream))
                                         reader.readText()
                                     }
-                                    
+
                                     // Write logs to file
                                     val timestamp = java.text.SimpleDateFormat("yyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
                                     val logFile = java.io.File(context.cacheDir, "solarma_logs_$timestamp.txt")
                                     logFile.writeText("=== SOLARMA LOGS ===\n$timestamp\n\n$logs")
-                                    
+
                                     // Share file via FileProvider
                                     val uri = androidx.core.content.FileProvider.getUriForFile(
                                         context,
                                         "${context.packageName}.fileprovider",
                                         logFile
                                     )
-                                    
+
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_STREAM, uri)
@@ -341,9 +341,9 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // About Section
             SettingsSection(title = "About") {
                 SettingsCard {
@@ -352,9 +352,9 @@ fun SettingsScreen(
                         title = "Version",
                         subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
                     )
-                    
+
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))
-                    
+
                     SettingsRow(
                         icon = Icons.Outlined.Code,
                         title = "Open Source",
@@ -366,11 +366,11 @@ fun SettingsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(100.dp))
         }
     }
-    
+
     // NFC Registration Dialog
     if (showNfcDialog) {
         AlertDialog(
@@ -419,7 +419,7 @@ fun SettingsScreen(
             }
         )
     }
-    
+
     // QR Code Dialog
     if (showQrDialog) {
         AlertDialog(
@@ -487,7 +487,7 @@ fun SettingsScreen(
             }
         )
     }
-    
+
     // Steps Dialog
     if (showStepsDialog) {
         var steps by remember { mutableStateOf(uiState.defaultSteps.toString()) }
@@ -521,7 +521,7 @@ fun SettingsScreen(
             }
         )
     }
-    
+
     // Deposit Dialog
     if (showDepositDialog) {
         var deposit by remember { mutableStateOf(uiState.defaultDepositSol.toString()) }
@@ -555,7 +555,7 @@ fun SettingsScreen(
             }
         )
     }
-    
+
     // Penalty Dialog
     if (showPenaltyDialog) {
         AlertDialog(
@@ -659,9 +659,9 @@ private fun SettingsRow(
             tint = SolanaGreen,
             modifier = Modifier.size(24.dp)
         )
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -676,7 +676,7 @@ private fun SettingsRow(
                 )
             }
         }
-        
+
         if (trailingContent != null) {
             trailingContent()
         } else if (onClick != null) {
