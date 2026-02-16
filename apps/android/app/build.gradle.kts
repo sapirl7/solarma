@@ -238,7 +238,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.coroutines.test)
-    testImplementation("org.json:json:20231013")
+    testImplementation("org.json:json:20251224")
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.espresso)
     androidTestImplementation(platform(libs.compose.bom))
