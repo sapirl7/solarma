@@ -1,6 +1,6 @@
 [versions]
 # Core
-agp = "8.9.1"
+agp = "9.0.1"
 kotlin = "2.3.0"
 ksp = "2.3.5"
 hilt = "2.58"
