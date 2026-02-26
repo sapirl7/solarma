@@ -64,7 +64,7 @@ graph LR
 | **Integration (TS)** | `anchor test` (~4min) | Per-instruction happy/negative, access control, timing, state | 70 ✅ (done) |
 | **Property (Rust)** | `cargo test` | Fuzz 12 helpers.rs functions, 10K+ random inputs each | 16 ✅ (done, PR #33) |
 | **Scenario (TS)** | `anchor test @slow` | Multi-step README flows end-to-end (nightly CI) | 5 (planned) |
-| **Model-based (TS)** | `anchor test @slow` | Random ix sequences, invariant checking (nightly CI) | 1 (planned) |
+| **Model-based (TS)** | `anchor test @slow` | Random ix sequences, invariant checking (nightly CI) | 1 ✅ (implemented) |
 
 ---
 
@@ -83,13 +83,11 @@ graph LR
 
 ### ❌ Gaps to Fill (Phase B)
 
-1. **No formal scenario tests** — lifecycle flows exist ad-hoc but not as a dedicated suite
-2. **No model-based / state-machine test** — no random sequence with invariant checking
-3. **No property-based tests** — penalty formula not cross-validated with reference impl
-4. **Missing: snooze ×N → drain → claim** (vault fully drained scenario)
-5. **Missing: snooze → slash from Acknowledged** (exact balance assertion)
-6. **No coverage metrics** — CI doesn't measure or gate on coverage
-7. **Client↔program schema test** missing (Borsh layout parity)
+1. **Scenario suite still partial** — lifecycle flows exist ad-hoc, not all formalized in a dedicated file
+2. **Missing: snooze ×N → drain → claim** (vault fully drained scenario)
+3. **Missing: snooze → slash from Acknowledged** (exact balance assertion)
+4. **No coverage metrics gate** — CI uploads coverage but does not enforce a threshold
+5. **Client↔program schema test** missing (Borsh layout parity)
 
 ---
 

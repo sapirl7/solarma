@@ -118,7 +118,7 @@
 | N-SL-6 | FAIL: wrong recipient (Burn) | InvalidPenaltyRecipient | ✅ |
 | N-SL-7 | FAIL: on Slashed alarm | InvalidAlarmState | ✅ |
 | N-SL-8 | Happy: third-party slashes | — | ✅ |
-| N-SL-9 | FAIL: wrong recipient for Buddy | InvalidPenaltyRecipient | 🆕 |
+| N-SL-9 | FAIL: wrong recipient for Buddy | InvalidPenaltyRecipient | ✅ |
 
 ### emergency_refund
 | ID | Test | Error | Status |
@@ -132,9 +132,9 @@
 
 ---
 
-## 3. Model-Based / State-Machine Test Plan 🆕
+## 3. Model-Based / State-Machine Test
 
-### M-1: Random Action Sequence with Invariant Checking
+### M-1: Random Action Sequence with Invariant Checking ✅
 
 **Goal:** Generate random sequences of valid + invalid instructions, execute against a local validator, and verify all invariants hold.
 
@@ -158,6 +158,7 @@ for trial in 1..50:
 - Seed-based RNG for reproducibility (`Math.seedrandom`)
 - After each action: fetch alarm account, assert invariants
 - Log full trace on failure for debugging
+- Exists: `tests/solarma_vault_model.ts` (`@slow`)
 
 ---
 
@@ -192,14 +193,14 @@ fn prop_emergency_penalty_conservation(remaining: u64)
 
 ---
 
-## 5. Summary — Tests to Implement in Phase B
+## 5. Summary — Remaining Phase B Coverage
 
 | Category | Count | Tests |
 |---|---|---|
 | **Scenario** | 5 | S-2, S-3, S-4, S-5, S-6 |
-| **Negative** | 2 | N-SN-10, N-SL-9 |
-| **Model-based** | 1 | M-1 (random sequence) |
+| **Negative** | 1 | N-SN-10 |
+| **Model-based** | 0 | Implemented (`M-1`) |
 | **Property** | 3 | P-1, P-2, P-3 |
-| **Total new** | **11** | |
+| **Total remaining** | **9** | |
 
 **Estimated CI impact:** +2-3 minutes (scenario tests use short timers, model test runs 50 trials with 1-2s each)

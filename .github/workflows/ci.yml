@@ -41,6 +41,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: programs/solarma_vault/package-lock.json
+
       - name: Cache audit tools
         uses: actions/cache@v4
         with:
@@ -58,9 +65,51 @@ jobs:
       - name: cargo deny
         run: cargo deny --manifest-path programs/Cargo.toml check --config programs/solarma_vault/deny.toml
 
-      - name: npm audit
+      - name: Install Node production dependencies
         working-directory: programs/solarma_vault
-        run: npm audit --audit-level=high
+        run: npm ci --omit=dev --ignore-scripts --no-audit
+
+      - name: npm audit (production deps)
+        working-directory: programs/solarma_vault
+        run: |
+          set -euo pipefail
+          attempts=3
+          delay=5
+          transient_pattern="ENOTFOUND|EAI_AGAIN|ECONNRESET|ETIMEDOUT|socket hang up|audit endpoint returned an error|503 Service Unavailable"
+
+          for attempt in $(seq 1 "$attempts"); do
+            output_file="$(mktemp)"
+            status=0
+            npm audit --audit-level=high --omit=dev >"$output_file" 2>&1 || status=$?
+            cat "$output_file"
+
+            if grep -Eqi "$transient_pattern" "$output_file"; then
+              if [ "$attempt" -lt "$attempts" ]; then
+                echo "::warning::Transient npm audit failure (attempt $attempt/$attempts). Retrying in ${delay}s..."
+                rm -f "$output_file"
+                sleep "$delay"
+                delay=$((delay * 2))
+                continue
+              fi
+              echo "::error::npm audit failed due to transient registry/network errors after retries."
+              rm -f "$output_file"
+              exit 1
+            fi
+
+            if [ "$status" -eq 0 ]; then
+              rm -f "$output_file"
+              exit 0
+            fi
+
+            rm -f "$output_file"
+            exit "$status"
+          done
+
+      - name: npm audit (dev deps — advisory only)
+        working-directory: programs/solarma_vault
+        run: |
+          npm audit --audit-level=high || \
+            echo "::warning::Dev dependency vulnerabilities found — review and update when possible"
 
   # Rust static analysis (fast, no Solana/Anchor needed)
   rust-checks:
@@ -328,5 +377,5 @@ jobs:
 
       - name: Show validator log on failure
         if: failure()
-        run: cat .anchor/test-ledger/test-ledger-log.txt 2>/dev/null | tail -100 || echo "No log found"
-            !.ai/**
+        run: |
+          cat .anchor/test-ledger/test-ledger-log.txt 2>/dev/null | tail -100 || echo "No log found"

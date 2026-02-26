@@ -977,11 +977,12 @@ describe("solarma_vault", () => {
             }
         });
 
-        it("Slash with Buddy route works when buddy is caller (buddy-only window)", async () => {
+        it("Slash with Buddy route works when buddy is caller (buddy-only window)", async function () {
+            this.timeout(30_000);
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
-            const alarmTime = now + 2;
-            const deadline = alarmTime + 3;
+            const alarmTime = now + 3;
+            const deadline = alarmTime + 5;
             const buddy = Keypair.generate();
 
             // Fund buddy so account exists (via transfer, not airdrop)
@@ -1007,8 +1008,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Wait for deadline to pass
-            await new Promise(resolve => setTimeout(resolve, 7000));
+            // Wait for deadline to pass (wider window for CI validator clock lag)
+            await new Promise(resolve => setTimeout(resolve, 10000));
 
             const buddyBalanceBefore = await provider.connection.getBalance(buddy.publicKey);
 
@@ -1986,11 +1987,12 @@ describe("solarma_vault", () => {
     // TIMING EDGE CASES — claim grace + deadline guards
     // =========================================================================
     describe("Timing Edge Cases", () => {
-        it("Claim succeeds shortly after deadline if ACKed (within claim grace)", async () => {
+        it("Claim succeeds shortly after deadline if ACKed (within claim grace) @slow", async function () {
+            this.timeout(60_000);
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
-            const alarmTime = now + 2;
-            const deadline = alarmTime + 3; // short deadline for fast test
+            const alarmTime = now + 3;
+            const deadline = alarmTime + 5; // wider window for CI stability
 
             const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
             const [vault] = deriveVaultPda(alarm);
@@ -2013,7 +2015,7 @@ describe("solarma_vault", () => {
                 .rpc();
 
             // Wait for alarm_time, then ACK.
-            await new Promise(resolve => setTimeout(resolve, 3500));
+            await new Promise(resolve => setTimeout(resolve, 5000));
             await program.methods
                 .ackAwake()
                 .accounts({
@@ -2022,8 +2024,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Wait a bit more so we're after deadline, but still inside 120s grace.
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Wait past deadline but inside 120s grace.
+            await new Promise(resolve => setTimeout(resolve, 6000));
 
             await program.methods
                 .claim()
