@@ -1,7 +1,8 @@
 [advisories]
 # Keep advisories visible; use `ignore` entries only with explicit justification.
 ignore = [
-  { id = "RUSTSEC-2025-0141", reason = "Transitive bincode dependency via Solana/Anchor; monitor upstream for replacements." }
+  { id = "RUSTSEC-2025-0141", reason = "Transitive bincode dependency via Solana/Anchor; monitor upstream for replacements." },
+  { id = "RUSTSEC-2025-0161", reason = "libsecp256k1 unmaintained; pulled transitively via solana-secp256k1-recover (Solana SDK), not used directly by the vault. No fix available until Solana drops/replaces it. Revisit on Solana >2.3." }
 ]
 
 [licenses]

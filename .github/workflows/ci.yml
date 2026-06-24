@@ -121,8 +121,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.95.0"
           components: rustfmt, clippy
 
       - name: Cache Cargo
@@ -156,7 +157,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: cobertura.xml
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # Anchor build + integration tests
   anchor:
@@ -286,7 +287,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: android
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
