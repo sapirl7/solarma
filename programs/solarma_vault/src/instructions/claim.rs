@@ -1,7 +1,7 @@
 //! Claim instruction - return deposit to user after wake acknowledgement.
 
-use crate::constants::CLAIM_GRACE_SECONDS;
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, Vault};
 use anchor_lang::prelude::*;
 
@@ -42,10 +42,8 @@ pub fn process_claim(ctx: Context<Claim>) -> Result<()> {
         SolarmaError::TooEarly
     );
 
-    let claim_deadline = alarm
-        .deadline
-        .checked_add(CLAIM_GRACE_SECONDS)
-        .ok_or(SolarmaError::Overflow)?;
+    let claim_deadline =
+        helpers::claim_deadline_with_grace(alarm.deadline).ok_or(SolarmaError::Overflow)?;
 
     // CRITICAL: Claim is allowed through deadline + grace (inclusive).
     require!(
