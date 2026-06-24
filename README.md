@@ -273,7 +273,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 |-------------|-------------|
 | `initialize` | Create user profile |
 | `create_alarm` | Create alarm and deposit SOL to vault |
-| `ack_awake` | Record wake proof completion on-chain |
+| `ack_awake` | Acknowledge wake-up on-chain (owner-signed `Created → Acknowledged`; wake proof verified client-side) |
 | `claim` | Reclaim deposit after ACK, until `deadline + CLAIM_GRACE_SECONDS` |
 | `sweep_acknowledged` | Permissionless return-to-owner sweep after claim grace |
 | `snooze` | Extend deadline with 10% penalty (doubles each use) |
