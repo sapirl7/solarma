@@ -1,3 +1,6 @@
+# Pinned to an exact version so a new `stable` clippy lint can't turn CI red
+# without a deliberate bump. Keep in sync with the `toolchain:` input in
+# .github/workflows/ci.yml (rust-checks job).
 [toolchain]
-channel = "stable"
+channel = "1.95.0"
 components = ["rustfmt", "clippy"]

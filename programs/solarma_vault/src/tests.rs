@@ -2486,11 +2486,9 @@ mod protocol_invariants {
                 remaining = remaining.saturating_sub(cost);
             }
 
-            let drained_percent = if initial > 0 {
-                ((initial - remaining) * 100) / initial
-            } else {
-                100
-            };
+            let drained_percent = ((initial - remaining) * 100)
+                .checked_div(initial)
+                .unwrap_or(100);
 
             assert!(
                 drained_percent >= 99,
