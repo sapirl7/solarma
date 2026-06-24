@@ -1,7 +1,8 @@
 //! Emergency refund instruction - owner can cancel alarm and get deposit back
 
-use crate::constants::{BURN_SINK, EMERGENCY_REFUND_PENALTY_PERCENT};
+use crate::constants::BURN_SINK;
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, Vault};
 use anchor_lang::prelude::*;
 
@@ -50,13 +51,9 @@ pub fn process_emergency_refund(ctx: Context<EmergencyRefund>) -> Result<()> {
         SolarmaError::TooLateForRefund
     );
 
-    // Calculate penalty (e.g., 5% fee for early cancellation)
-    let penalty = alarm
-        .remaining_amount
-        .checked_mul(EMERGENCY_REFUND_PENALTY_PERCENT)
-        .ok_or(SolarmaError::Overflow)?
-        .checked_div(100)
-        .ok_or(SolarmaError::Overflow)?;
+    // Calculate penalty (5% fee for early cancellation)
+    let penalty =
+        helpers::emergency_penalty(alarm.remaining_amount).ok_or(SolarmaError::Overflow)?;
 
     // C1: Rent-exempt guard — cap penalty at available balance above rent minimum.
     // The `close = owner` constraint processes AFTER this handler, so we must
@@ -65,9 +62,7 @@ pub fn process_emergency_refund(ctx: Context<EmergencyRefund>) -> Result<()> {
         let rent = Rent::get()?;
         let vault_info = ctx.accounts.vault.to_account_info();
         let min_balance = rent.minimum_balance(vault_info.data_len());
-        let current_lamports = vault_info.lamports();
-        let available = current_lamports.saturating_sub(min_balance);
-        let capped = penalty.min(available);
+        let capped = helpers::cap_at_rent_exempt(penalty, vault_info.lamports(), min_balance);
 
         if capped > 0 {
             **ctx

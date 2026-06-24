@@ -1,9 +1,8 @@
 //! Snooze instruction - reduce deposit for extra time
 
-use crate::constants::{
-    BURN_SINK, DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT, MAX_SNOOZE_COUNT,
-};
+use crate::constants::{BURN_SINK, DEFAULT_SNOOZE_EXTENSION_SECONDS, MAX_SNOOZE_COUNT};
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, Vault};
 use anchor_lang::prelude::*;
 
@@ -70,20 +69,9 @@ pub fn process_snooze(ctx: Context<Snooze>, expected_snooze_count: u8) -> Result
         SolarmaError::InvalidAlarmState
     );
 
-    // Calculate snooze cost (exponential: 10% * 2^snooze_count)
-    let base_cost = alarm
-        .remaining_amount
-        .checked_mul(DEFAULT_SNOOZE_PERCENT)
-        .ok_or(SolarmaError::Overflow)?
-        .checked_div(100)
+    // Calculate snooze cost (exponential: 10% * 2^snooze_count, capped at remaining)
+    let cost = helpers::snooze_cost(alarm.remaining_amount, alarm.snooze_count)
         .ok_or(SolarmaError::Overflow)?;
-
-    let multiplier = 1u64 << alarm.snooze_count; // 2^snooze_count
-    let cost = base_cost
-        .checked_mul(multiplier)
-        .ok_or(SolarmaError::Overflow)?
-        .min(alarm.remaining_amount); // Cap at remaining
-
     require!(cost > 0, SolarmaError::InsufficientDeposit);
 
     // C1: Rent-exempt guard — never drain vault below rent-exempt minimum.
@@ -92,11 +80,7 @@ pub fn process_snooze(ctx: Context<Snooze>, expected_snooze_count: u8) -> Result
     let rent = Rent::get()?;
     let vault_info = ctx.accounts.vault.to_account_info();
     let min_balance = rent.minimum_balance(vault_info.data_len());
-    let current_lamports = vault_info.lamports();
-    let available = current_lamports
-        .checked_sub(min_balance)
-        .ok_or(SolarmaError::InsufficientDeposit)?;
-    let final_cost = cost.min(available);
+    let final_cost = helpers::cap_at_rent_exempt(cost, vault_info.lamports(), min_balance);
     require!(final_cost > 0, SolarmaError::InsufficientDeposit);
 
     // Transfer penalty from vault to sink
@@ -118,14 +102,14 @@ pub fn process_snooze(ctx: Context<Snooze>, expected_snooze_count: u8) -> Result
         .checked_add(1)
         .ok_or(SolarmaError::Overflow)?;
 
-    alarm.alarm_time = alarm
-        .alarm_time
-        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
-        .ok_or(SolarmaError::Overflow)?;
-    alarm.deadline = alarm
-        .deadline
-        .checked_add(DEFAULT_SNOOZE_EXTENSION_SECONDS)
-        .ok_or(SolarmaError::Overflow)?;
+    let (new_alarm_time, new_deadline) = helpers::snooze_time_extension(
+        alarm.alarm_time,
+        alarm.deadline,
+        DEFAULT_SNOOZE_EXTENSION_SECONDS,
+    )
+    .ok_or(SolarmaError::Overflow)?;
+    alarm.alarm_time = new_alarm_time;
+    alarm.deadline = new_deadline;
 
     emit!(crate::events::AlarmSnoozed {
         owner: owner_key,
