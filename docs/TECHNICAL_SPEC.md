@@ -167,7 +167,7 @@ Owner cancels alarm before it rings. 5% fee applies.
 
 #### ack_awake (H3)
 
-Records wake proof completion on-chain by transitioning `Created -> Acknowledged`.
+Records the owner's wake-up acknowledgement on-chain by transitioning `Created -> Acknowledged`. The wake proof itself is verified client-side; this instruction does not carry or verify a proof payload.
 
 **Accounts:**
 

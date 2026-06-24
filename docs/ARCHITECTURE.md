@@ -76,7 +76,7 @@ Acknowledged → Claimed              (sweep_acknowledged after grace, permissio
 |-------------|--------|-------------|
 | initialize | user | Create user profile PDA |
 | create_alarm | user | Create alarm with deposit |
-| ack_awake | user | Record wake proof completion on-chain |
+| ack_awake | user | Acknowledge wake-up on-chain (owner-signed; wake proof verified client-side) |
 | claim | user | Claim remaining deposit (Acknowledged only, within grace) |
 | snooze | user | Decrease deposit, extend time |
 | emergency_refund | user | Cancel before alarm time (penalty applies) |

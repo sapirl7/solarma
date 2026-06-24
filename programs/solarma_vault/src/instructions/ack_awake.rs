@@ -1,10 +1,11 @@
-//! AckAwake instruction - record wake proof completion on-chain (H3)
+//! AckAwake instruction - record the owner's wake-up acknowledgement on-chain (H3)
 //!
 //! This instruction is called by the owner after completing the wake proof
-//! on the client side. It transitions the alarm from Created → Acknowledged,
-//! providing on-chain evidence that the user woke up. This reduces the race
-//! window between claim and slash, and prevents bots from slashing before
-//! the claim transaction reaches finality.
+//! on the client side. It transitions the alarm from Created → Acknowledged.
+//! The wake proof itself is verified client-side — this instruction does not
+//! carry or verify a proof payload; it records only the owner's signed
+//! acknowledgement. This reduces the race window between claim and slash, and
+//! prevents bots from slashing before the claim transaction reaches finality.
 
 use crate::error::SolarmaError;
 use crate::state::{Alarm, AlarmStatus};
