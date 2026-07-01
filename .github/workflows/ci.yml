@@ -49,7 +49,7 @@ jobs:
           cache-dependency-path: programs/solarma_vault/package-lock.json
 
       - name: Cache audit tools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-audit-tools-v1
@@ -127,7 +127,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -173,7 +173,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -184,7 +184,7 @@ jobs:
 
       - name: Cache Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: ${{ runner.os }}-anchor-${{ env.ANCHOR_VERSION }}
@@ -257,7 +257,7 @@ jobs:
           distribution: "temurin"
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -321,7 +321,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -332,7 +332,7 @@ jobs:
 
       - name: Cache Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: ${{ runner.os }}-anchor-${{ env.ANCHOR_VERSION }}
