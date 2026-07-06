@@ -209,3 +209,41 @@ pub fn cap_at_rent_exempt(desired: u64, current_lamports: u64, min_balance: u64)
     let available = current_lamports.saturating_sub(min_balance);
     desired.min(available)
 }
+
+// =========================================================================
+// Deadline horizon
+// =========================================================================
+
+/// Check whether `deadline` is within `max_horizon` seconds of `current_time`.
+///
+/// Bounds the deadline so that downstream `deadline + grace` additions in
+/// claim/sweep cannot overflow `i64` and permanently lock a vault. Returns
+/// `false` when `current_time + max_horizon` would itself overflow.
+pub fn deadline_within_horizon(deadline: i64, current_time: i64, max_horizon: i64) -> bool {
+    match current_time.checked_add(max_horizon) {
+        Some(max_deadline) => deadline <= max_deadline,
+        None => false,
+    }
+}
+
+#[cfg(test)]
+mod horizon_tests {
+    use super::deadline_within_horizon;
+
+    #[test]
+    fn accepts_deadline_within_horizon() {
+        assert!(deadline_within_horizon(1_000 + 500, 1_000, 1_000));
+        assert!(deadline_within_horizon(1_000 + 1_000, 1_000, 1_000)); // inclusive
+    }
+
+    #[test]
+    fn rejects_deadline_beyond_horizon() {
+        assert!(!deadline_within_horizon(1_000 + 1_001, 1_000, 1_000));
+    }
+
+    #[test]
+    fn rejects_on_overflow() {
+        // current_time + max_horizon overflows i64 -> cannot bound safely -> reject.
+        assert!(!deadline_within_horizon(i64::MAX, i64::MAX - 5, 100));
+    }
+}

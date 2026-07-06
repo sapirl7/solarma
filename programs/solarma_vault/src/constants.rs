@@ -37,3 +37,9 @@ pub const CLAIM_GRACE_SECONDS: i64 = 120;
 /// For Buddy route, only buddy can slash during this window.
 /// Default: 120 seconds.
 pub const BUDDY_ONLY_SECONDS: i64 = 120;
+
+/// Maximum horizon for an alarm deadline, measured from creation (in seconds).
+/// Bounds `deadline` so that downstream `deadline + CLAIM_GRACE_SECONDS`
+/// additions in claim/sweep can never overflow `i64` and permanently lock a
+/// vault. Default: 30 days.
+pub const MAX_ALARM_HORIZON_SECONDS: i64 = 30 * 24 * 60 * 60;
