@@ -54,4 +54,7 @@ pub enum SolarmaError {
 
     #[msg("Only buddy can slash during buddy-only window")]
     BuddyOnlyWindow,
+
+    #[msg("Deadline is too far in the future (exceeds the max alarm horizon)")]
+    DeadlineTooFar,
 }

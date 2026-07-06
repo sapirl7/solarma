@@ -1,7 +1,8 @@
 //! Create alarm instruction - with deposit support
 
-use crate::constants::MIN_DEPOSIT_LAMPORTS;
+use crate::constants::{MAX_ALARM_HORIZON_SECONDS, MIN_DEPOSIT_LAMPORTS};
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
@@ -56,6 +57,10 @@ pub fn process_create_alarm(
         SolarmaError::AlarmTimeInPast
     );
     require!(deadline > alarm_time, SolarmaError::InvalidDeadline);
+    require!(
+        helpers::deadline_within_horizon(deadline, clock.unix_timestamp, MAX_ALARM_HORIZON_SECONDS,),
+        SolarmaError::DeadlineTooFar
+    );
 
     // Validate deposit if provided
     if deposit_amount > 0 {
