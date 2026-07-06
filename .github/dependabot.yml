@@ -92,6 +92,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "anchor-spl"
         update-types: ["version-update:semver-major"]
+      # blake3 >=1.8 requires Rust edition 2024 (Cargo >=1.85); the Solana BPF
+      # toolchain ships Cargo 1.84, so the BPF build fails. Hold until upstream.
+      - dependency-name: "blake3"
+        versions: [">=1.8.0"]
 
   # ── GitHub Actions ────────────────────────────────────
   - package-ecosystem: "github-actions"
