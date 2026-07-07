@@ -1,13 +1,14 @@
-//! AckAwake instruction - record the owner's wake-up acknowledgement on-chain (H3)
+//! AckAwake instruction - verify the wake proof and acknowledge on-chain (H3)
 //!
-//! This instruction is called by the owner after completing the wake proof
-//! on the client side. It transitions the alarm from Created → Acknowledged.
-//! The wake proof itself is verified client-side — this instruction does not
-//! carry or verify a proof payload; it records only the owner's signed
-//! acknowledgement. This reduces the race window between claim and slash, and
-//! prevents bots from slashing before the claim transaction reaches finality.
+//! The owner reveals the `wake_preimage` committed at create time. The program
+//! recomputes `blake3(preimage ‖ owner ‖ alarm_id)` and checks it against the
+//! stored `wake_commitment`; only then does it transition Created → Acknowledged.
+//! A zero commitment (None mode / zero-stake) requires no proof. This makes the
+//! deposit genuinely at risk — reclaiming it requires revealing the secret — and
+//! reduces the race window between claim and slash.
 
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus};
 use anchor_lang::prelude::*;
 
@@ -24,7 +25,7 @@ pub struct AckAwake<'info> {
     pub owner: Signer<'info>,
 }
 
-pub fn process_ack_awake(ctx: Context<AckAwake>) -> Result<()> {
+pub fn process_ack_awake(ctx: Context<AckAwake>, wake_preimage: [u8; 32]) -> Result<()> {
     let alarm_key = ctx.accounts.alarm.key();
     let owner_key = ctx.accounts.owner.key();
     let alarm = &mut ctx.accounts.alarm;
@@ -40,6 +41,18 @@ pub fn process_ack_awake(ctx: Context<AckAwake>) -> Result<()> {
     require!(
         clock.unix_timestamp < alarm.deadline,
         SolarmaError::DeadlinePassed
+    );
+
+    // Verify the wake proof: the owner reveals the preimage committed at create
+    // time (a zero commitment = None mode requires no proof).
+    require!(
+        helpers::verify_wake_proof(
+            &wake_preimage,
+            &owner_key.to_bytes(),
+            alarm.alarm_id,
+            &alarm.wake_commitment,
+        ),
+        SolarmaError::InvalidWakeProof
     );
 
     // Transition to Acknowledged

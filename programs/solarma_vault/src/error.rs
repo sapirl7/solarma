@@ -54,4 +54,10 @@ pub enum SolarmaError {
 
     #[msg("Only buddy can slash during buddy-only window")]
     BuddyOnlyWindow,
+
+    #[msg("Invalid wake proof: revealed preimage does not match the commitment")]
+    InvalidWakeProof,
+
+    #[msg("A staked alarm must commit to a wake proof (non-zero commitment)")]
+    WakeCommitmentRequired,
 }

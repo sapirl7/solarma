@@ -81,6 +81,9 @@ pub struct Alarm {
     pub bump: u8,
     /// Bump seed for vault PDA
     pub vault_bump: u8,
+    /// Wake-proof commitment: blake3(preimage ‖ owner ‖ alarm_id).
+    /// All-zero means "no proof required" (None mode / zero-stake alarm).
+    pub wake_commitment: [u8; 32],
 }
 
 impl Alarm {
@@ -97,7 +100,8 @@ impl Alarm {
         + 1   // status
         + 1   // bump
         + 1   // vault_bump
-        + 64; // padding for future fields (e.g. deposit_mint)
+        + 32  // wake_commitment
+        + 32; // padding for future fields (e.g. deposit_mint)
 }
 
 /// Vault PDA - holds deposited SOL for an alarm

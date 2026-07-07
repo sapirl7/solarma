@@ -209,3 +209,86 @@ pub fn cap_at_rent_exempt(desired: u64, current_lamports: u64, min_balance: u64)
     let available = current_lamports.saturating_sub(min_balance);
     desired.min(available)
 }
+
+// =========================================================================
+// Wake proof (commitment / reveal)
+// =========================================================================
+
+/// The all-zero commitment: "no wake proof required" (None mode / zero-stake).
+pub const NO_WAKE_PROOF: [u8; 32] = [0u8; 32];
+
+/// Compute the wake-proof commitment stored at alarm creation:
+/// `blake3(preimage ‖ owner ‖ alarm_id_le)`.
+///
+/// Binding it to `owner` + `alarm_id` lets the same physical secret (an NFC tag
+/// or QR code) back multiple alarms without cross-alarm replay: each alarm's
+/// commitment is distinct even for an identical `preimage`.
+pub fn wake_commitment(preimage: &[u8; 32], owner: &[u8; 32], alarm_id: u64) -> [u8; 32] {
+    // Uses the `blake3` crate (software impl). Follow-up: switch to the native
+    // `sol_blake3` syscall for lower compute units once the correct re-export
+    // path for this Solana version is confirmed under `cargo-build-sbf`.
+    let mut buf = [0u8; 72]; // 32 (preimage) + 32 (owner) + 8 (alarm_id)
+    buf[..32].copy_from_slice(preimage);
+    buf[32..64].copy_from_slice(owner);
+    buf[64..].copy_from_slice(&alarm_id.to_le_bytes());
+    *blake3::hash(&buf).as_bytes()
+}
+
+/// Verify a revealed `preimage` against the stored `commitment`.
+///
+/// An all-zero `commitment` (`NO_WAKE_PROOF`) means no proof is required and
+/// always verifies. blake3 can never output all-zero, so a real commitment can
+/// never collide with the sentinel.
+pub fn verify_wake_proof(
+    preimage: &[u8; 32],
+    owner: &[u8; 32],
+    alarm_id: u64,
+    commitment: &[u8; 32],
+) -> bool {
+    if commitment == &NO_WAKE_PROOF {
+        return true;
+    }
+    &wake_commitment(preimage, owner, alarm_id) == commitment
+}
+
+#[cfg(test)]
+mod wake_proof_tests {
+    use super::{verify_wake_proof, wake_commitment, NO_WAKE_PROOF};
+
+    #[test]
+    fn correct_preimage_verifies() {
+        let preimage = [7u8; 32];
+        let owner = [9u8; 32];
+        let c = wake_commitment(&preimage, &owner, 42);
+        assert_ne!(c, NO_WAKE_PROOF); // blake3 never all-zero
+        assert!(verify_wake_proof(&preimage, &owner, 42, &c));
+    }
+
+    #[test]
+    fn wrong_preimage_rejected() {
+        let owner = [9u8; 32];
+        let c = wake_commitment(&[7u8; 32], &owner, 42);
+        assert!(!verify_wake_proof(&[8u8; 32], &owner, 42, &c));
+    }
+
+    #[test]
+    fn bound_to_owner_and_alarm_id() {
+        let preimage = [7u8; 32];
+        let c = wake_commitment(&preimage, &[9u8; 32], 42);
+        // same preimage, different owner -> rejected
+        assert!(!verify_wake_proof(&preimage, &[1u8; 32], 42, &c));
+        // same preimage + owner, different alarm_id -> rejected
+        assert!(!verify_wake_proof(&preimage, &[9u8; 32], 43, &c));
+    }
+
+    #[test]
+    fn zero_commitment_needs_no_proof() {
+        assert!(verify_wake_proof(&[0u8; 32], &[0u8; 32], 0, &NO_WAKE_PROOF));
+        assert!(verify_wake_proof(
+            &[123u8; 32],
+            &[1u8; 32],
+            5,
+            &NO_WAKE_PROOF
+        ));
+    }
+}

@@ -4,6 +4,11 @@
 //! Users deposit SOL when setting alarms. They claim back
 //! after completing wake proof, or the deposit is slashed after deadline.
 
+// `create_alarm` legitimately takes 8 args; the #[program] macro re-emits the
+// signature, so the lint must be allowed crate-wide (module/fn allows don't
+// reach the macro-generated dispatcher).
+#![allow(clippy::too_many_arguments)]
+
 use anchor_lang::prelude::*;
 
 declare_id!("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
@@ -32,6 +37,7 @@ pub mod solarma_vault {
     }
 
     /// Create a new alarm with optional deposit
+    #[allow(clippy::too_many_arguments)]
     pub fn create_alarm(
         ctx: Context<CreateAlarm>,
         alarm_id: u64,
@@ -40,6 +46,7 @@ pub mod solarma_vault {
         deposit_amount: u64,
         penalty_route: u8,
         penalty_destination: Option<Pubkey>,
+        wake_commitment: [u8; 32],
     ) -> Result<()> {
         instructions::create_alarm::process_create_alarm(
             ctx,
@@ -49,6 +56,7 @@ pub mod solarma_vault {
             deposit_amount,
             penalty_route,
             penalty_destination,
+            wake_commitment,
         )
     }
 
@@ -78,8 +86,8 @@ pub mod solarma_vault {
         instructions::emergency_refund::process_emergency_refund(ctx)
     }
 
-    /// H3: Record wake proof completion on-chain
-    pub fn ack_awake(ctx: Context<AckAwake>) -> Result<()> {
-        instructions::ack_awake::process_ack_awake(ctx)
+    /// H3: Verify the wake proof (revealed preimage) and acknowledge on-chain
+    pub fn ack_awake(ctx: Context<AckAwake>, wake_preimage: [u8; 32]) -> Result<()> {
+        instructions::ack_awake::process_ack_awake(ctx, wake_preimage)
     }
 }
