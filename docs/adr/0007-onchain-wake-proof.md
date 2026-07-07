@@ -80,9 +80,14 @@ BPF-compatible (Solana itself uses it), and avoids the version-fragile
 
 ### Client integration spec
 
-- **preimage** (`[u8; 32]`): a high-entropy secret derived from the registered
-  NFC tag / QR content (e.g. `blake3(tag_bytes)`), stored locally (as the NFC
-  hash already is). Must be unguessable.
+- **preimage** (`[u8; 32]`): derive it **per alarm** so revealing one alarm's
+  preimage never exposes the underlying tag secret or other alarms' proofs, e.g.
+  `preimage = blake3(tag_secret ‖ alarm_id_le)`. The `tag_secret` is the
+  high-entropy value bound to the registered NFC tag / QR code (stored locally,
+  as the NFC hash already is), must be unguessable, and is never sent on-chain
+  directly. (The `ack_awake` reveal is public in the mempool, but only the alarm
+  `owner` can `ack` — `has_one = owner` + Signer — so a revealed preimage cannot
+  be used against any alarm the attacker does not own.)
 - **create_alarm**: compute `wake_commitment = blake3(preimage ‖ owner(32) ‖
   alarm_id_le(8))`, serialize it as 32 raw bytes appended after
   `penalty_destination` in the instruction data.
