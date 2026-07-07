@@ -94,3 +94,31 @@ BPF-compatible (Solana itself uses it), and avoids the version-fragile
 - **ack_awake**: serialize `preimage` as the 32-byte instruction argument.
 - **None / zero-stake** alarms send `wake_commitment = [0u8; 32]` and any
   preimage.
+- **Client MUST self-check before submitting `create_alarm`:** re-derive the
+  preimage and assert `verify_wake_proof` passes locally. A staked alarm stored
+  with a commitment whose preimage the client cannot reproduce makes `ack_awake`
+  permanently unsatisfiable, and `emergency_refund` is blocked after
+  `alarm_time` — so the deposit is then guaranteed to be slashed with no
+  recovery. Nothing on-chain can prevent this; gate the coordinated release on
+  this client check.
+
+### Security review notes (post-implementation)
+
+An adversarial review confirmed the scheme is sound for its threat model
+(no third-party reveal abuse, no cross-alarm/cross-owner replay, correct byte
+layout, clean state-machine interaction; H1 closed without a liveness hole).
+Three follow-ups:
+
+1. **Fresh deploy is a hard requirement (not just a preference).** `wake_commitment`
+   is carved from the previously-zero 64-byte padding. An **in-place upgrade over
+   the same program id** with pre-existing `Alarm` accounts would read their old
+   padding as all-zero → `NO_WAKE_PROOF` → proof silently disabled for every
+   legacy staked alarm. Deploy only under the **new (rotated) program id** with no
+   legacy accounts, or write a real migration.
+2. **Compute-unit follow-up:** the implementation uses the `blake3` crate
+   (software). Switch to the native `sol_blake3` syscall once the correct
+   re-export path for this Solana version is confirmed under `cargo-build-sbf`
+   (lower CU + smaller `.so`; then the direct `blake3` dep can be dropped).
+3. **Weak/guessable secret** only lets the *owner* defeat their own stake
+   (self-harm, per the model) — not a third-party vector — but the client should
+   still use a high-entropy `tag_secret`.

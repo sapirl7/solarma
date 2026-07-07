@@ -224,6 +224,9 @@ pub const NO_WAKE_PROOF: [u8; 32] = [0u8; 32];
 /// or QR code) back multiple alarms without cross-alarm replay: each alarm's
 /// commitment is distinct even for an identical `preimage`.
 pub fn wake_commitment(preimage: &[u8; 32], owner: &[u8; 32], alarm_id: u64) -> [u8; 32] {
+    // Uses the `blake3` crate (software impl). Follow-up: switch to the native
+    // `sol_blake3` syscall for lower compute units once the correct re-export
+    // path for this Solana version is confirmed under `cargo-build-sbf`.
     let mut buf = [0u8; 72]; // 32 (preimage) + 32 (owner) + 8 (alarm_id)
     buf[..32].copy_from_slice(preimage);
     buf[32..64].copy_from_slice(owner);
@@ -234,7 +237,7 @@ pub fn wake_commitment(preimage: &[u8; 32], owner: &[u8; 32], alarm_id: u64) -> 
 /// Verify a revealed `preimage` against the stored `commitment`.
 ///
 /// An all-zero `commitment` (`NO_WAKE_PROOF`) means no proof is required and
-/// always verifies. sha256 can never output all-zero, so a real commitment can
+/// always verifies. blake3 can never output all-zero, so a real commitment can
 /// never collide with the sentinel.
 pub fn verify_wake_proof(
     preimage: &[u8; 32],
@@ -257,7 +260,7 @@ mod wake_proof_tests {
         let preimage = [7u8; 32];
         let owner = [9u8; 32];
         let c = wake_commitment(&preimage, &owner, 42);
-        assert_ne!(c, NO_WAKE_PROOF); // sha256 never all-zero
+        assert_ne!(c, NO_WAKE_PROOF); // blake3 never all-zero
         assert!(verify_wake_proof(&preimage, &owner, 42, &c));
     }
 
