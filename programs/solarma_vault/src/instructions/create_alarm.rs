@@ -2,6 +2,7 @@
 
 use crate::constants::MIN_DEPOSIT_LAMPORTS;
 use crate::error::SolarmaError;
+use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
@@ -36,6 +37,7 @@ pub struct CreateAlarm<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn process_create_alarm(
     ctx: Context<CreateAlarm>,
     alarm_id: u64,
@@ -44,6 +46,7 @@ pub fn process_create_alarm(
     deposit_amount: u64,
     penalty_route: u8,
     penalty_destination: Option<Pubkey>,
+    wake_commitment: [u8; 32],
 ) -> Result<()> {
     // Validate penalty route
     let route =
@@ -56,6 +59,14 @@ pub fn process_create_alarm(
         SolarmaError::AlarmTimeInPast
     );
     require!(deadline > alarm_time, SolarmaError::InvalidDeadline);
+
+    // A staked alarm MUST commit to a wake proof; a zero-stake alarm may skip it
+    // (all-zero commitment = None mode). This is what makes the deposit actually
+    // at risk: reclaiming it requires revealing the preimage in ack_awake.
+    require!(
+        deposit_amount == 0 || wake_commitment != helpers::NO_WAKE_PROOF,
+        SolarmaError::WakeCommitmentRequired
+    );
 
     // Validate deposit if provided
     if deposit_amount > 0 {
@@ -104,6 +115,7 @@ pub fn process_create_alarm(
     alarm.status = AlarmStatus::Created;
     alarm.bump = ctx.bumps.alarm;
     alarm.vault_bump = ctx.bumps.vault;
+    alarm.wake_commitment = wake_commitment;
 
     emit!(crate::events::AlarmCreated {
         owner: ctx.accounts.owner.key(),
