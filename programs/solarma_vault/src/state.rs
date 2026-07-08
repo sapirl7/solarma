@@ -11,6 +11,9 @@ pub enum AlarmStatus {
     Acknowledged,
     Claimed,
     Slashed,
+    /// Owner cancelled before alarm_time via emergency_refund (5% penalty).
+    /// Appended last so existing discriminants (0..3) are unchanged.
+    Refunded,
 }
 
 /// Penalty route for failed alarms

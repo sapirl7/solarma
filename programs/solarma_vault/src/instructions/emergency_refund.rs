@@ -94,8 +94,8 @@ pub fn process_emergency_refund(ctx: Context<EmergencyRefund>) -> Result<()> {
         returned_amount: actual_returned,
     });
 
-    // Mark as claimed (terminal state)
-    alarm.status = AlarmStatus::Claimed;
+    // Mark as refunded (distinct terminal state — not a normal wake-and-claim)
+    alarm.status = AlarmStatus::Refunded;
     alarm.remaining_amount = 0;
 
     msg!("Alarm cancelled by owner {}", owner_key);
