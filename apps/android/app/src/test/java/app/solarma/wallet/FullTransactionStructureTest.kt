@@ -17,7 +17,10 @@ class FullTransactionStructureTest {
     private val owner = PublicKey(ByteArray(32) { 9 })
     private val blockhash = "8qbHbw2BbbTHBW1sbeqakYXVKRQM8Ne7pLK7m6CVfeR"
 
-    private class Parsed(val keys: List<ByteArray>, val programIndices: List<Int>)
+    private class Parsed(
+        val keys: List<ByteArray>,
+        val programIndices: List<Int>,
+    )
 
     /** Minimal legacy-transaction parser (all counts here are < 128, so compact-u16 is 1 byte). */
     private fun parse(tx: ByteArray): Parsed {

@@ -22,8 +22,7 @@ object AlarmTiming {
      * On-chain deadline in millis. Uses the stored on-chain value; alarms created
      * before it was tracked fall back to alarm time + grace.
      */
-    fun deadlineMillis(alarm: AlarmEntity): Long =
-        alarm.onchainDeadline?.let { it * 1000 } ?: (alarm.alarmTimeMillis + GRACE_PERIOD_MILLIS)
+    fun deadlineMillis(alarm: AlarmEntity): Long = alarm.onchainDeadline?.let { it * 1000 } ?: (alarm.alarmTimeMillis + GRACE_PERIOD_MILLIS)
 
     /**
      * Next ring time for a snooze pressed at [nowMillis], or null if the alarm must not

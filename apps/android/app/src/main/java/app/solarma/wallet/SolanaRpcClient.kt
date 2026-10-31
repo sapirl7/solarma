@@ -47,6 +47,7 @@ class SolanaRpcClient
 
         // Fixed per build (SOLARMA_NETWORK); there is no runtime network switch.
         private val isMainnet: Boolean = BuildConfig.IS_MAINNET
+
         // Updated concurrently from fan-out coroutines on Dispatchers.IO.
         private val endpointFailureCount = java.util.concurrent.ConcurrentHashMap<String, Int>()
         private val endpointLastFailedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()

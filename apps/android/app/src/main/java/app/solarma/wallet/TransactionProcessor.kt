@@ -196,20 +196,17 @@ class TransactionProcessor
                 when (val action = decide(tx.type, before, nowSec, ownerAddress)) {
                     Action.AckAndClaim -> build = { transactionBuilder.buildAckAndClaimTransactionByPubkey(owner, alarmPda) }
                     Action.Claim -> build = { transactionBuilder.buildClaimTransactionByPubkey(owner, alarmPda) }
-                    Action.Sweep -> build = {
-                        transactionBuilder.buildSweepTransactionByPubkey(owner, alarmPda, PublicKey(before!!.owner))
+                    Action.Sweep -> {
+                        val alarmOwner = PublicKey(before!!.owner)
+                        build = { transactionBuilder.buildSweepTransactionByPubkey(owner, alarmPda, alarmOwner) }
                     }
-                    is Action.Snooze -> build = {
-                        transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda, action.expectedSnoozeCount)
+                    is Action.Snooze -> {
+                        val expected = action.expectedSnoozeCount
+                        build = { transactionBuilder.buildSnoozeTransactionByPubkey(owner, alarmPda, expected) }
                     }
-                    Action.Slash -> build = {
-                        transactionBuilder.buildSlashTransactionByPubkey(
-                            owner = owner,
-                            alarmPda = alarmPda,
-                            penaltyRoute = before!!.penaltyRoute,
-                            penaltyDestination = before.penaltyDestination,
-                            alarmOwner = PublicKey(before.owner),
-                        )
+                    Action.Slash -> {
+                        val onchain = before!!
+                        build = { buildSlash(owner, alarmPda, onchain) }
                     }
                     Action.Refund -> build = { transactionBuilder.buildEmergencyRefundTransactionByPubkey(owner, alarmPda) }
                     is Action.Wait -> {
@@ -325,6 +322,19 @@ class TransactionProcessor
                 else -> Action.Fail("Unknown transaction type $type")
             }
         }
+
+        private suspend fun buildSlash(
+            caller: PublicKey,
+            alarmPda: PublicKey,
+            onchain: OnchainAlarmAccount,
+        ): ByteArray =
+            transactionBuilder.buildSlashTransactionByPubkey(
+                owner = caller,
+                alarmPda = alarmPda,
+                penaltyRoute = onchain.penaltyRoute,
+                penaltyDestination = onchain.penaltyDestination,
+                alarmOwner = PublicKey(onchain.owner),
+            )
 
         private suspend fun buildCreate(
             alarm: AlarmEntity,
