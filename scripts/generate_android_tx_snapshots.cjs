@@ -292,8 +292,8 @@ function buildEmergencyRefundIx({ owner, alarmId }) {
   return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
 }
 
-function buildSlashIx({ caller, alarmId, penaltyRecipient }) {
-  const { pda: alarmPda } = deriveAlarmPda(caller, alarmId);
+function buildSlashIx({ owner, caller, alarmId, penaltyRecipient }) {
+  const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
   const { pda: vaultPda } = deriveVaultPda(alarmPda);
   const data = Buffer.from(discriminator("slash"));
 
@@ -302,6 +302,24 @@ function buildSlashIx({ caller, alarmId, penaltyRecipient }) {
     meta(vaultPda, false, true),
     meta(penaltyRecipient, false, true),
     meta(caller, true, true),
+    meta(SYSTEM_PROGRAM_ID, false, false),
+    // Alarm owner receives the closed alarm account's rent (appended last).
+    meta(owner, false, true),
+  ];
+
+  return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
+}
+
+function buildSweepAcknowledgedIx({ owner, caller, alarmId }) {
+  const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
+  const { pda: vaultPda } = deriveVaultPda(alarmPda);
+  const data = Buffer.from(discriminator("sweep_acknowledged"));
+
+  const accounts = [
+    meta(alarmPda, false, true),
+    meta(vaultPda, false, true),
+    meta(owner, false, true),
+    meta(caller, true, false),
     meta(SYSTEM_PROGRAM_ID, false, false),
   ];
 
@@ -465,11 +483,41 @@ function main() {
       blockhash,
       {
         op: "slash",
+        owner: owner.toBase58(),
         caller: owner.toBase58(),
         alarmId,
         penaltyRecipient: BURN_SINK.toBase58(),
       },
-      () => buildSlashIx({ caller: owner, alarmId, penaltyRecipient: BURN_SINK })
+      () => buildSlashIx({ owner, caller: owner, alarmId, penaltyRecipient: BURN_SINK })
+    )
+  );
+  cases.push(
+    toSnapshotCase(
+      "slash_buddy_by_buddy",
+      buddy,
+      blockhash,
+      {
+        op: "slash",
+        owner: owner.toBase58(),
+        caller: buddy.toBase58(),
+        alarmId: alarmId + 1,
+        penaltyRecipient: buddy.toBase58(),
+      },
+      () => buildSlashIx({ owner, caller: buddy, alarmId: alarmId + 1, penaltyRecipient: buddy })
+    )
+  );
+  cases.push(
+    toSnapshotCase(
+      "sweep_acknowledged",
+      owner,
+      blockhash,
+      {
+        op: "sweep_acknowledged",
+        owner: owner.toBase58(),
+        caller: owner.toBase58(),
+        alarmId,
+      },
+      () => buildSweepAcknowledgedIx({ owner, caller: owner, alarmId })
     )
   );
 
@@ -490,6 +538,7 @@ function main() {
         slash: hex(discriminator("slash")),
         emergency_refund: hex(discriminator("emergency_refund")),
         ack_awake: hex(discriminator("ack_awake")),
+        sweep_acknowledged: hex(discriminator("sweep_acknowledged")),
       },
     },
     cases,

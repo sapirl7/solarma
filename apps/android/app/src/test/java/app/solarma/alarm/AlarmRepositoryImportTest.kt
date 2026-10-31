@@ -57,7 +57,11 @@ class AlarmRepositoryImportTest {
         alarmDao = mock()
         alarmScheduler = mock()
         statsDao = mock()
-        transactionQueue = mock()
+        transactionQueue =
+            mock {
+                onBlocking { hasActive(any(), any()) } doReturn false
+                onBlocking { enqueue(any(), any()) } doReturn 1L
+            }
         rpcClient = mock()
 
         repo =
@@ -101,17 +105,20 @@ class AlarmRepositoryImportTest {
         }
 
     @Test
-    fun `status 1 Acknowledged is skipped`() =
+    fun `status 1 Acknowledged is imported and its claim queued`() =
         runTest {
             val parsed = makeAccount(status = 1)
             setParser("pda1" to parsed)
             setupRpc(listOf(ProgramAccount("pda1", "")))
+            whenever(alarmDao.insert(any())).thenReturn(7L)
 
             val result = repo.importOnchainAlarms(owner).getOrThrow()
 
-            assertEquals(0, result.imported)
-            assertEquals(1, result.skipped)
-            verify(alarmDao, never()).insert(any())
+            // The deposit still has to be collected (claim, or sweep after the grace window)
+            assertEquals(1, result.imported)
+            verify(transactionQueue).enqueue("ACK_AND_CLAIM", 7L)
+            // Acknowledged alarms don't ring again
+            verify(alarmScheduler, never()).schedule(any(), any())
         }
 
     @Test
@@ -189,5 +196,7 @@ class AlarmRepositoryImportTest {
             assertEquals(1, result.imported)
             // Past alarm: isEnabled = false, scheduler NOT called
             verify(alarmScheduler, never()).schedule(any(), any())
+            // Deadline long gone: slash it (the owner gets the alarm account's rent back)
+            verify(transactionQueue).enqueue("SLASH", 1L)
         }
 }

@@ -28,6 +28,10 @@ data class PendingTransaction(
     val lastAttemptAt: Long? = null,
     /** Transaction status: PENDING, SENDING, CONFIRMED, FAILED */
     val status: String = "PENDING",
+    /** Signature of the last sent attempt; checked before re-signing so a landed tx is never repeated */
+    val signature: String? = null,
+    /** Block height when [signature] was sent; once the chain passes height + 150 that attempt can't land */
+    val sentAtBlockHeight: Long? = null,
 )
 
 /**
@@ -63,6 +67,13 @@ interface PendingTransactionDao {
 
     @Query("UPDATE pending_transactions SET retryCount = retryCount + 1 WHERE id = :id")
     suspend fun incrementRetry(id: Long)
+
+    @Query("UPDATE pending_transactions SET signature = :signature, sentAtBlockHeight = :blockHeight WHERE id = :id")
+    suspend fun updateSent(
+        id: Long,
+        signature: String?,
+        blockHeight: Long?,
+    )
 
     @Query("SELECT COUNT(*) FROM pending_transactions WHERE type = :type AND alarmId = :alarmId AND status IN ('PENDING','SENDING')")
     suspend fun countActiveByTypeAndAlarm(

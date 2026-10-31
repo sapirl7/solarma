@@ -53,6 +53,12 @@ data class AlarmEntity(
     val onchainAlarmId: Long? = null,
     /** Onchain snooze count (for penalty calculations) */
     val snoozeCount: Int = 0,
+    /**
+     * On-chain deadline (unix seconds) as last known from the program. Unlike
+     * [alarmTimeMillis] (the next local ring), it only moves when a snooze lands
+     * on-chain. Null for alarms without a deposit or created before v7.
+     */
+    val onchainDeadline: Long? = null,
     /** Created timestamp */
     val createdAt: Long = System.currentTimeMillis(),
     /** Last triggered timestamp */
@@ -114,7 +120,7 @@ interface AlarmDao {
  */
 @Database(
     entities = [AlarmEntity::class, PendingTransaction::class, StatsEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class SolarmaDatabase : RoomDatabase() {
@@ -155,6 +161,15 @@ abstract class SolarmaDatabase : RoomDatabase() {
             object : Migration(5, 6) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE alarms ADD COLUMN snoozeCount INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
+        val MIGRATION_6_7 =
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE alarms ADD COLUMN onchainDeadline INTEGER")
+                    db.execSQL("ALTER TABLE pending_transactions ADD COLUMN signature TEXT")
+                    db.execSQL("ALTER TABLE pending_transactions ADD COLUMN sentAtBlockHeight INTEGER")
                 }
             }
     }

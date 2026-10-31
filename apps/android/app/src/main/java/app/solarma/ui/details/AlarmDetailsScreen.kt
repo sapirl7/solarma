@@ -354,8 +354,8 @@ fun DepositCard(
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    // Deadline = alarm time + grace period (matches on-chain logic)
-    val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+    // On-chain deadline (alarm time + grace, extended only by snoozes that landed)
+    val deadlineMillis = AlarmTiming.deadlineMillis(alarm)
     val deadlineTime =
         LocalDateTime.ofInstant(
             Instant.ofEpochMilli(deadlineMillis),

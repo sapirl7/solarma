@@ -126,7 +126,8 @@ fun TransactionCard(tx: PendingTransaction) {
                 val title = if (tx.status == "CONFIRMED") "Deposit" else "Deposit Pending"
                 Triple("DEP", title, SolanaPurple)
             }
-            "CLAIM" -> Triple("CLM", "Claim", SolanaGreen)
+            "CLAIM", "ACK_AND_CLAIM" -> Triple("CLM", "Claim", SolanaGreen)
+            "SWEEP" -> Triple("CLM", "Deposit Returned", SolanaGreen)
             "SNOOZE" -> Triple("SNZ", "Snooze Penalty", WarningAmber)
             "SLASH" -> Triple("SLS", "Slashed", ErrorCrimson)
             "EMERGENCY_REFUND" -> Triple("REF", "Emergency Refund", SolanaPurple)

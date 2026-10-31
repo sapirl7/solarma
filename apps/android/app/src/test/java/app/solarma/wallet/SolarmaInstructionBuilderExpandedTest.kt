@@ -282,13 +282,14 @@ class SolarmaInstructionBuilderExpandedTest {
     }
 
     @Test
-    fun `buildSlash has 5 accounts with penalty recipient`() {
+    fun `buildSlash has 6 accounts with penalty recipient and owner`() {
         val alarmPda = builder.deriveAlarmPda(owner, 1L).address
         val recipient = PublicKey("33333333333333333333333333333333")
         val ix = builder.buildSlash(caller = owner, alarmPda = alarmPda, penaltyRecipient = recipient)
 
-        assertEquals(5, ix.accounts.size)
+        assertEquals(6, ix.accounts.size)
         assertEquals(recipient, ix.accounts[2].pubkey)
+        assertEquals(owner, ix.accounts[5].pubkey)
     }
 
     // =========================================================================

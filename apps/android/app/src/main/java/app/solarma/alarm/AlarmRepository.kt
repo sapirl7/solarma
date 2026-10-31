@@ -7,8 +7,10 @@ import app.solarma.data.local.AlarmEntity
 import app.solarma.data.local.StatsDao
 import app.solarma.data.local.StatsEntity
 import app.solarma.wallet.OnchainAlarmParser
+import app.solarma.wallet.OnchainParameters
 import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.SolarmaInstructionBuilder
+import app.solarma.wallet.TransactionProcessor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -39,6 +41,21 @@ class AlarmRepository
 
         companion object {
             private const val TAG = "Solarma.AlarmRepository"
+
+            /** Missed deposit alarms ring right away if at least this much time is left before the deadline. */
+            private const val RING_NOW_MIN_LEFT_MILLIS = 60_000L
+            private const val RING_NOW_DELAY_MILLIS = 5_000L
+
+            /**
+             * Whether an on-chain alarm should exist locally: active (Created) alarms with a
+             * deposit, and Acknowledged alarms whose deposit still has to be claimed or swept.
+             */
+            internal fun isImportable(
+                status: Int,
+                remainingAmount: Long,
+            ): Boolean =
+                status == OnchainParameters.STATUS_ACKNOWLEDGED ||
+                    (status == OnchainParameters.STATUS_CREATED && remainingAmount > 0)
         }
 
         /**
@@ -175,16 +192,21 @@ class AlarmRepository
         }
 
         /**
-         * Handle snooze: reschedule alarm, increment stats.
+         * Handle snooze: reschedule the alarm. Deposit alarms never ring again later than
+         * shortly before their on-chain deadline (see [AlarmTiming.snoozeRingMillis]).
+         * @return false if the alarm is too close to its deadline to be snoozed.
          */
-        suspend fun snooze(
-            id: Long,
-            snoozeMinutes: Int = AlarmTiming.SNOOZE_MINUTES,
-        ) {
-            val nextRing = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+        suspend fun snooze(id: Long): Boolean {
+            val alarm = alarmDao.getById(id) ?: return false
+            val nextRing = AlarmTiming.snoozeRingMillis(alarm, System.currentTimeMillis())
+            if (nextRing == null) {
+                Log.w(TAG, "Alarm $id not snoozed: too close to its on-chain deadline")
+                return false
+            }
             updateNextRing(id, nextRing)
             statsDao.incrementSnoozes()
-            Log.i(TAG, "Alarm $id snoozed for $snoozeMinutes minutes")
+            Log.i(TAG, "Alarm $id snoozed until $nextRing")
+            return true
         }
 
         /**
@@ -208,7 +230,10 @@ class AlarmRepository
             for (alarm in alarms) {
                 if (alarm.alarmTimeMillis > now) {
                     alarmScheduler.schedule(alarm.id, alarm.alarmTimeMillis)
-                    Log.d(TAG, "Restored alarm ${alarm.id}")
+                } else if (alarm.hasDeposit && now < AlarmTiming.deadlineMillis(alarm) - RING_NOW_MIN_LEFT_MILLIS) {
+                    // Missed while the device was off, but the deposit can still be saved: ring now.
+                    Log.w(TAG, "Alarm ${alarm.id} missed while device was off; ringing now (deadline not reached)")
+                    alarmScheduler.schedule(alarm.id, now + RING_NOW_DELAY_MILLIS)
                 } else {
                     // Alarm time passed while device was off
                     Log.w(TAG, "Alarm ${alarm.id} missed while device was off")
@@ -244,7 +269,7 @@ class AlarmRepository
         }
 
         private suspend fun maybeQueueSlash(alarm: AlarmEntity) {
-            val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+            val deadlineMillis = AlarmTiming.deadlineMillis(alarm)
             if (System.currentTimeMillis() < deadlineMillis) {
                 SlashAlarmWorker.enqueue(context, alarm.id, deadlineMillis - System.currentTimeMillis())
                 return
@@ -258,9 +283,25 @@ class AlarmRepository
                 return
             }
 
-            if (!transactionQueue.hasActive("SLASH", alarm.id)) {
-                transactionQueue.enqueue(type = "SLASH", alarmId = alarm.id)
+            if (transactionQueue.hasActive(TransactionProcessor.TYPE_ACK_AND_CLAIM, alarm.id)) {
+                Log.i(TAG, "Skipping slash for alarm ${alarm.id} - claim already queued")
+                return
+            }
+
+            if (!transactionQueue.hasActive(TransactionProcessor.TYPE_SLASH, alarm.id)) {
+                transactionQueue.enqueue(type = TransactionProcessor.TYPE_SLASH, alarmId = alarm.id)
                 Log.w(TAG, "Queued slash for alarm ${alarm.id}")
+            }
+        }
+
+        /**
+         * Queue the combined ack_awake + claim for an alarm whose wake proof was completed.
+         * The processor turns it into claim or sweep if the alarm was already acknowledged.
+         */
+        suspend fun queueAckAndClaim(alarmId: Long) {
+            if (!transactionQueue.hasActive(TransactionProcessor.TYPE_ACK_AND_CLAIM, alarmId)) {
+                transactionQueue.enqueue(type = TransactionProcessor.TYPE_ACK_AND_CLAIM, alarmId = alarmId)
+                Log.i(TAG, "Queued ack_awake+claim for alarm $alarmId")
             }
         }
 
@@ -272,7 +313,13 @@ class AlarmRepository
             pdaAddress: String,
         ) {
             val alarm = alarmDao.getById(id) ?: return
-            alarmDao.update(alarm.copy(onchainPubkey = pdaAddress))
+            alarmDao.update(
+                alarm.copy(
+                    onchainPubkey = pdaAddress,
+                    // Created with deadline = alarm time + grace (see OnchainAlarmService); refreshed from chain later
+                    onchainDeadline = alarm.onchainDeadline ?: (alarm.alarmTimeMillis / 1000 + AlarmTiming.GRACE_PERIOD_SECONDS),
+                ),
+            )
             Log.i(TAG, "Alarm $id onchain address updated: $pdaAddress")
         }
 
@@ -373,7 +420,7 @@ class AlarmRepository
                         skipped++
                         continue
                     }
-                    if (parsed.status != 0 || parsed.remainingAmount <= 0) {
+                    if (!isImportable(parsed.status, parsed.remainingAmount)) {
                         skipped++
                         continue
                     }
@@ -381,7 +428,8 @@ class AlarmRepository
                     val alarmTimeMillis = parsed.alarmTimeUnix * 1000
                     val depositLamports = parsed.remainingAmount
                     val depositSol = depositLamports / 1_000_000_000.0
-                    val isEnabled = alarmTimeMillis > now
+                    val acknowledged = parsed.status == OnchainParameters.STATUS_ACKNOWLEDGED
+                    val isEnabled = !acknowledged && alarmTimeMillis > now
 
                     val existing = alarmDao.getByOnchainPubkey(parsed.pubkey)
                     if (existing != null) {
@@ -396,11 +444,13 @@ class AlarmRepository
                                 penaltyDestination = parsed.penaltyDestination,
                                 onchainPubkey = parsed.pubkey,
                                 snoozeCount = parsed.snoozeCount,
+                                onchainDeadline = parsed.deadlineUnix,
                             )
                         alarmDao.update(updatedAlarm)
                         if (updatedAlarm.isEnabled) {
                             alarmScheduler.schedule(updatedAlarm.id, alarmTimeMillis)
                         }
+                        queueFollowUp(updatedAlarm, acknowledged, now)
                         updated++
                     } else {
                         val newAlarm =
@@ -419,11 +469,13 @@ class AlarmRepository
                                 onchainPubkey = parsed.pubkey,
                                 onchainAlarmId = null,
                                 snoozeCount = parsed.snoozeCount,
+                                onchainDeadline = parsed.deadlineUnix,
                             )
                         val id = alarmDao.insert(newAlarm)
                         if (isEnabled) {
                             alarmScheduler.schedule(id, alarmTimeMillis)
                         }
+                        queueFollowUp(newAlarm.copy(id = id), acknowledged, now)
                         imported++
                     }
                 }
@@ -431,6 +483,50 @@ class AlarmRepository
                 ImportResult(imported = imported, updated = updated, skipped = skipped)
             }
         }
+
+        /**
+         * After import: an acknowledged alarm still has its deposit to collect (claim, or
+         * sweep after the grace window); a Created alarm whose deadline passed can be
+         * slashed (the owner gets the alarm account's rent back).
+         */
+        private suspend fun queueFollowUp(
+            alarm: AlarmEntity,
+            acknowledged: Boolean,
+            nowMillis: Long,
+        ) {
+            when {
+                acknowledged -> queueAckAndClaim(alarm.id)
+                nowMillis >= AlarmTiming.deadlineMillis(alarm) -> maybeQueueSlash(alarm)
+            }
+        }
+
+        /**
+         * Sync local alarms with the chain for the connected wallet: import/update on-chain
+         * alarms, then clear the deposit of local alarms whose on-chain account no longer
+         * exists (resolved on another device). Returns the number of newly imported alarms.
+         */
+        suspend fun syncWithChain(ownerAddress: String): Result<Int> =
+            importOnchainAlarms(ownerAddress).mapCatching { result ->
+                val local = alarmDao.getAllAlarms().first()
+                for (alarm in local) {
+                    val pubkey = alarm.onchainPubkey ?: continue
+                    if (!alarm.hasDeposit) continue
+                    if (transactionQueue.hasActive(TransactionProcessor.TYPE_CREATE_ALARM, alarm.id)) continue
+                    val exists = rpcClient.accountExists(pubkey).getOrNull() ?: continue
+                    if (!exists) {
+                        alarmDao.update(
+                            alarm.copy(
+                                hasDeposit = false,
+                                depositAmount = 0.0,
+                                depositLamports = 0,
+                                onchainDeadline = null,
+                            ),
+                        )
+                        Log.i(TAG, "Sync: alarm ${alarm.id} resolved on-chain elsewhere; deposit cleared")
+                    }
+                }
+                result.imported
+            }
     }
 
 data class ImportResult(

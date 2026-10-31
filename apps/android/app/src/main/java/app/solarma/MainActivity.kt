@@ -21,11 +21,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import app.solarma.alarm.AlarmRepository
 import app.solarma.navigation.SolarmaNavHost
 import app.solarma.ui.theme.SolarmaTheme
 import app.solarma.wakeproof.NfcScanner
-import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.TransactionProcessor
+import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -68,10 +69,10 @@ class MainActivity : ComponentActivity() {
     lateinit var transactionProcessor: TransactionProcessor
 
     @Inject
-    lateinit var onchainAlarmService: OnchainAlarmService
+    lateinit var alarmRepository: AlarmRepository
 
     @Inject
-    lateinit var alarmDao: app.solarma.data.local.AlarmDao
+    lateinit var walletManager: WalletManager
 
     // Create ActivityResultSender BEFORE onCreate completes
     private val activityResultSender by lazy {
@@ -173,11 +174,11 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             transactionProcessor.processPendingTransactionsWithUi(activityResultSender)
-        }
-        // M3: Sync on-chain alarms from other devices
-        lifecycleScope.launch {
+            // M3: then sync with the chain (alarms from other devices, alarms resolved elsewhere,
+            // acknowledged deposits still to collect). Runs after processing to avoid racing it.
             try {
-                val synced = onchainAlarmService.syncOnchainAlarms(alarmDao)
+                val owner = walletManager.getConnectedWallet() ?: return@launch
+                val synced = alarmRepository.syncWithChain(owner).getOrThrow()
                 if (synced > 0) {
                     android.util.Log.i(TAG, "Synced $synced on-chain alarms from other devices")
                 }

@@ -238,6 +238,62 @@ class WalletManager
         }
 
         /**
+         * Sign a transaction that is built inside the wallet session.
+         *
+         * [buildTransaction] runs after the wallet has authorized, immediately before
+         * the signing prompt, so the blockhash is as fresh as possible. If the wallet
+         * authorized a different account than [expectedSigner] (the fee payer the
+         * transaction is built for), signing is refused.
+         */
+        suspend fun signTransaction(
+            activityResultSender: ActivityResultSender,
+            expectedSigner: String,
+            buildTransaction: suspend () -> ByteArray,
+        ): Result<ByteArray> {
+            if (!isConnected()) {
+                return Result.failure(Exception("Wallet not connected"))
+            }
+
+            var blockError: Throwable? = null
+            val result =
+                mobileWalletAdapter.transact(activityResultSender) { authResult ->
+                    try {
+                        val authorized = authResult.accounts.firstOrNull()?.publicKey?.let { toBase58(it) }
+                        if (authorized != null && authorized != expectedSigner) {
+                            throw IllegalStateException(
+                                "Wallet authorized $authorized but the transaction is for $expectedSigner. " +
+                                    "Reconnect the wallet in Settings.",
+                            )
+                        }
+                        val transaction = buildTransaction()
+                        signTransactions(arrayOf(transaction)).signedPayloads.firstOrNull()
+                    } catch (e: Exception) {
+                        blockError = e
+                        null
+                    }
+                }
+
+            blockError?.let { return Result.failure(it) }
+            return when (result) {
+                is TransactionResult.Success -> {
+                    val signedTx = result.payload
+                    if (signedTx != null) {
+                        Result.success(signedTx)
+                    } else {
+                        Result.failure(Exception("No signed transaction returned"))
+                    }
+                }
+                is TransactionResult.Failure -> {
+                    Log.e(TAG, "Signing failed: ${result.message}")
+                    Result.failure(result.e ?: Exception(result.message))
+                }
+                is TransactionResult.NoWalletFound -> {
+                    Result.failure(Exception("No wallet found"))
+                }
+            }
+        }
+
+        /**
          * Disconnect wallet and clear stored credentials.
          */
         fun disconnect() {

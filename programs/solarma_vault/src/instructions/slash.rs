@@ -7,10 +7,13 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct Slash<'info> {
+    /// Closed on success: its rent goes back to the owner (only the deposit is the penalty).
     #[account(
         mut,
+        has_one = owner,
         // Slash is only possible while alarm is still unresolved (Created).
-        constraint = alarm.status == AlarmStatus::Created @ SolarmaError::InvalidAlarmState
+        constraint = alarm.status == AlarmStatus::Created @ SolarmaError::InvalidAlarmState,
+        close = owner
     )]
     pub alarm: Account<'info, Alarm>,
 
@@ -32,13 +35,19 @@ pub struct Slash<'info> {
     pub caller: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// Alarm owner, receives the alarm account's rent. Validated via `has_one = owner`.
+    /// Appended last so existing account positions are unchanged.
+    /// CHECK: Key is verified by `alarm.has_one = owner`
+    #[account(mut)]
+    pub owner: UncheckedAccount<'info>,
 }
 
 pub fn process_slash(ctx: Context<Slash>) -> Result<()> {
     let alarm_key = ctx.accounts.alarm.key();
     let caller_key = ctx.accounts.caller.key();
     let recipient_key = ctx.accounts.penalty_recipient.key();
-    let alarm = &mut ctx.accounts.alarm;
+    let alarm = &ctx.accounts.alarm;
     let clock = Clock::get()?;
 
     // CRITICAL: Can only slash AFTER deadline
@@ -102,10 +111,7 @@ pub fn process_slash(ctx: Context<Slash>) -> Result<()> {
 
     msg!("Slashed {} lamports to {:?}", slashed, route);
 
-    // Mark as slashed (terminal state)
-    alarm.status = AlarmStatus::Slashed;
-    alarm.remaining_amount = 0;
-
+    // Terminal: vault is closed to the penalty recipient, alarm to the owner.
     msg!("Alarm slashed by {}", caller_key);
     Ok(())
 }

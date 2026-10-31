@@ -7,11 +7,14 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct Claim<'info> {
+    /// Closed on success: its rent goes back to the owner (resolved alarms keep no state;
+    /// the AlarmClaimed event is the record).
     #[account(
         mut,
         has_one = owner,
         // Claim is allowed only after wake acknowledgment.
-        constraint = alarm.status == AlarmStatus::Acknowledged @ SolarmaError::InvalidAlarmState
+        constraint = alarm.status == AlarmStatus::Acknowledged @ SolarmaError::InvalidAlarmState,
+        close = owner
     )]
     pub alarm: Account<'info, Alarm>,
 
@@ -33,7 +36,7 @@ pub struct Claim<'info> {
 pub fn process_claim(ctx: Context<Claim>) -> Result<()> {
     let alarm_key = ctx.accounts.alarm.key();
     let owner_key = ctx.accounts.owner.key();
-    let alarm = &mut ctx.accounts.alarm;
+    let alarm = &ctx.accounts.alarm;
     let clock = Clock::get()?;
 
     // CRITICAL: Cannot claim BEFORE alarm time (wake proof not complete)
@@ -67,10 +70,7 @@ pub fn process_claim(ctx: Context<Claim>) -> Result<()> {
         vault_lamports
     );
 
-    // Mark as claimed (terminal state)
-    alarm.status = AlarmStatus::Claimed;
-    alarm.remaining_amount = 0;
-
+    // Terminal: alarm and vault are both closed to the owner by their `close` constraints.
     msg!("Alarm claimed successfully by {}", owner_key);
     Ok(())
 }

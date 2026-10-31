@@ -92,7 +92,8 @@ class AlarmService : Service() {
             alarmRepository.markTriggered(alarmId)
             val alarm = alarmRepository.getAlarm(alarmId) ?: return@launch
             if (alarm.hasDeposit) {
-                val deadlineMillis = alarm.alarmTimeMillis + AlarmTiming.GRACE_PERIOD_MILLIS
+                // On-chain deadline (not the local ring time, which moves with snoozes)
+                val deadlineMillis = AlarmTiming.deadlineMillis(alarm)
                 val delay = deadlineMillis - System.currentTimeMillis()
                 SlashAlarmWorker.enqueue(applicationContext, alarmId, delay)
             }

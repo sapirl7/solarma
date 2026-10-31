@@ -33,9 +33,17 @@ class TransactionBuilder
             /** Max compute units per transaction (default Solana is 200k) */
             const val COMPUTE_UNIT_LIMIT = 200_000
 
-            /** Priority fee in micro-lamports per compute unit.
-             *  50_000 μL/CU × 200k CU = 10_000_000_000 μL = 0.01 SOL max fee */
+            /** Fallback priority fee in micro-lamports per compute unit, used when the
+             *  RPC can't report recent fees. 50_000 μL/CU × 200k CU = 10_000 lamports. */
             const val COMPUTE_UNIT_PRICE = 50_000L
+
+            /** Bounds for the dynamic priority fee (μL/CU). The max caps the priority
+             *  part of the fee at 2_000_000 × 200k / 1e6 = 400_000 lamports (0.0004 SOL). */
+            const val COMPUTE_UNIT_PRICE_MIN = 10_000L
+            const val COMPUTE_UNIT_PRICE_MAX = 2_000_000L
+
+            /** Clamp an RPC-reported priority fee into [COMPUTE_UNIT_PRICE_MIN, COMPUTE_UNIT_PRICE_MAX]. */
+            fun clampComputeUnitPrice(recent: Long): Long = recent.coerceIn(COMPUTE_UNIT_PRICE_MIN, COMPUTE_UNIT_PRICE_MAX)
         }
 
         // ── Compute Budget instruction builders ──
@@ -140,6 +148,45 @@ class TransactionBuilder
                     )
 
                 buildTransaction(owner, instruction)
+            }
+
+        /**
+         * Build a single transaction with ack_awake followed by claim.
+         *
+         * Both instructions run atomically: the deposit is either acknowledged and
+         * returned in one go, or nothing changes. This avoids the window where an
+         * ACK has landed but the separate CLAIM has not (deposit stuck until sweep).
+         */
+        suspend fun buildAckAndClaimTransactionByPubkey(
+            owner: PublicKey,
+            alarmPda: PublicKey,
+        ): ByteArray =
+            withContext(Dispatchers.IO) {
+                Log.i(TAG, "Building ack_awake+claim tx: alarmPda=${alarmPda.toBase58()}")
+                buildTransaction(
+                    owner,
+                    listOf(
+                        instructionBuilder.buildAckAwake(owner = owner, alarmPda = alarmPda),
+                        instructionBuilder.buildClaim(owner = owner, alarmPda = alarmPda),
+                    ),
+                )
+            }
+
+        /**
+         * Build sweep_acknowledged transaction (returns an acknowledged deposit to its
+         * owner after the claim grace window). [caller] pays the fee.
+         */
+        suspend fun buildSweepTransactionByPubkey(
+            caller: PublicKey,
+            alarmPda: PublicKey,
+            alarmOwner: PublicKey,
+        ): ByteArray =
+            withContext(Dispatchers.IO) {
+                Log.i(TAG, "Building sweep_acknowledged tx: alarmPda=${alarmPda.toBase58()}")
+                buildTransaction(
+                    caller,
+                    instructionBuilder.buildSweepAcknowledged(caller = caller, alarmPda = alarmPda, owner = alarmOwner),
+                )
             }
 
         /**
@@ -256,6 +303,7 @@ class TransactionBuilder
             alarmPda: PublicKey,
             penaltyRoute: Int,
             penaltyDestination: String?,
+            alarmOwner: PublicKey = owner,
         ): ByteArray =
             withContext(Dispatchers.IO) {
                 Log.i(TAG, "Building slash tx: alarmPda=${alarmPda.toBase58()}, route=$penaltyRoute")
@@ -276,6 +324,7 @@ class TransactionBuilder
                         caller = owner,
                         alarmPda = alarmPda,
                         penaltyRecipient = recipient,
+                        owner = alarmOwner,
                     )
 
                 buildTransaction(owner, instruction)
@@ -287,18 +336,35 @@ class TransactionBuilder
         private suspend fun buildTransaction(
             feePayer: PublicKey,
             instruction: SolarmaInstruction,
+        ): ByteArray = buildTransaction(feePayer, listOf(instruction))
+
+        private suspend fun buildTransaction(
+            feePayer: PublicKey,
+            programInstructions: List<SolarmaInstruction>,
         ): ByteArray {
-            // Get recent blockhash
+            // Priority fee from recent fees on the accounts this tx write-locks
+            val writable =
+                programInstructions
+                    .flatMap { it.accounts }
+                    .filter { it.isWritable }
+                    .map { it.pubkey.toBase58() }
+                    .distinct()
+            val unitPrice =
+                rpcClient.getRecentPriorityFee(writable)
+                    .map { clampComputeUnitPrice(it) }
+                    .getOrDefault(COMPUTE_UNIT_PRICE)
+
+            // Fetch the blockhash last, right before the wallet is asked to sign
             val blockhash = rpcClient.getLatestBlockhash()
-            Log.d(TAG, "Blockhash: $blockhash")
+            Log.d(TAG, "Blockhash: $blockhash, priority fee: $unitPrice μL/CU")
 
             // Prepend compute budget instructions
             val allInstructions =
                 listOf(
                     buildSetComputeUnitLimitIx(COMPUTE_UNIT_LIMIT),
-                    buildSetComputeUnitPriceIx(COMPUTE_UNIT_PRICE),
-                    instruction,
-                )
+                    buildSetComputeUnitPriceIx(unitPrice),
+                ) + programInstructions
+            val instruction = programInstructions.last()
 
             // Build sorted account list with metadata
             val sortedAccounts = buildSortedAccountMetas(feePayer, allInstructions)
@@ -322,7 +388,7 @@ class TransactionBuilder
 
             // Return message for MWA signing
             val tx = buildUnsignedTransaction(message)
-            Log.i(TAG, "Final TX size: ${tx.size} bytes (3 instructions: 2 compute budget + 1 program)")
+            Log.i(TAG, "Final TX size: ${tx.size} bytes (${allInstructions.size} instructions)")
             Log.d(TAG, "Final TX hex: ${tx.joinToString("") { "%02x".format(it) }}")
             return tx
         }
@@ -337,14 +403,25 @@ class TransactionBuilder
          * - message/transaction serialization
          *
          * It does NOT touch the network (no RPC calls).
-         * NOTE: Does NOT include compute budget instructions for deterministic output.
+         * By default it does NOT include compute budget instructions (matches the golden
+         * snapshots); pass [computeUnitPrice] to prepend them exactly like [buildTransaction].
          */
         internal fun buildUnsignedTransactionForSnapshot(
             feePayer: PublicKey,
             instruction: SolarmaInstruction,
             recentBlockhash: String,
+            computeUnitPrice: Long? = null,
         ): ByteArray {
-            val instructions = listOf(instruction)
+            val instructions =
+                if (computeUnitPrice == null) {
+                    listOf(instruction)
+                } else {
+                    listOf(
+                        buildSetComputeUnitLimitIx(COMPUTE_UNIT_LIMIT),
+                        buildSetComputeUnitPriceIx(computeUnitPrice),
+                        instruction,
+                    )
+                }
             val sortedAccounts = buildSortedAccountMetas(feePayer, instructions)
             val message = buildMessage(recentBlockhash, sortedAccounts, instructions)
             return buildUnsignedTransaction(message)

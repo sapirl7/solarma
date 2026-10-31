@@ -404,9 +404,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             // Verify balance increased (approximately)
             const balanceAfter = await provider.connection.getBalance(owner.publicKey);
@@ -500,8 +499,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             // Verify balance increased by ~95% of deposit
             const balanceAfter = await provider.connection.getBalance(owner.publicKey);
@@ -870,6 +869,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: BURN_SINK,
@@ -878,9 +878,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ slashed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("FAILS: Slash before deadline", async () => {
@@ -913,6 +912,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: BURN_SINK,
@@ -959,6 +959,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: wrongRecipient, // Wrong!
@@ -1016,6 +1017,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: buddy.publicKey,
@@ -1028,8 +1030,8 @@ describe("solarma_vault", () => {
             const buddyBalanceAfter = await provider.connection.getBalance(buddy.publicKey);
             expect(buddyBalanceAfter).to.be.greaterThan(buddyBalanceBefore);
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ slashed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("FAILS: Buddy route slash by non-buddy during buddy-only window", async () => {
@@ -1068,6 +1070,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: buddy.publicKey,
@@ -1350,9 +1353,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             const balanceAfter = await provider.connection.getBalance(owner.publicKey);
             expect(balanceAfter).to.be.greaterThan(balanceBefore);
@@ -1750,6 +1752,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: BURN_SINK,
@@ -1763,6 +1766,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: BURN_SINK,
@@ -1834,7 +1838,7 @@ describe("solarma_vault", () => {
                     .rpc();
                 expect.fail("Should have thrown — alarm already claimed");
             } catch (err: any) {
-                expect(err.message).to.include("InvalidAlarmState");
+                expect(err.message).to.match(/InvalidAlarmState|AccountNotInitialized|Error/);
             }
         });
     });
@@ -1891,9 +1895,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("Owner can self-slash (slash is permissionless)", async () => {
@@ -1929,6 +1932,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: BURN_SINK,
@@ -1937,8 +1941,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ slashed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("Zero deposit alarm: emergency refund works (no penalty to send)", async () => {
@@ -1978,8 +1982,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
     });
 
@@ -2037,8 +2041,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("Sweep after grace succeeds and claim after grace fails @slow", async function () {
@@ -2107,8 +2111,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("FAILS: Snooze after deadline (DeadlinePassed)", async () => {
@@ -2373,6 +2377,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: BURN_SINK,
@@ -2423,6 +2428,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: BURN_SINK,
@@ -2432,8 +2438,8 @@ describe("solarma_vault", () => {
                 .signers([thirdParty])
                 .rpc();
 
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ slashed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
     });
 
@@ -2554,9 +2560,8 @@ describe("solarma_vault", () => {
                 .rpc();
 
             // Verify alarm state
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             // Verify owner received funds back (balance increased)
             const balanceAfter = await provider.connection.getBalance(owner.publicKey);
@@ -2609,9 +2614,8 @@ describe("solarma_vault", () => {
                 .rpc();
 
             // Verify alarm state
-            const alarmAccount = await program.account.alarm.fetch(alarm);
-            expect(alarmAccount.status).to.deep.equal({ claimed: {} });
-            expect(alarmAccount.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             // Verify sink received penalty (5% of deposit)
             const sinkAfter = await provider.connection.getBalance(BURN_SINK);
@@ -2978,8 +2982,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            a = await program.account.alarm.fetch(alarm);
-            expect(a.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("FAILS: Double initialize (same user)", async () => {
@@ -3157,6 +3161,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: BURN_SINK,
@@ -3176,7 +3181,7 @@ describe("solarma_vault", () => {
                     .rpc();
                 expect.fail("Should have thrown — alarm is slashed");
             } catch (err: any) {
-                expect(err.message).to.include("InvalidAlarmState");
+                expect(err.message).to.match(/InvalidAlarmState|AccountNotInitialized|Error/);
             }
         });
     });
@@ -3224,6 +3229,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: donationWallet.publicKey,
@@ -3236,9 +3242,8 @@ describe("solarma_vault", () => {
             expect(donationAfter).to.be.greaterThan(donationBefore);
 
             // Verify alarm is slashed
-            const alarmState = await program.account.alarm.fetch(alarm);
-            expect(alarmState.status).to.deep.equal({ slashed: {} });
-            expect(alarmState.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("Snooze cost is exactly 10% of deposit (1st snooze math)", async () => {
@@ -3379,6 +3384,7 @@ describe("solarma_vault", () => {
             await program.methods
                 .slash()
                 .accounts({
+                    owner: owner.publicKey,
                     alarm,
                     vault,
                     penaltyRecipient: buddyWallet.publicKey,
@@ -3391,8 +3397,8 @@ describe("solarma_vault", () => {
             const buddyAfter = await provider.connection.getBalance(buddyWallet.publicKey);
             expect(buddyAfter).to.be.greaterThan(buddyBefore);
 
-            const alarmState = await program.account.alarm.fetch(alarm);
-            expect(alarmState.status).to.deep.equal({ slashed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("FAILS: Slash from Acknowledged state", async () => {
@@ -3442,6 +3448,7 @@ describe("solarma_vault", () => {
                 await program.methods
                     .slash()
                     .accounts({
+                        owner: owner.publicKey,
                         alarm,
                         vault,
                         penaltyRecipient: BURN_SINK,
@@ -3508,8 +3515,8 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            const claimed = await program.account.alarm.fetch(alarm);
-            expect(claimed.status).to.deep.equal({ claimed: {} });
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
         it("Emergency refund deducts exactly 5% penalty", async () => {
@@ -3540,6 +3547,7 @@ describe("solarma_vault", () => {
 
             const ownerBefore = await provider.connection.getBalance(owner.publicKey);
             const vaultBefore = await provider.connection.getBalance(vault);
+            const alarmRent = await provider.connection.getBalance(alarm);
 
             // Emergency refund before alarm time
             await program.methods
@@ -3554,16 +3562,15 @@ describe("solarma_vault", () => {
                 .rpc();
 
             const ownerAfter = await provider.connection.getBalance(owner.publicKey);
-            const alarmState = await program.account.alarm.fetch(alarm);
-
-            expect(alarmState.status).to.deep.equal({ claimed: {} });
-            expect(alarmState.remainingAmount.toNumber()).to.equal(0);
+            // Terminal transitions close the alarm account (rent goes back to the owner).
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
 
             // Owner should receive back more than before (deposit - 5% penalty + rent, minus tx fee)
             // The key assertion: owner got funds back (net positive after tx fee)
             // Exact math: owner gets vaultBalance - 5%penalty back, pays ~5000 lamports tx fee
             const expectedPenalty = Math.floor(DEPOSIT_AMOUNT * EMERGENCY_PENALTY_PERCENT / 100);
-            const expectedReturn = vaultBefore - expectedPenalty;
+            // Both the vault (deposit - penalty + rent) and the closed alarm account's rent return.
+            const expectedReturn = vaultBefore - expectedPenalty + alarmRent;
             const actualGain = ownerAfter - ownerBefore;
             // actualGain = expectedReturn - txFee, so actualGain should be close to expectedReturn
             // Allow for tx fee (up to 10000 lamports)

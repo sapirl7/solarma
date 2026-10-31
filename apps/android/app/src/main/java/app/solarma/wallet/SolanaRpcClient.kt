@@ -47,8 +47,9 @@ class SolanaRpcClient
 
         // Fixed per build (SOLARMA_NETWORK); there is no runtime network switch.
         private val isMainnet: Boolean = BuildConfig.IS_MAINNET
-        private val endpointFailureCount = mutableMapOf<String, Int>()
-        private val endpointLastFailedAt = mutableMapOf<String, Long>()
+        // Updated concurrently from fan-out coroutines on Dispatchers.IO.
+        private val endpointFailureCount = java.util.concurrent.ConcurrentHashMap<String, Int>()
+        private val endpointLastFailedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
         internal fun parseEndpoints(raw: String): List<String> {
             return raw.split(',')
@@ -156,7 +157,8 @@ class SolanaRpcClient
                     val response =
                         makeRpcCallWithFallback(
                             method = "getSignatureStatuses",
-                            params = """[["$signature"]]""",
+                            // Search history so a status is still found after it leaves the recent cache
+                            params = """[["$signature"], {"searchTransactionHistory": true}]""",
                         )
                     val result = parseResultObject(response)
                     val statuses = result.getJSONArray("value")
@@ -167,6 +169,77 @@ class SolanaRpcClient
                     Result.success(SignatureStatus(confirmationStatus = confirmation, err = err))
                 } catch (e: Exception) {
                     Log.e(TAG, "getSignatureStatus failed", e)
+                    Result.failure(e)
+                }
+            }
+
+        /**
+         * Fetch an account's data as base64.
+         * Returns `Result.success(null)` when the account does not exist (e.g. a closed alarm),
+         * and a failure only when the RPC call itself failed.
+         */
+        suspend fun getAccountDataBase64(pubkey: String): Result<String?> =
+            withContext(Dispatchers.IO) {
+                try {
+                    val response =
+                        makeRpcCallWithFallback(
+                            method = "getAccountInfo",
+                            params = """["$pubkey", {"encoding": "base64", "commitment": "confirmed"}]""",
+                        )
+                    val value = parseResultObject(response).opt("value")
+                    if (value == null || value == JSONObject.NULL) {
+                        Result.success(null)
+                    } else {
+                        Result.success((value as JSONObject).getJSONArray("data").getString(0))
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "getAccountDataBase64 failed", e)
+                    Result.failure(e)
+                }
+            }
+
+        /**
+         * Current block height (confirmed). Used to tell when a sent transaction's
+         * blockhash has expired, i.e. it can no longer land.
+         */
+        suspend fun getBlockHeight(): Result<Long> =
+            withContext(Dispatchers.IO) {
+                try {
+                    val response =
+                        makeRpcCallWithFallback(
+                            method = "getBlockHeight",
+                            params = """[{"commitment": "confirmed"}]""",
+                        )
+                    val value = parseResultValue(response)
+                    Result.success((value as Number).toLong())
+                } catch (e: Exception) {
+                    Log.e(TAG, "getBlockHeight failed", e)
+                    Result.failure(e)
+                }
+            }
+
+        /**
+         * Recent priority fee (micro-lamports per CU) paid for transactions that
+         * write-lock [accounts]: the 75th percentile of non-zero recent fees, or 0.
+         */
+        suspend fun getRecentPriorityFee(accounts: List<String>): Result<Long> =
+            withContext(Dispatchers.IO) {
+                try {
+                    val keys = accounts.joinToString(",") { "\"$it\"" }
+                    val response =
+                        makeRpcCallWithFallback(
+                            method = "getRecentPrioritizationFees",
+                            params = "[[$keys]]",
+                        )
+                    val array = JSONObject(response).getJSONArray("result")
+                    val fees =
+                        (0 until array.length())
+                            .map { array.getJSONObject(it).optLong("prioritizationFee", 0L) }
+                            .filter { it > 0 }
+                            .sorted()
+                    Result.success(if (fees.isEmpty()) 0L else fees[(fees.size * 3 / 4).coerceAtMost(fees.size - 1)])
+                } catch (e: Exception) {
+                    Log.e(TAG, "getRecentPriorityFee failed", e)
                     Result.failure(e)
                 }
             }
@@ -250,7 +323,7 @@ class SolanaRpcClient
                     val response =
                         makeRpcCallWithFallback(
                             method = "sendTransaction",
-                            params = """["$base64Tx", {"encoding": "base64"}]""",
+                            params = """["$base64Tx", {"encoding": "base64", "preflightCommitment": "confirmed"}]""",
                         )
                     val result = parseResultValue(response)
                     val signature = result as? String ?: ""
@@ -276,7 +349,7 @@ class SolanaRpcClient
         suspend fun sendTransactionFanOut(signedTx: ByteArray): Result<String> =
             withContext(Dispatchers.IO) {
                 val base64Tx = android.util.Base64.encodeToString(signedTx, android.util.Base64.NO_WRAP)
-                val params = """["$base64Tx", {"encoding": "base64"}]"""
+                val params = """["$base64Tx", {"encoding": "base64", "preflightCommitment": "confirmed"}]"""
                 val now = System.currentTimeMillis()
 
                 // Collect healthy endpoints (not in backoff)

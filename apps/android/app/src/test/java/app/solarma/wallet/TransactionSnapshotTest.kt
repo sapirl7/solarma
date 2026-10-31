@@ -120,11 +120,12 @@ class TransactionSnapshotTest {
                     }
 
                     "slash" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
                         val caller = PublicKey(inputs.getString("caller"))
                         val alarmId = inputs.getLong("alarmId")
                         val recipient = PublicKey(inputs.getString("penaltyRecipient"))
 
-                        val pda = instructionBuilder.deriveAlarmPda(caller, alarmId)
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
                         val vault = instructionBuilder.deriveVaultPda(pda.address)
 
                         val ix =
@@ -132,7 +133,20 @@ class TransactionSnapshotTest {
                                 caller = caller,
                                 alarmPda = pda.address,
                                 penaltyRecipient = recipient,
+                                owner = owner,
                             )
+                        Quad(caller, ix, pda.address, vault.address)
+                    }
+
+                    "sweep_acknowledged" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val caller = PublicKey(inputs.getString("caller"))
+                        val alarmId = inputs.getLong("alarmId")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix = instructionBuilder.buildSweepAcknowledged(caller = caller, alarmPda = pda.address, owner = owner)
                         Quad(caller, ix, pda.address, vault.address)
                     }
 

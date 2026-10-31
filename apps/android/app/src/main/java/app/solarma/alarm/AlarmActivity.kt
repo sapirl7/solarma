@@ -124,13 +124,15 @@ class AlarmActivity : ComponentActivity() {
                 if (isComplete) {
                     Log.i(TAG, "Wake proof completed, processing completion")
                     alarmRepository.markCompleted(alarmId, success = true)
-                    // Queue on-chain transactions if alarm has deposit
-                    currentAlarm?.let { alarm ->
-                        if (alarm.hasDeposit && alarm.onchainPubkey != null) {
-                            // H3: Queue ack_awake first (records proof on-chain)
-                            Log.i(TAG, "Queueing ack_awake + claim for alarm ${alarm.id}")
-                            queueAckAwake(alarm)
-                            queueClaimDeposit(alarm)
+                    // Queue the on-chain ack + claim (one atomic transaction) before leaving:
+                    // this coroutine is cancelled once the activity finishes.
+                    val alarm = currentAlarm
+                    if (alarm != null && alarm.hasDeposit && alarm.onchainPubkey != null) {
+                        try {
+                            alarmRepository.queueAckAndClaim(alarm.id)
+                            openAppToConfirm(alarm.id)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to queue ack_awake+claim", e)
                         }
                     }
                     dismissAlarm()
@@ -316,22 +318,31 @@ class AlarmActivity : ComponentActivity() {
 
     private fun snoozeAlarm() {
         lifecycleScope.launch {
-            alarmRepository.snooze(alarmId)
-            // Queue snooze transaction if alarm has onchain deposit
+            // Deposit alarms can't be snoozed past the point where the deposit could still be saved.
+            if (!alarmRepository.snooze(alarmId)) {
+                android.widget.Toast.makeText(
+                    this@AlarmActivity,
+                    "Too close to the deadline to snooze — complete the wake proof now.",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+                return@launch
+            }
+            // Queue snooze transaction if alarm has onchain deposit (before finishing,
+            // which cancels this coroutine)
             currentAlarm?.let { alarm ->
                 if (alarm.hasDeposit && alarm.onchainPubkey != null) {
                     queueSnoozeTransaction(alarm)
                 }
             }
-        }
-        wakeProofEngine.stop()
+            wakeProofEngine.stop()
 
-        val intent =
-            Intent(this, AlarmService::class.java).apply {
-                action = AlarmService.ACTION_SNOOZE
-            }
-        startService(intent)
-        finish()
+            val intent =
+                Intent(this@AlarmActivity, AlarmService::class.java).apply {
+                    action = AlarmService.ACTION_SNOOZE
+                }
+            startService(intent)
+            finish()
+        }
     }
 
     /**
@@ -351,45 +362,16 @@ class AlarmActivity : ComponentActivity() {
     }
 
     /**
-     * H3: Queue ack_awake transaction to record wake proof on-chain.
-     * Called from UI when wake proof is complete; queue claim transaction too.
+     * Bring the user into the app to approve the queued ack + claim in their wallet
+     * (unlocking the phone first if needed), with a notification as fallback.
      */
-    private fun queueAckAwake(alarm: AlarmEntity) {
-        lifecycleScope.launch {
-            try {
-                val queueId =
-                    transactionQueue.enqueue(
-                        type = "ACK_AWAKE",
-                        alarmId = alarm.id,
-                    )
-                Log.i(TAG, "ACK_AWAKE queued: queueId=$queueId, alarmId=${alarm.id}")
-            } catch (e: Exception) {
-                // Non-blocking: if ack fails, claim can still proceed
-                Log.w(TAG, "Failed to queue ack_awake (non-critical)", e)
-            }
-        }
-    }
-
-    private fun queueClaimDeposit(alarm: AlarmEntity) {
-        lifecycleScope.launch {
-            try {
-                val queueId =
-                    transactionQueue.enqueue(
-                        type = "CLAIM",
-                        alarmId = alarm.id,
-                    )
-                Log.i(TAG, "Claim transaction queued: queueId=$queueId, alarmId=${alarm.id}")
-
-                // Show toast to user
-                android.widget.Toast.makeText(
-                    this@AlarmActivity,
-                    "Deposit claim queued. Open app to complete.",
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to queue claim transaction", e)
-            }
-        }
+    private fun openAppToConfirm(alarmId: Long) {
+        ClaimReminderNotifier.show(this, alarmId)
+        startActivity(
+            Intent(this, app.solarma.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+        )
     }
 
     override fun onDestroy() {

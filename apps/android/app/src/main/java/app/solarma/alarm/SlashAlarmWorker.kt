@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import app.solarma.wallet.TransactionProcessor
 import app.solarma.wallet.TransactionQueue
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -65,14 +66,24 @@ class SlashAlarmWorker
                 return Result.success()
             }
 
-            // If CLAIM is already queued, user woke up — skip slash
-            if (transactionQueue.hasActive("CLAIM", alarmId)) {
-                Log.i(TAG, "Skipping slash for alarm $alarmId — CLAIM already queued")
+            // If a claim is already queued, user woke up — skip slash
+            if (transactionQueue.hasActive(TransactionProcessor.TYPE_ACK_AND_CLAIM, alarmId) ||
+                transactionQueue.hasActive(TransactionProcessor.TYPE_CLAIM, alarmId)
+            ) {
+                Log.i(TAG, "Skipping slash for alarm $alarmId — claim already queued")
                 return Result.success()
             }
 
-            if (!transactionQueue.hasActive("SLASH", alarmId)) {
-                transactionQueue.enqueue(type = "SLASH", alarmId = alarmId)
+            // Re-check against the on-chain deadline: a snooze that landed moved it later.
+            val remaining = AlarmTiming.deadlineMillis(alarm) - System.currentTimeMillis()
+            if (remaining > 0) {
+                enqueue(applicationContext, alarmId, remaining)
+                return Result.success()
+            }
+
+            // The processor re-reads the chain and waits out the buddy-only window if needed.
+            if (!transactionQueue.hasActive(TransactionProcessor.TYPE_SLASH, alarmId)) {
+                transactionQueue.enqueue(type = TransactionProcessor.TYPE_SLASH, alarmId = alarmId)
                 Log.i(TAG, "Queued slash for alarm $alarmId")
             }
 

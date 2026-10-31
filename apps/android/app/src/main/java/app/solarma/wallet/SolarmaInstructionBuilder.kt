@@ -56,6 +56,13 @@ class SolarmaInstructionBuilder
                     0xd4.toByte(), 0xca.toByte(), 0x3e.toByte(), 0x92.toByte(),
                     0x0f.toByte(), 0xb7.toByte(), 0xce.toByte(), 0x40.toByte(),
                 )
+
+            // sha256("global:sweep_acknowledged")[0..8]
+            private val DISCRIMINATOR_SWEEP_ACKNOWLEDGED =
+                byteArrayOf(
+                    0x9a.toByte(), 0xd7.toByte(), 0xce.toByte(), 0x2d.toByte(),
+                    0xaa.toByte(), 0x2c.toByte(), 0x19.toByte(), 0xae.toByte(),
+                )
         }
 
         /**
@@ -222,11 +229,14 @@ class SolarmaInstructionBuilder
 
         /**
          * Build slash instruction data and accounts.
+         * @param owner alarm owner; receives the closed alarm account's rent.
+         *   Defaults to [caller] (the app slashing its own wallet's alarm).
          */
         fun buildSlash(
             caller: PublicKey,
             alarmPda: PublicKey,
             penaltyRecipient: PublicKey,
+            owner: PublicKey = caller,
         ): SolarmaInstruction {
             val vaultPda = deriveVaultPda(alarmPda)
 
@@ -244,9 +254,34 @@ class SolarmaInstructionBuilder
                     AccountMeta(penaltyRecipient, isSigner = false, isWritable = true),
                     AccountMeta(caller, isSigner = true, isWritable = true),
                     AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false),
+                    // Appended last in the program's account list (alarm rent goes back to owner)
+                    AccountMeta(owner, isSigner = false, isWritable = true),
                 )
 
             return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_SLASH)
+        }
+
+        /**
+         * Build sweep_acknowledged instruction: returns an acknowledged-but-unclaimed
+         * deposit to the owner after the claim grace window (permissionless).
+         */
+        fun buildSweepAcknowledged(
+            caller: PublicKey,
+            alarmPda: PublicKey,
+            owner: PublicKey,
+        ): SolarmaInstruction {
+            val vaultPda = deriveVaultPda(alarmPda)
+
+            val keys =
+                listOf(
+                    AccountMeta(alarmPda, isSigner = false, isWritable = true),
+                    AccountMeta(vaultPda.address, isSigner = false, isWritable = true),
+                    AccountMeta(owner, isSigner = false, isWritable = true),
+                    AccountMeta(caller, isSigner = true, isWritable = false),
+                    AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false),
+                )
+
+            return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_SWEEP_ACKNOWLEDGED)
         }
 
         /**

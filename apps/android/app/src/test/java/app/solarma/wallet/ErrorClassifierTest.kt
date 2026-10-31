@@ -22,8 +22,14 @@ class ErrorClassifierTest {
     }
 
     @Test
-    fun `TooEarly is non-retryable`() {
-        assertEquals(Category.NON_RETRYABLE, ErrorClassifier.classify("TooEarly"))
+    fun `TooEarly is retry-later (device clock ahead of chain)`() {
+        assertEquals(Category.RETRY_LATER, ErrorClassifier.classify("TooEarly"))
+    }
+
+    @Test
+    fun `DeadlineNotPassed and BuddyOnlyWindow are retry-later`() {
+        assertEquals(Category.RETRY_LATER, ErrorClassifier.classify("DeadlineNotPassed"))
+        assertEquals(Category.RETRY_LATER, ErrorClassifier.classify("BuddyOnlyWindow"))
     }
 
     @Test
@@ -149,7 +155,53 @@ class ErrorClassifierTest {
     // ── All categories are valid enum values ──
 
     @Test
-    fun `Category enum has exactly 2 values`() {
-        assertEquals(2, Category.values().size)
+    fun `Category enum has exactly 3 values`() {
+        assertEquals(3, Category.values().size)
+    }
+
+    // ── Numeric program error codes (what RPCs actually return) ──
+
+    @Test
+    fun `hex code from simulation is parsed`() {
+        val msg = "Transaction simulation failed: Error processing Instruction 2: custom program error: 0x1772"
+        assertEquals(6002, ErrorClassifier.programErrorCode(msg))
+        assertEquals("InvalidAlarmState", ErrorClassifier.solarmaErrorName(6002))
+        assertEquals(Category.NON_RETRYABLE, ErrorClassifier.classify(msg))
+    }
+
+    @Test
+    fun `JSON code from signature status is parsed`() {
+        val err = """{"InstructionError":[2,{"Custom":6000}]}"""
+        assertEquals(6000, ErrorClassifier.programErrorCode(err))
+        assertEquals("DeadlinePassed", ErrorClassifier.solarmaErrorName(6000))
+        assertEquals(Category.NON_RETRYABLE, ErrorClassifier.classify(err))
+    }
+
+    @Test
+    fun `time-dependent codes are retry-later`() {
+        // 6001 DeadlineNotPassed, 6014 TooEarly, 6016 BuddyOnlyWindow
+        for (code in listOf(6001, 6014, 6016)) {
+            val err = """{"InstructionError":[2,{"Custom":$code}]}"""
+            assertEquals("code $code", Category.RETRY_LATER, ErrorClassifier.classify(err))
+        }
+    }
+
+    @Test
+    fun `newest error codes map to the right names`() {
+        assertEquals("DeadlineTooFar", ErrorClassifier.solarmaErrorName(6017))
+        assertEquals("InvalidPenaltyDestination", ErrorClassifier.solarmaErrorName(6018))
+        assertNull(ErrorClassifier.solarmaErrorName(6019))
+    }
+
+    @Test
+    fun `system program custom error is non-retryable`() {
+        // e.g. 0x0 = account already in use when the alarm PDA exists
+        assertEquals(Category.NON_RETRYABLE, ErrorClassifier.classify("custom program error: 0x0"))
+    }
+
+    @Test
+    fun `message without a code has no code`() {
+        assertNull(ErrorClassifier.programErrorCode("timeout after 30000ms"))
+        assertNull(ErrorClassifier.programErrorCode(null))
     }
 }

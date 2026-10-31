@@ -33,6 +33,7 @@ object DatabaseModule {
                 SolarmaDatabase.MIGRATION_3_4,
                 SolarmaDatabase.MIGRATION_4_5,
                 SolarmaDatabase.MIGRATION_5_6,
+                SolarmaDatabase.MIGRATION_6_7,
             )
             .build()
     }

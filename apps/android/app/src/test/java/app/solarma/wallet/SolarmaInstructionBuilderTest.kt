@@ -152,7 +152,27 @@ class SolarmaInstructionBuilderTest {
             )
 
         assertEquals(8, instruction.data.size)
-        assertEquals(5, instruction.accounts.size)
+        assertEquals(6, instruction.accounts.size)
         assertEquals(recipient, instruction.accounts[2].pubkey)
+        // owner (alarm rent recipient) is appended last and defaults to the caller
+        assertEquals(owner, instruction.accounts[5].pubkey)
+        assertTrue(instruction.accounts[5].isWritable)
+    }
+
+    @Test
+    fun `buildSweepAcknowledged produces correct instruction`() {
+        val owner = PublicKey("11111111111111111111111111111111")
+        val caller = PublicKey("33333333333333333333333333333333")
+        val (alarmPda, _) = builder.deriveAlarmPda(owner, 601L)
+
+        val instruction = builder.buildSweepAcknowledged(caller = caller, alarmPda = alarmPda, owner = owner)
+
+        // sha256("global:sweep_acknowledged")[0..8]
+        assertEquals("9ad7ce2daa2c19ae", instruction.data.joinToString("") { "%02x".format(it) })
+        assertEquals(5, instruction.accounts.size)
+        assertEquals(owner, instruction.accounts[2].pubkey)
+        assertTrue(instruction.accounts[2].isWritable)
+        assertEquals(caller, instruction.accounts[3].pubkey)
+        assertTrue(instruction.accounts[3].isSigner)
     }
 }

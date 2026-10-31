@@ -14,7 +14,57 @@ object ErrorClassifier {
 
         /** Permanent error — fail immediately, don't waste retries */
         NON_RETRYABLE,
+
+        /** Valid later (e.g. slash before the deadline): retry without consuming a retry attempt */
+        RETRY_LATER,
     }
+
+    /** SolarmaError variants in declaration order; Anchor numbers them from 6000. */
+    private val SOLARMA_ERRORS =
+        listOf(
+            "DeadlinePassed",
+            "DeadlineNotPassed",
+            "InvalidAlarmState",
+            "InvalidPenaltyRoute",
+            "InsufficientDeposit",
+            "Overflow",
+            "AlarmTimeInPast",
+            "InvalidDeadline",
+            "DepositTooSmall",
+            "PenaltyDestinationRequired",
+            "InvalidSinkAddress",
+            "MaxSnoozesReached",
+            "InvalidPenaltyRecipient",
+            "PenaltyDestinationNotSet",
+            "TooEarly",
+            "TooLateForRefund",
+            "BuddyOnlyWindow",
+            "DeadlineTooFar",
+            "InvalidPenaltyDestination",
+        )
+
+    private const val ANCHOR_CUSTOM_ERROR_OFFSET = 6000
+
+    /** Errors that only mean "not yet": the same transaction can succeed later. */
+    private val TIME_DEPENDENT = setOf("DeadlineNotPassed", "TooEarly", "BuddyOnlyWindow")
+
+    private val HEX_CODE = Regex("custom program error: 0x([0-9a-fA-F]+)")
+    private val JSON_CODE = Regex("\"Custom\"\\s*:\\s*(\\d+)")
+
+    /**
+     * Extract a numeric custom program error code from an RPC error, e.g.
+     * `custom program error: 0x1772` (simulation) or `{"InstructionError":[2,{"Custom":6002}]}`
+     * (signature status). Returns null if there is none.
+     */
+    fun programErrorCode(error: String?): Int? {
+        if (error == null) return null
+        HEX_CODE.find(error)?.let { return it.groupValues[1].toIntOrNull(16) }
+        JSON_CODE.find(error)?.let { return it.groupValues[1].toIntOrNull() }
+        return null
+    }
+
+    /** Name of a SolarmaError code, or null for non-Solarma codes. */
+    fun solarmaErrorName(code: Int): String? = SOLARMA_ERRORS.getOrNull(code - ANCHOR_CUSTOM_ERROR_OFFSET)
 
     /**
      * Classify an error message from a failed transaction.
@@ -23,16 +73,32 @@ object ErrorClassifier {
     fun classify(error: String?): Category {
         if (error == null) return Category.RETRYABLE
 
+        // Numeric program errors are deterministic for the current on-chain state.
+        val code = programErrorCode(error)
+        if (code != null) {
+            val name = solarmaErrorName(code)
+            return if (name != null && name in TIME_DEPENDENT) Category.RETRY_LATER else Category.NON_RETRYABLE
+        }
+
         return when {
+            // ── Not yet valid (time windows) ──
+            TIME_DEPENDENT.any { error.contains(it) } -> Category.RETRY_LATER
+
             // ── On-chain program errors (permanent) ──
             error.contains("InvalidAlarmState") -> Category.NON_RETRYABLE
             error.contains("DeadlinePassed") -> Category.NON_RETRYABLE
-            error.contains("TooEarly") -> Category.NON_RETRYABLE
             error.contains("AlreadyInUse") -> Category.NON_RETRYABLE
             error.contains("DepositTooSmall") -> Category.NON_RETRYABLE
             error.contains("AlarmTimeInPast") -> Category.NON_RETRYABLE
             error.contains("InvalidDeadline") -> Category.NON_RETRYABLE
+            error.contains("DeadlineTooFar") -> Category.NON_RETRYABLE
             error.contains("PenaltyDestinationRequired") -> Category.NON_RETRYABLE
+            error.contains("InvalidPenaltyDestination") -> Category.NON_RETRYABLE
+            error.contains("InvalidPenaltyRecipient") -> Category.NON_RETRYABLE
+            error.contains("MaxSnoozesReached") -> Category.NON_RETRYABLE
+            error.contains("InsufficientDeposit") -> Category.NON_RETRYABLE
+            error.contains("TooLateForRefund") -> Category.NON_RETRYABLE
+            error.contains("AccountNotInitialized") -> Category.NON_RETRYABLE
             error.contains("InsufficientFunds") -> Category.NON_RETRYABLE
             error.contains("AccountNotFound") -> Category.NON_RETRYABLE
 

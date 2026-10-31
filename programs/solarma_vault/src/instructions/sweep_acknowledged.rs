@@ -7,10 +7,12 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct SweepAcknowledged<'info> {
+    /// Closed on success: its rent goes back to the owner.
     #[account(
         mut,
         has_one = owner,
-        constraint = alarm.status == AlarmStatus::Acknowledged @ SolarmaError::InvalidAlarmState
+        constraint = alarm.status == AlarmStatus::Acknowledged @ SolarmaError::InvalidAlarmState,
+        close = owner
     )]
     pub alarm: Account<'info, Alarm>,
 
@@ -38,7 +40,7 @@ pub fn process_sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()>
     let alarm_key = ctx.accounts.alarm.key();
     let owner_key = ctx.accounts.owner.key();
     let caller_key = ctx.accounts.caller.key();
-    let alarm = &mut ctx.accounts.alarm;
+    let alarm = &ctx.accounts.alarm;
     let clock = Clock::get()?;
 
     let claim_deadline =
@@ -68,8 +70,6 @@ pub fn process_sweep_acknowledged(ctx: Context<SweepAcknowledged>) -> Result<()>
         owner_key
     );
 
-    alarm.status = AlarmStatus::Claimed;
-    alarm.remaining_amount = 0;
-
+    // Terminal: alarm and vault are both closed to the owner by their `close` constraints.
     Ok(())
 }

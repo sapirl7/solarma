@@ -60,6 +60,8 @@ class OnchainAlarmService
             buddyAddress: String? = null,
         ): Result<String> =
             withContext(Dispatchers.IO) {
+                var signature: String? = null
+                var pda: String? = null
                 try {
                     // Check network first
                     if (!networkChecker.isNetworkAvailable()) {
@@ -101,39 +103,62 @@ class OnchainAlarmService
                             }
                         }
 
-                    // Build transaction
-                    val txBytes =
-                        transactionBuilder.buildCreateAlarmTransaction(
-                            owner = ownerPubkey,
-                            alarmId = alarmId,
-                            alarmTimeUnix = alarmTimeUnix,
-                            deadlineUnix = deadlineUnix,
-                            depositLamports = depositLamports,
-                            penaltyRoute = penaltyRoute,
-                            buddyAddress = buddyPubkey,
-                        )
+                    val alarmPda = transactionBuilder.instructionBuilder.deriveAlarmPda(ownerPubkey, alarmId).address.toBase58()
+                    pda = alarmPda
 
-                    // Sign and send via MWA
-                    val result = signAndSendFanOut(activityResultSender, txBytes)
-                    val signature =
-                        result.getOrElse { e ->
-                            Log.e(TAG, "Failed to create onchain alarm", e)
+                    // Build inside the wallet session (fresh blockhash), then sign
+                    val signedTx =
+                        walletManager.signTransaction(activityResultSender, ownerAddress) {
+                            transactionBuilder.buildCreateAlarmTransaction(
+                                owner = ownerPubkey,
+                                alarmId = alarmId,
+                                alarmTimeUnix = alarmTimeUnix,
+                                deadlineUnix = deadlineUnix,
+                                depositLamports = depositLamports,
+                                penaltyRoute = penaltyRoute,
+                                buddyAddress = buddyPubkey,
+                            )
+                        }.getOrElse { e ->
+                            // Not signed: nothing was sent
+                            Log.e(TAG, "Failed to sign onchain alarm", e)
                             return@withContext Result.failure(e)
                         }
+                    // From here on the deposit may land: never report a plain failure unless
+                    // the transaction definitely did not (or cannot) land.
+                    signature = Base58.firstSignatureOf(signedTx)
+
+                    rpcClient.sendTransactionFanOut(signedTx).onFailure { e ->
+                        return@withContext if (ErrorClassifier.programErrorCode(e.message) != null) {
+                            // Rejected in preflight simulation: not forwarded
+                            Result.failure(e)
+                        } else {
+                            Result.failure(PendingConfirmationException(signature!!, alarmPda))
+                        }
+                    }
 
                     Log.i(TAG, "Alarm created onchain: signature=$signature")
 
-                    val alarmPda = transactionBuilder.instructionBuilder.deriveAlarmPda(ownerPubkey, alarmId)
-                    when (val confirmation = awaitConfirmation(signature)) {
-                        is ConfirmationResult.Confirmed -> Result.success(alarmPda.address.toBase58())
+                    when (val confirmation = awaitConfirmation(signature!!)) {
+                        is ConfirmationResult.Confirmed -> Result.success(alarmPda)
                         is ConfirmationResult.Failed ->
-                            Result.failure(Exception("Transaction failed: ${confirmation.error}"))
+                            if (rpcClient.accountExists(alarmPda).getOrNull() == true) {
+                                // "Already in use": an earlier attempt created it
+                                Result.success(alarmPda)
+                            } else {
+                                Result.failure(Exception("Transaction failed: ${confirmation.error}"))
+                            }
                         is ConfirmationResult.Pending ->
-                            Result.failure(PendingConfirmationException(signature, alarmPda.address.toBase58()))
+                            Result.failure(PendingConfirmationException(signature!!, alarmPda))
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create onchain alarm", e)
-                    Result.failure(e)
+                    val sent = signature
+                    if (sent != null && pda != null) {
+                        // Signed and possibly sent: let the queue confirm or retry it
+                        Result.failure(PendingConfirmationException(sent, pda))
+                    } else {
+                        Result.failure(e)
+                    }
                 }
             }
 
@@ -354,117 +379,4 @@ class OnchainAlarmService
             val alarmId = alarm.onchainAlarmId ?: alarm.id
             return transactionBuilder.instructionBuilder.deriveAlarmPda(owner, alarmId).address
         }
-
-        /**
-         * M3: Sync on-chain alarms with the local Room database.
-         * Fetches all program accounts owned by the current wallet and inserts
-         * any missing alarms into the local DB. This handles multi-device scenarios
-         * where an alarm was created on another device.
-         *
-         * @param alarmDao the DAO to check/insert local alarms
-         * @return number of new alarms synced from on-chain, or -1 on error
-         */
-        suspend fun syncOnchainAlarms(alarmDao: app.solarma.data.local.AlarmDao): Int =
-            withContext(Dispatchers.IO) {
-                try {
-                    if (!networkChecker.isNetworkAvailable()) return@withContext 0
-
-                    val ownerBase58 = walletManager.getConnectedWallet() ?: return@withContext 0
-                    val programId = SolarmaInstructionBuilder.PROGRAM_ID.toBase58()
-
-                    val result = rpcClient.getProgramAccounts(programId, ownerBase58)
-                    val accounts = result.getOrNull() ?: return@withContext -1
-
-                    var synced = 0
-                    for (account in accounts) {
-                        try {
-                            // Decode on-chain data
-                            val data = android.util.Base64.decode(account.dataBase64, android.util.Base64.DEFAULT)
-                            if (data.size < 110) continue
-
-                            // Check if this on-chain alarm exists locally
-                            val existing = alarmDao.getByOnchainPubkey(account.pubkey)
-
-                            // Parse key fields from Borsh-serialized data
-                            // Rust Alarm struct layout (state.rs):
-                            //   8 disc | 32 owner | 8 alarm_id | 8 alarm_time | 8 deadline |
-                            //   8 initial_amount | 8 remaining_amount | 1 penalty_route |
-                            //   1+32 penalty_destination (Option<Pubkey>) | 1 snooze_count |
-                            //   1 status | 1 bump | 1 vault_bump | 64 padding
-                            val buf = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                            buf.position(8) // skip discriminator
-                            buf.position(buf.position() + 32) // skip owner
-                            val alarmId = buf.getLong() // alarm_id (u64)
-                            val alarmTime = buf.getLong() // alarm_time (unix sec)
-                            val deadline = buf.getLong() // deadline (unix sec)
-                            val initialAmount = buf.getLong() // initial_amount
-                            val remainingAmount = buf.getLong() // remaining_amount
-                            val penaltyRoute = buf.get().toInt() // penalty_route
-                            // penalty_destination: Option<Pubkey> = 1 byte tag + 32 bytes if Some
-                            val hasDestination = buf.get().toInt() and 0xFF
-                            if (hasDestination != 0) {
-                                buf.position(buf.position() + 32) // skip Pubkey bytes
-                            }
-                            val snoozeCount = buf.get().toInt() and 0xFF
-                            val status = buf.get().toInt() and 0xFF
-
-                            // AlarmStatus: Created=0, Acknowledged=1, Claimed=2, Slashed=3
-                            val isResolved = status >= 2 || remainingAmount <= 0
-
-                            if (existing != null) {
-                                // Alarm exists locally — update deposit state from on-chain
-                                if (isResolved && existing.hasDeposit) {
-                                    // On-chain shows resolved but local still has deposit → fix it
-                                    alarmDao.update(
-                                        existing.copy(
-                                            hasDeposit = false,
-                                            depositLamports = 0,
-                                            depositAmount = 0.0,
-                                        ),
-                                    )
-                                    Log.i(
-                                        TAG,
-                                        "Sync: cleared stale deposit for " +
-                                            "${account.pubkey} " +
-                                            "(on-chain status=$status, " +
-                                            "remaining=$remainingAmount)",
-                                    )
-                                }
-                                continue // Don't re-insert
-                            }
-
-                            // Skip resolved alarms — no need to import them as new
-                            if (isResolved) continue
-
-                            // Create local alarm record for this NEW on-chain alarm
-                            val alarm =
-                                AlarmEntity(
-                                    alarmTimeMillis = alarmTime * 1000,
-                                    label = "Synced from chain",
-                                    isEnabled = true,
-                                    hasDeposit = true,
-                                    depositLamports = initialAmount,
-                                    penaltyRoute = penaltyRoute,
-                                    onchainPubkey = account.pubkey,
-                                    snoozeCount = snoozeCount,
-                                    // Default — user can reconfigure
-                                    wakeProofType = 0,
-                                )
-                            alarmDao.insert(alarm)
-                            synced++
-                            Log.i(TAG, "Synced on-chain alarm: ${account.pubkey} (time=$alarmTime, remaining=$remainingAmount)")
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to decode on-chain alarm: ${account.pubkey}", e)
-                        }
-                    }
-
-                    if (synced > 0) {
-                        Log.i(TAG, "M3: Synced $synced on-chain alarms to local DB")
-                    }
-                    synced
-                } catch (e: Exception) {
-                    Log.e(TAG, "syncOnchainAlarms failed", e)
-                    -1
-                }
-            }
     }

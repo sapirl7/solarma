@@ -1,20 +1,25 @@
 package app.solarma.wallet
 
-import app.solarma.alarm.AlarmTiming
 import app.solarma.data.local.AlarmDao
 import app.solarma.data.local.AlarmEntity
 import app.solarma.data.local.StatsDao
+import app.solarma.data.local.StatsEntity
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.*
+import org.sol4k.PublicKey
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
+import java.util.Base64
 
 /**
  * Integration tests for TransactionProcessor.processPendingTransactionsWithUi.
- * Uses mocked dependencies to test the real processing flow:
- * deadline guards, status.err classification, and max retries.
+ * Uses mocked dependencies to test the real processing flow: decisions from
+ * on-chain state, signature tracking, error classification and max retries.
  */
 class TransactionProcessorIntegrationTest {
     private lateinit var networkChecker: NetworkChecker
@@ -28,38 +33,70 @@ class TransactionProcessorIntegrationTest {
     private lateinit var activityResultSender: ActivityResultSender
 
     private val ownerAddress = "11111111111111111111111111111111"
+    private val alarmPda = "33333333333333333333333333333333"
+    private val nowSec get() = System.currentTimeMillis() / 1000
 
-    private fun makeAlarm(
-        id: Long = 1,
-        alarmTimeMillis: Long = System.currentTimeMillis() + 600_000,
-    ) = AlarmEntity(
-        id = id,
-        alarmTimeMillis = alarmTimeMillis,
-        label = "Test",
-        isEnabled = true,
-        repeatDays = 0,
-        wakeProofType = 1,
-        targetSteps = 20,
-        hasDeposit = true,
-        depositAmount = 1.0,
-        depositLamports = 1_000_000_000L,
-        penaltyRoute = 0,
-        penaltyDestination = null,
-        onchainPubkey = "11111111111111111111111111111111",
-        onchainAlarmId = 1,
-        snoozeCount = 0,
-    )
+    private fun makeAlarm() =
+        AlarmEntity(
+            id = 1,
+            alarmTimeMillis = System.currentTimeMillis(),
+            label = "Test",
+            isEnabled = true,
+            repeatDays = 0,
+            wakeProofType = 1,
+            targetSteps = 20,
+            hasDeposit = true,
+            depositAmount = 1.0,
+            depositLamports = 1_000_000_000L,
+            penaltyRoute = 0,
+            penaltyDestination = null,
+            onchainPubkey = alarmPda,
+            onchainAlarmId = 1,
+            snoozeCount = 0,
+        )
 
     private fun makeTx(
         type: String,
-        alarmId: Long = 1,
         retryCount: Int = 0,
+        signature: String? = null,
+        sentAtBlockHeight: Long? = null,
     ) = PendingTransaction(
         id = 100,
         type = type,
-        alarmId = alarmId,
+        alarmId = 1,
         retryCount = retryCount,
+        signature = signature,
+        sentAtBlockHeight = sentAtBlockHeight,
     )
+
+    /** Borsh-serialized Alarm account (state.rs layout) as base64. */
+    private fun alarmAccountBase64(
+        alarmTime: Long,
+        deadline: Long,
+        status: Int = OnchainParameters.STATUS_CREATED,
+    ): String {
+        val discriminator = MessageDigest.getInstance("SHA-256").digest("account:Alarm".toByteArray()).copyOfRange(0, 8)
+        val buffer = ByteBuffer.allocate(8 + 32 + 8 * 6 + 1 + 1 + 4 + 64).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(discriminator)
+        buffer.put(PublicKey(ownerAddress).bytes())
+        buffer.putLong(1L) // alarm_id
+        buffer.putLong(alarmTime)
+        buffer.putLong(deadline)
+        buffer.putLong(1_000_000_000L) // initial_amount
+        buffer.putLong(1_000_000_000L) // remaining_amount
+        buffer.put(0.toByte()) // penalty_route
+        buffer.put(0.toByte()) // penalty_destination: None
+        buffer.put(0.toByte()) // snooze_count
+        buffer.put(status.toByte())
+        buffer.put(1.toByte()) // bump
+        buffer.put(2.toByte()) // vault_bump
+        return Base64.getEncoder().encodeToString(buffer.array())
+    }
+
+    private suspend fun givenTx(tx: PendingTransaction) {
+        whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
+        whenever(alarmDao.getById(1)).thenReturn(makeAlarm())
+    }
 
     @Before
     fun setUp() {
@@ -76,7 +113,7 @@ class TransactionProcessorIntegrationTest {
             }
         rpcClient = mock()
         alarmDao = mock()
-        statsDao = mock()
+        statsDao = mock { onBlocking { getStatsOnce() } doReturn StatsEntity() }
         activityResultSender = mock()
 
         processor =
@@ -91,83 +128,107 @@ class TransactionProcessorIntegrationTest {
             )
     }
 
-    // ── Deadline guard tests ──
+    // ── Decisions from on-chain state ──
 
     @Test
-    fun `CLAIM after deadline is marked FAILED and builder not called`() =
+    fun `legacy CLAIM after the on-chain deadline is FAILED and nothing is signed`() =
         runTest {
-            val pastAlarm = makeAlarm(alarmTimeMillis = System.currentTimeMillis() - AlarmTiming.GRACE_PERIOD_MILLIS - 1000)
-            val tx = makeTx("CLAIM")
-            whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
-            whenever(alarmDao.getById(1)).thenReturn(pastAlarm)
+            givenTx(makeTx("CLAIM"))
+            whenever(rpcClient.getAccountDataBase64(alarmPda))
+                .thenReturn(Result.success(alarmAccountBase64(alarmTime = nowSec - 3_600, deadline = nowSec - 1_800)))
 
             processor.processPendingTransactionsWithUi(activityResultSender)
 
             verify(transactionDao).updateStatus(eq(100L), eq("FAILED"), argThat { contains("Deadline passed") }, any())
-            verify(transactionBuilder, never()).buildClaimTransactionByPubkey(any(), any())
+            verify(walletManager, never()).signTransaction(any(), any<String>(), any<suspend () -> ByteArray>())
         }
 
     @Test
-    fun `ACK_AWAKE after deadline is marked FAILED and builder not called`() =
+    fun `alarm already resolved on-chain drops the transaction and the local alarm`() =
         runTest {
-            val pastAlarm = makeAlarm(alarmTimeMillis = System.currentTimeMillis() - AlarmTiming.GRACE_PERIOD_MILLIS - 1000)
-            val tx = makeTx("ACK_AWAKE")
-            whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
-            whenever(alarmDao.getById(1)).thenReturn(pastAlarm)
+            givenTx(makeTx("ACK_AND_CLAIM"))
+            whenever(rpcClient.getAccountDataBase64(alarmPda)).thenReturn(Result.success(null))
 
             processor.processPendingTransactionsWithUi(activityResultSender)
 
-            verify(transactionDao).updateStatus(eq(100L), eq("FAILED"), argThat { contains("Deadline passed") }, any())
-            verify(transactionBuilder, never()).buildAckAwakeTransactionByPubkey(any(), any())
-        }
-
-    // ── ErrorClassifier tests ──
-
-    @Test
-    fun `status_err non-retryable marks transaction FAILED`() =
-        runTest {
-            val alarm = makeAlarm()
-            val tx = makeTx("CLAIM")
-            whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
-            whenever(alarmDao.getById(1)).thenReturn(alarm)
-            whenever(transactionBuilder.buildClaimTransactionByPubkey(any(), any())).thenReturn(ByteArray(64))
-            whenever(walletManager.signTransaction(any(), any())).thenReturn(Result.success(ByteArray(64)))
-            whenever(rpcClient.sendTransactionFanOut(any())).thenReturn(Result.success("sig123"))
-            whenever(rpcClient.getSignatureStatus("sig123"))
-                .thenReturn(Result.success(SignatureStatus("finalized", "InvalidAlarmState")))
-
-            processor.processPendingTransactionsWithUi(activityResultSender)
-
-            // InvalidAlarmState is classified as NON_RETRYABLE by ErrorClassifier
-            verify(transactionDao).updateStatus(eq(100L), eq("FAILED"), eq("InvalidAlarmState"), any())
+            verify(transactionDao).updateStatus(eq(100L), eq("CONFIRMED"), eq("Already resolved on-chain"), any())
+            verify(alarmDao).deleteById(1L)
+            verify(walletManager, never()).signTransaction(any(), any<String>(), any<suspend () -> ByteArray>())
         }
 
     @Test
-    fun `status_err retryable keeps PENDING and increments retry`() =
+    fun `SLASH before the deadline waits without consuming a retry`() =
         runTest {
-            val alarm = makeAlarm()
-            val tx = makeTx("CLAIM")
-            whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
-            whenever(alarmDao.getById(1)).thenReturn(alarm)
-            whenever(transactionBuilder.buildClaimTransactionByPubkey(any(), any())).thenReturn(ByteArray(64))
-            whenever(walletManager.signTransaction(any(), any())).thenReturn(Result.success(ByteArray(64)))
-            whenever(rpcClient.sendTransactionFanOut(any())).thenReturn(Result.success("sig456"))
-            // "blockhash not found" matches ErrorClassifier rule (line 42, ignoreCase=true)
-            whenever(rpcClient.getSignatureStatus("sig456"))
-                .thenReturn(Result.success(SignatureStatus("processed", "blockhash not found")))
+            givenTx(makeTx("SLASH"))
+            whenever(rpcClient.getAccountDataBase64(alarmPda))
+                .thenReturn(Result.success(alarmAccountBase64(alarmTime = nowSec - 60, deadline = nowSec + 1_740)))
 
             processor.processPendingTransactionsWithUi(activityResultSender)
 
-            verify(transactionDao).updateStatus(eq(100L), eq("PENDING"), eq("blockhash not found"), any())
-            verify(transactionDao).incrementRetry(100L)
+            verify(transactionDao).updateStatus(eq(100L), eq("PENDING"), argThat { contains("Deadline not passed") }, any())
+            verify(transactionDao, never()).incrementRetry(any())
+        }
+
+    // ── Signature tracking ──
+
+    @Test
+    fun `previous attempt that can still land is not signed again`() =
+        runTest {
+            givenTx(makeTx("SNOOZE", signature = "prevSig", sentAtBlockHeight = 1_000))
+            whenever(rpcClient.getSignatureStatus("prevSig")).thenReturn(Result.success(SignatureStatus(null, null)))
+            whenever(rpcClient.getBlockHeight()).thenReturn(Result.success(1_050L))
+
+            processor.processPendingTransactionsWithUi(activityResultSender)
+
+            verify(transactionDao).updateStatus(eq(100L), eq("PENDING"), argThat { contains("Awaiting confirmation") }, any())
+            verify(walletManager, never()).signTransaction(any(), any<String>(), any<suspend () -> ByteArray>())
+            verify(rpcClient, never()).getAccountDataBase64(any())
+        }
+
+    @Test
+    fun `previous attempt that confirmed is applied without signing again`() =
+        runTest {
+            givenTx(makeTx("ACK_AND_CLAIM", signature = "prevSig", sentAtBlockHeight = 1_000))
+            whenever(rpcClient.getSignatureStatus("prevSig")).thenReturn(Result.success(SignatureStatus("confirmed", null)))
+            // Claim closed the alarm account
+            whenever(rpcClient.getAccountDataBase64(alarmPda)).thenReturn(Result.success(null))
+
+            processor.processPendingTransactionsWithUi(activityResultSender)
+
+            verify(statsDao).addSaved(1_000_000_000L)
+            verify(alarmDao).deleteById(1L)
+            verify(transactionDao).updateStatus(eq(100L), eq("CONFIRMED"), isNull(), any())
+            verify(walletManager, never()).signTransaction(any(), any<String>(), any<suspend () -> ByteArray>())
+        }
+
+    @Test
+    fun `program error after sending marks FAILED and clears the attempt`() =
+        runTest {
+            givenTx(makeTx("ACK_AND_CLAIM"))
+            whenever(rpcClient.getAccountDataBase64(alarmPda))
+                .thenReturn(Result.success(alarmAccountBase64(alarmTime = nowSec - 60, deadline = nowSec + 1_740)))
+            val signed = byteArrayOf(1) + ByteArray(64) { 7 } + ByteArray(40)
+            val signature = Base58.firstSignatureOf(signed)
+            whenever(walletManager.signTransaction(any(), eq(ownerAddress), any<suspend () -> ByteArray>()))
+                .thenReturn(Result.success(signed))
+            whenever(rpcClient.getBlockHeight()).thenReturn(Result.success(500L))
+            whenever(rpcClient.sendTransactionFanOut(signed)).thenReturn(Result.success(signature))
+            whenever(rpcClient.getSignatureStatus(signature))
+                .thenReturn(Result.success(SignatureStatus("confirmed", """{"InstructionError":[3,{"Custom":6002}]}""")))
+
+            processor.processPendingTransactionsWithUi(activityResultSender)
+
+            verify(transactionDao).updateSent(100L, signature, 500L)
+            verify(transactionDao).updateSent(100L, null, null)
+            verify(transactionDao).updateStatus(eq(100L), eq("FAILED"), argThat { contains("6002") }, any())
         }
 
     // ── Max retries ──
 
     @Test
-    fun `max retries exceeded marks FAILED without attempting build`() =
+    fun `max retries exceeded marks FAILED without reading the chain`() =
         runTest {
-            val tx = makeTx("CLAIM", retryCount = 5)
+            val tx = makeTx("ACK_AND_CLAIM", retryCount = 5)
             whenever(transactionDao.getPendingTransactions()).thenReturn(flowOf(listOf(tx)))
 
             processor.processPendingTransactionsWithUi(activityResultSender)
