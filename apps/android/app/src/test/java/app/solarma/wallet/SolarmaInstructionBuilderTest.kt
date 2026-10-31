@@ -57,8 +57,8 @@ class SolarmaInstructionBuilderTest {
         // Verify program ID
         assertEquals(SolarmaInstructionBuilder.PROGRAM_ID, instruction.programId)
 
-        // Verify we have 4 accounts (alarm, vault, owner, system)
-        assertEquals(4, instruction.accounts.size)
+        // Verify we have 5 accounts (alarm, vault, owner, system, config)
+        assertEquals(5, instruction.accounts.size)
     }
 
     @Test
