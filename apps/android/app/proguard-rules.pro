@@ -29,3 +29,12 @@
 # ── Data classes used in serialization ─────────────────
 -keep class app.solarma.data.** { *; }
 -keep class app.solarma.wallet.** { *; }
+
+# ── Strip verbose/debug/info logging from release builds ──
+# Debug logs print full transaction hex, addresses and amounts, and Settings
+# can export logcat. Warnings and errors are kept for diagnostics.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

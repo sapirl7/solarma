@@ -18,10 +18,10 @@ class BootReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
-            intent.action == "android.intent.action.QUICKBOOT_POWERON" ||
-            intent.action == "com.htc.intent.action.QUICKBOOT_POWERON"
-        ) {
+        // Only the protected system broadcast is accepted. The receiver is exported
+        // (required for BOOT_COMPLETED), so vendor QUICKBOOT actions would let any
+        // app trigger alarm restoration and its missed-alarm slash queueing.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             Log.i(TAG, "Boot completed, scheduling alarm restoration")
 
             // Use WorkManager for reliable execution

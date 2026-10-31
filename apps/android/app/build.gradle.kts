@@ -111,8 +111,10 @@ android {
             if (hasSigning) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
-                signingConfig = signingConfigs.getByName("debug")
-                logger.warn("Release signing config not found; using debug signing.")
+                // Never fall back to the debug key: it is an unprotected, per-machine
+                // throwaway key, so a debug-signed "release" can't be updated safely.
+                // Without a keystore the release APK is left unsigned and cannot be installed.
+                logger.warn("Release signing config not found; release output will be UNSIGNED.")
             }
         }
     }
