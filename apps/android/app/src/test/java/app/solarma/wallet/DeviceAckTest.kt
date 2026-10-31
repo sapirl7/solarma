@@ -31,6 +31,7 @@ class DeviceAckTest {
     private val txBuilder = TransactionBuilder(SolanaRpcClient(), instructionBuilder)
 
     private val owner = "11111111111111111111111111111111"
+
     // A real 32-byte key (a short base58 string like "333…3" decodes to fewer bytes)
     private val device = PublicKey(ByteArray(32) { 3 }).toBase58()
     private val alarmTime = 1_700_000_000L
