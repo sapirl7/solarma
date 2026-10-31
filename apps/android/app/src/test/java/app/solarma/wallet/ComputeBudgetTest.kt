@@ -45,8 +45,15 @@ class ComputeBudgetTest {
 
     @Test
     fun `ComputeBudget program ID is correct base58`() {
-        val expected = "ComputeBudget111111111111111111111111"
+        val expected = "ComputeBudget111111111111111111111111111111"
         assertEquals(expected, TransactionBuilder.COMPUTE_BUDGET_PROGRAM.toBase58())
+    }
+
+    @Test
+    fun `ComputeBudget program ID decodes to 32 bytes`() {
+        // sol4k's PublicKey(String) does not validate length; a short base58
+        // string silently yields a short key and corrupts the serialized message.
+        assertEquals(32, TransactionBuilder.COMPUTE_BUDGET_PROGRAM.bytes().size)
     }
 
     @Test

@@ -27,7 +27,7 @@ class TransactionBuilder
             val BURN_SINK = PublicKey("1nc1nerator11111111111111111111111111111111")
 
             // Compute Budget program (native Solana program)
-            val COMPUTE_BUDGET_PROGRAM = PublicKey("ComputeBudget111111111111111111111111")
+            val COMPUTE_BUDGET_PROGRAM = PublicKey("ComputeBudget111111111111111111111111111111")
 
             /** Max compute units per transaction (default Solana is 200k) */
             const val COMPUTE_UNIT_LIMIT = 200_000
