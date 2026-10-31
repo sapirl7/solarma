@@ -125,9 +125,10 @@ Keypair программы нужен только для первого деп�
 | Кошелёк и комиссия (A-9) | Транзакция собирается внутри сессии кошелька (свежий blockhash). Подпись отклоняется, если кошелёк авторизовал другой аккаунт. Priority fee берётся из `getRecentPrioritizationFees` в пределах 10 000…2 000 000 µL/CU. |
 | Тесты | Матрица решений процессора, интеграционные сценарии процессора, коды ошибок, дедлайны и snooze, разбор полной транзакции с compute budget (поймал бы A-1). |
 
-**Как проверено:** контракт — `cargo test` (161), `clippy -D warnings` и `fmt` локально. Android и
-TS-тесты контракта (anchor localnet) здесь не запускаются: нет Android SDK и Solana CLI. Их прогоняет
-CI на этой ветке (`workflow_dispatch`).
+**Как проверено:** CI на этой ветке (`workflow_dispatch`, run 41173036466, коммит `759efa2`) — все
+7 джоб зелёные: ktlint, Android Lint, юнит-тесты, сборка APK, `cargo test` (161) и clippy, `anchor build`,
+интеграционные TS-тесты (быстрый и полный набор, включая @slow), `npm audit`, gitleaks, markdownlint,
+проверка Gradle wrapper.
 
 ---
 
