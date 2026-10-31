@@ -3,12 +3,27 @@
 ## Environment Variables
 
 ### Android App (Gradle properties)
-Optional overrides (comma-separated endpoints):
+The network is fixed per build; there is no runtime network switch in the app.
 
-| Property | Description |
-|----------|-------------|
-| `SOLANA_RPC_DEVNET` | Override Devnet RPC endpoints |
-| `SOLANA_RPC_MAINNET` | Override Mainnet RPC endpoints |
+| Property | Default | Description |
+|----------|---------|-------------|
+| `SOLARMA_NETWORK` | `devnet` | `devnet` or `mainnet`. Selects MWA cluster, RPC set and UI (devnet banner/faucet hidden on mainnet). |
+| `SOLARMA_PROGRAM_ID` | devnet ID | Program ID the app talks to. **Required** for mainnet. |
+| `SOLARMA_TREASURY` | devnet address | Destination for the Donate penalty route. **Required** for mainnet. |
+| `SOLANA_RPC_DEVNET` | public devnet | Comma-separated Devnet RPC endpoints |
+| `SOLANA_RPC_MAINNET` | — | Comma-separated Mainnet RPC endpoints. **Required** for mainnet. |
+
+A mainnet build fails if any required property is missing, malformed, or equal to
+a known-compromised devnet address.
+
+```bash
+./gradlew assembleRelease -PSOLARMA_NETWORK=mainnet \
+  -PSOLARMA_PROGRAM_ID=<program id> -PSOLARMA_TREASURY=<address> \
+  -PSOLANA_RPC_MAINNET=<private rpc url>
+```
+
+Note: RPC URLs are compiled into the APK, so any API key in them is public.
+Use a key restricted to the app (allowed origins / rate limits) at your provider.
 
 Set in `~/.gradle/gradle.properties` or project `gradle.properties`.
 
@@ -57,7 +72,6 @@ solarma_vault = "PROGRAM_ID_HERE"
 
 | Key | Description |
 |-----|-------------|
-| `is_devnet` | Use Devnet (true) or Mainnet (false) |
 | `default_steps` | Default step target for wake proof |
 | `default_deposit_sol` | Default SOL deposit |
 | `default_penalty` | 0=Burn, 1=Donate, 2=Buddy |

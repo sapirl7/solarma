@@ -11,7 +11,6 @@ import org.junit.Test
  * - parseResultObject
  * - parseResultValue
  * - SignatureStatus / ProgramAccount data classes
- * - setNetwork toggle
  */
 class SolanaRpcClientTest {
     private lateinit var client: SolanaRpcClient
@@ -151,16 +150,6 @@ class SolanaRpcClientTest {
         val response = """{"jsonrpc":"2.0","id":1}"""
         val result = client.parseResultValue(response)
         assertNull(result)
-    }
-
-    // ── setNetwork ──
-
-    @Test
-    fun `setNetwork toggles state without throwing`() {
-        client.setNetwork(true)
-        client.setNetwork(false)
-        client.setNetwork(true)
-        // No exceptions — just state toggle
     }
 
     // ── Data classes ──

@@ -1,6 +1,7 @@
 package app.solarma.wallet
 
 import android.util.Log
+import app.solarma.BuildConfig
 import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -18,8 +19,9 @@ class SolarmaInstructionBuilder
         companion object {
             private const val TAG = "Solarma.TxBuilder"
 
-            // Program ID - matches declare_id! in lib.rs
-            val PROGRAM_ID = PublicKey("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP")
+            // Program ID for the build's network (SOLARMA_PROGRAM_ID, see app/build.gradle.kts).
+            // Must match declare_id! in the deployed program.
+            val PROGRAM_ID = PublicKey(BuildConfig.PROGRAM_ID)
 
             // Anchor discriminators (first 8 bytes of sha256("global:<instruction_name>"))
             private val DISCRIMINATOR_CREATE_ALARM =

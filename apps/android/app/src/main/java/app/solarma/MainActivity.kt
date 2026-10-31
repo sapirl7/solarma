@@ -22,17 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.solarma.navigation.SolarmaNavHost
-import app.solarma.ui.settings.SettingsViewModel
-import app.solarma.ui.settings.dataStore
 import app.solarma.ui.theme.SolarmaTheme
 import app.solarma.wakeproof.NfcScanner
 import app.solarma.wallet.OnchainAlarmService
-import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.TransactionProcessor
-import app.solarma.wallet.WalletManager
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -71,12 +66,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var transactionProcessor: TransactionProcessor
-
-    @Inject
-    lateinit var walletManager: WalletManager
-
-    @Inject
-    lateinit var rpcClient: SolanaRpcClient
 
     @Inject
     lateinit var onchainAlarmService: OnchainAlarmService
@@ -169,13 +158,6 @@ class MainActivity : ComponentActivity() {
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-        }
-
-        lifecycleScope.launch {
-            val prefs = dataStore.data.first()
-            val isDevnet = prefs[SettingsViewModel.KEY_IS_DEVNET] ?: true
-            walletManager.setNetwork(isDevnet)
-            rpcClient.setNetwork(!isDevnet)
         }
     }
 

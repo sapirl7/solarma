@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.solarma.BuildConfig
 import app.solarma.alarm.AlarmRepository
 import app.solarma.alarm.AlarmTimeCalculator
 import app.solarma.data.local.AlarmEntity
@@ -79,6 +80,11 @@ class CreateAlarmViewModel
                         // Validate base58 format (32-44 chars, no invalid chars)
                         if (!buddyAddr.matches(Regex("^[1-9A-HJ-NP-Za-km-z]{32,44}$"))) {
                             _saveState.value = SaveState.Error("Invalid buddy address format. Must be a valid Solana address.")
+                            return@launch
+                        }
+                        // The program rejects a buddy equal to the owner (InvalidPenaltyDestination)
+                        if (buddyAddr == walletManager.getConnectedWallet()) {
+                            _saveState.value = SaveState.Error("Buddy must be a different wallet than your own.")
                             return@launch
                         }
                     }
@@ -205,6 +211,7 @@ class CreateAlarmViewModel
                             val balanceSol = lamports / 1_000_000_000.0
                             val requiredSol = state.depositAmount + ESTIMATED_FEES_SOL
                             if (balanceSol < requiredSol) {
+                                val faucetHint = if (BuildConfig.IS_MAINNET) "" else " Get test SOL at faucet.solana.com"
                                 _saveState.value =
                                     SaveState.SigningFailed(
                                         alarm.id,
@@ -212,9 +219,8 @@ class CreateAlarmViewModel
                                             "Insufficient balance: " +
                                                 "%.4f SOL available, " +
                                                 "~%.3f SOL needed " +
-                                                "(deposit + fees). " +
-                                                "Get test SOL at " +
-                                                "faucet.solana.com"
+                                                "(deposit + fees)." +
+                                                faucetHint
                                         ).format(
                                             balanceSol, requiredSol,
                                         ),

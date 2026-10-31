@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import app.solarma.BuildConfig
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import com.solana.mobilewalletadapter.clientlib.ConnectionIdentity
 import com.solana.mobilewalletadapter.clientlib.MobileWalletAdapter
@@ -98,7 +99,8 @@ class WalletManager
                         identityName = APP_IDENTITY_NAME,
                     ),
             ).apply {
-                blockchain = Solana.Devnet
+                // Fixed per build (SOLARMA_NETWORK); must match SolarmaInstructionBuilder.PROGRAM_ID.
+                blockchain = if (BuildConfig.IS_MAINNET) Solana.Mainnet else Solana.Devnet
             }
         }
 
@@ -245,14 +247,6 @@ class WalletManager
             clearWalletPrefs()
             _connectionState.value = WalletConnectionState.Disconnected
             Log.i(TAG, "Wallet disconnected")
-        }
-
-        /**
-         * Update Solana network for MWA.
-         */
-        fun setNetwork(isDevnet: Boolean) {
-            mobileWalletAdapter.blockchain = if (isDevnet) Solana.Devnet else Solana.Mainnet
-            Log.i(TAG, "MWA network set to: ${if (isDevnet) "Devnet" else "Mainnet"}")
         }
 
         /**

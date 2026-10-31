@@ -27,6 +27,53 @@ android {
         buildConfigField("String", "SOLANA_RPC_DEVNET", "\"$devnetRpc\"")
         buildConfigField("String", "SOLANA_RPC_MAINNET", "\"$mainnetRpc\"")
 
+        // Network is fixed per build; the app has no runtime network switch.
+        // Mainnet builds must name every address explicitly so that a devnet (or
+        // compromised) program ID / treasury can never ship in a real-money release:
+        //   ./gradlew assembleRelease -PSOLARMA_NETWORK=mainnet \
+        //       -PSOLARMA_PROGRAM_ID=<id> -PSOLARMA_TREASURY=<addr> -PSOLANA_RPC_MAINNET=<url>
+        val network = ((project.findProperty("SOLARMA_NETWORK") as String?) ?: "devnet").lowercase()
+        require(network == "devnet" || network == "mainnet") {
+            "SOLARMA_NETWORK must be 'devnet' or 'mainnet', got '$network'"
+        }
+        val isMainnet = network == "mainnet"
+        val base58Key = Regex("^[1-9A-HJ-NP-Za-km-z]{32,44}$")
+
+        fun addressProperty(
+            name: String,
+            devnetDefault: String,
+        ): String {
+            val value = (project.findProperty(name) as String?)?.trim()
+            val resolved =
+                when {
+                    !value.isNullOrEmpty() -> value
+                    !isMainnet -> devnetDefault
+                    else -> throw GradleException("$name is required for SOLARMA_NETWORK=mainnet")
+                }
+            require(base58Key.matches(resolved)) { "$name is not a valid base58 public key: $resolved" }
+            return resolved
+        }
+
+        val programId = addressProperty("SOLARMA_PROGRAM_ID", "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP")
+        val treasury = addressProperty("SOLARMA_TREASURY", "2g536HdC3ByKNZc6gev6jb6NmFr7dMnTnp66Gqk5rusk")
+        if (isMainnet) {
+            if (mainnetRpc.isBlank()) {
+                throw GradleException("SOLANA_RPC_MAINNET is required for SOLARMA_NETWORK=mainnet")
+            }
+            // Addresses held on a machine known to be compromised (see docs/AUDIT_AND_MAINNET_PLAN.ru.md).
+            val compromised =
+                setOf(
+                    "F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP",
+                    "2g536HdC3ByKNZc6gev6jb6NmFr7dMnTnp66Gqk5rusk",
+                )
+            if (programId in compromised || treasury in compromised) {
+                throw GradleException("Refusing to build mainnet with a compromised devnet program ID or treasury address")
+            }
+        }
+        buildConfigField("boolean", "IS_MAINNET", isMainnet.toString())
+        buildConfigField("String", "PROGRAM_ID", "\"$programId\"")
+        buildConfigField("String", "TREASURY_ADDRESS", "\"$treasury\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

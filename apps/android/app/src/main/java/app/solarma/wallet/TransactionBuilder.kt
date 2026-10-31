@@ -1,6 +1,7 @@
 package app.solarma.wallet
 
 import android.util.Log
+import app.solarma.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sol4k.PublicKey
@@ -567,7 +568,8 @@ enum class PenaltyRoute(val code: Byte) {
 
 /**
  * Solarma project treasury for DONATE penalty route.
+ * Set per build via SOLARMA_TREASURY (see app/build.gradle.kts).
  */
 object SolarmaTreasury {
-    const val ADDRESS = "2g536HdC3ByKNZc6gev6jb6NmFr7dMnTnp66Gqk5rusk"
+    val ADDRESS: String = BuildConfig.TREASURY_ADDRESS
 }

@@ -160,18 +160,9 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Outlined.Hub,
                         title = "Network",
+                        // Read-only: the network is fixed per build so a release can never
+                        // send transactions to a program ID meant for another cluster.
                         subtitle = if (uiState.isDevnet) "Devnet" else "Mainnet",
-                        trailingContent = {
-                            Switch(
-                                checked = uiState.isDevnet,
-                                onCheckedChange = { viewModel.setDevnet(it) },
-                                colors =
-                                    SwitchDefaults.colors(
-                                        checkedThumbColor = SolanaGreen,
-                                        checkedTrackColor = SolanaGreen.copy(alpha = 0.3f),
-                                    ),
-                            )
-                        },
                     )
 
                     HorizontalDivider(color = TextSecondary.copy(alpha = 0.2f))

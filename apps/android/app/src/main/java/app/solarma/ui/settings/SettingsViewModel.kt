@@ -6,9 +6,9 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.solarma.BuildConfig
 import app.solarma.alarm.AlarmRepository
 import app.solarma.alarm.ImportResult
-import app.solarma.wallet.SolanaRpcClient
 import app.solarma.wallet.WalletManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,14 +27,12 @@ class SettingsViewModel
     @Inject
     constructor(
         private val walletManager: WalletManager,
-        private val rpcClient: SolanaRpcClient,
         private val alarmRepository: AlarmRepository,
         @ApplicationContext private val context: Context,
     ) : ViewModel() {
         companion object {
             val KEY_NFC_TAG_HASH = stringPreferencesKey("nfc_tag_hash")
             val KEY_QR_CODE = stringPreferencesKey("qr_code")
-            val KEY_IS_DEVNET = booleanPreferencesKey("is_devnet")
             val KEY_DEFAULT_STEPS = intPreferencesKey("default_steps")
             val KEY_DEFAULT_DEPOSIT = stringPreferencesKey("default_deposit")
             val KEY_DEFAULT_PENALTY = intPreferencesKey("default_penalty")
@@ -56,15 +54,10 @@ class SettingsViewModel
                             nfcTagHash = prefs[KEY_NFC_TAG_HASH],
                             qrCodeRegistered = prefs[KEY_QR_CODE] != null,
                             qrCode = prefs[KEY_QR_CODE],
-                            isDevnet = prefs[KEY_IS_DEVNET] ?: true,
                             defaultSteps = prefs[KEY_DEFAULT_STEPS] ?: 50,
                             defaultDepositSol = prefs[KEY_DEFAULT_DEPOSIT]?.toDoubleOrNull() ?: 0.1,
                             defaultPenalty = prefs[KEY_DEFAULT_PENALTY] ?: 0,
                         )
-
-                    val isDevnet = prefs[KEY_IS_DEVNET] ?: true
-                    walletManager.setNetwork(isDevnet)
-                    rpcClient.setNetwork(!isDevnet)
                 }
             }
 
@@ -92,22 +85,6 @@ class SettingsViewModel
         fun disconnect() {
             walletManager.disconnect()
             _uiState.value = _uiState.value.copy(walletAddress = null)
-        }
-
-        fun setDevnet(enabled: Boolean) {
-            val wasDevnet = _uiState.value.isDevnet
-            _uiState.value = _uiState.value.copy(isDevnet = enabled)
-            walletManager.setNetwork(enabled)
-            rpcClient.setNetwork(!enabled)
-            if (wasDevnet != enabled) {
-                walletManager.disconnect()
-                _uiState.value = _uiState.value.copy(walletAddress = null)
-            }
-            viewModelScope.launch {
-                context.dataStore.edit { prefs ->
-                    prefs[KEY_IS_DEVNET] = enabled
-                }
-            }
         }
 
         fun setVibration(enabled: Boolean) {
@@ -235,7 +212,8 @@ class SettingsViewModel
 data class SettingsUiState(
     // Wallet
     val walletAddress: String? = null,
-    val isDevnet: Boolean = true,
+    // Fixed at build time (SOLARMA_NETWORK); there is no runtime network switch.
+    val isDevnet: Boolean = !BuildConfig.IS_MAINNET,
     // Alarm Defaults
     val defaultSteps: Int = 50,
     val defaultDepositSol: Double = 0.1,

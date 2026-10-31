@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.solarma.BuildConfig
 import app.solarma.LocalActivityResultSender
 import app.solarma.R
 import app.solarma.data.local.AlarmEntity
@@ -70,21 +71,23 @@ fun HomeScreen(
                                 color = TextPrimary,
                                 letterSpacing = 2.sp,
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.dev_test_badge),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = WarningAmber,
-                                letterSpacing = 1.sp,
-                                modifier =
-                                    Modifier
-                                        .background(
-                                            WarningAmber.copy(alpha = 0.15f),
-                                            RoundedCornerShape(4.dp),
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
+                            if (!BuildConfig.IS_MAINNET) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.dev_test_badge),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WarningAmber,
+                                    letterSpacing = 1.sp,
+                                    modifier =
+                                        Modifier
+                                            .background(
+                                                WarningAmber.copy(alpha = 0.15f),
+                                                RoundedCornerShape(4.dp),
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -321,7 +324,7 @@ fun WalletStatusCard(
             GraphiteSurface
         }
 
-    val showFaucetButton = isConnected && (balance == null || balance < 0.1)
+    val showFaucetButton = !BuildConfig.IS_MAINNET && isConnected && (balance == null || balance < 0.1)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -399,8 +402,8 @@ fun WalletStatusCard(
                 }
             }
 
-            // Devnet testing notice — always visible when connected
-            if (isConnected) {
+            // Devnet testing notice — visible when connected on devnet builds only
+            if (isConnected && !BuildConfig.IS_MAINNET) {
                 Row(
                     modifier =
                         Modifier

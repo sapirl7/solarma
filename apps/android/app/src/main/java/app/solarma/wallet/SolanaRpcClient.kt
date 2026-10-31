@@ -31,22 +31,22 @@ class SolanaRpcClient
                     "https://api.devnet.solana.com",
                     "https://devnet.helius-rpc.com",
                     "https://rpc-devnet.solflare.com",
-                    "https://devnet.genesysgo.net",
                 )
 
-            // Default Mainnet RPC endpoints (fallback order)
+            // Last-resort public Mainnet endpoint. It is rate-limited and not meant for
+            // production traffic: mainnet builds must set SOLANA_RPC_MAINNET (enforced in
+            // app/build.gradle.kts).
             private val DEFAULT_MAINNET_ENDPOINTS =
                 listOf(
                     "https://api.mainnet-beta.solana.com",
-                    "https://solana-mainnet.g.alchemy.com/v2/demo",
-                    "https://rpc.helius.xyz",
                 )
 
             private const val BASE_BACKOFF_MS = 5_000L
             private const val MAX_BACKOFF_MS = 60_000L
         }
 
-        private var isMainnet: Boolean = false
+        // Fixed per build (SOLARMA_NETWORK); there is no runtime network switch.
+        private val isMainnet: Boolean = BuildConfig.IS_MAINNET
         private val endpointFailureCount = mutableMapOf<String, Int>()
         private val endpointLastFailedAt = mutableMapOf<String, Long>()
 
@@ -66,11 +66,6 @@ class SolanaRpcClient
 
         private val currentEndpoints: List<String>
             get() = if (isMainnet) mainnetEndpoints else devnetEndpoints
-
-        fun setNetwork(mainnet: Boolean) {
-            isMainnet = mainnet
-            Log.i(TAG, "Network set to: ${if (mainnet) "Mainnet" else "Devnet"}")
-        }
 
         /**
          * Get account balance in lamports.

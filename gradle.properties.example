@@ -1,3 +1,8 @@
+# Network is fixed per build (default: devnet). For a mainnet build set all of:
+# SOLARMA_NETWORK=mainnet
+# SOLARMA_PROGRAM_ID=<mainnet program id>
+# SOLARMA_TREASURY=<donate route address>
+
 # Optional RPC overrides (comma-separated)
 SOLANA_RPC_DEVNET=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
 SOLANA_RPC_MAINNET=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
