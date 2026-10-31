@@ -2490,6 +2490,7 @@ dependencies = [
  "blake3",
  "proptest",
  "solana-program",
+ "solana-security-txt",
 ]
 
 [[package]]

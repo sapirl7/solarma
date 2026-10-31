@@ -247,3 +247,57 @@ mod horizon_tests {
         assert!(!deadline_within_horizon(i64::MAX, i64::MAX - 5, 100));
     }
 }
+
+// =========================================================================
+// Penalty destination
+// =========================================================================
+
+/// Check that a Donate/Buddy `penalty_destination` can actually receive a slash.
+///
+/// Rejects destinations that would make the penalty meaningless (the owner)
+/// or make `slash` permanently fail and freeze the deposit: the alarm or vault
+/// PDA itself (closing the vault into itself burns the lamports and the runtime
+/// rejects the transaction), and executable accounts we know about (System
+/// program, this program), whose balance cannot be credited.
+pub fn is_valid_penalty_destination(
+    destination: &[u8; 32],
+    owner: &[u8; 32],
+    alarm: &[u8; 32],
+    vault: &[u8; 32],
+    program_id: &[u8; 32],
+) -> bool {
+    const SYSTEM_PROGRAM: [u8; 32] = [0u8; 32];
+    destination != owner
+        && destination != alarm
+        && destination != vault
+        && destination != program_id
+        && *destination != SYSTEM_PROGRAM
+}
+
+#[cfg(test)]
+mod penalty_destination_tests {
+    use super::is_valid_penalty_destination;
+
+    const OWNER: [u8; 32] = [1u8; 32];
+    const ALARM: [u8; 32] = [2u8; 32];
+    const VAULT: [u8; 32] = [3u8; 32];
+    const PROGRAM: [u8; 32] = [4u8; 32];
+
+    fn check(dest: [u8; 32]) -> bool {
+        is_valid_penalty_destination(&dest, &OWNER, &ALARM, &VAULT, &PROGRAM)
+    }
+
+    #[test]
+    fn accepts_third_party_destination() {
+        assert!(check([9u8; 32]));
+    }
+
+    #[test]
+    fn rejects_owner_alarm_vault_and_programs() {
+        assert!(!check(OWNER));
+        assert!(!check(ALARM));
+        assert!(!check(VAULT));
+        assert!(!check(PROGRAM));
+        assert!(!check([0u8; 32]));
+    }
+}

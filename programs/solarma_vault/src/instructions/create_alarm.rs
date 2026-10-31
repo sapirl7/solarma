@@ -69,11 +69,19 @@ pub fn process_create_alarm(
             SolarmaError::DepositTooSmall
         );
 
-        // Donate and Buddy routes require destination address
+        // Donate and Buddy routes require a destination that can receive a slash
         if route == PenaltyRoute::Donate || route == PenaltyRoute::Buddy {
+            let destination =
+                penalty_destination.ok_or(SolarmaError::PenaltyDestinationRequired)?;
             require!(
-                penalty_destination.is_some(),
-                SolarmaError::PenaltyDestinationRequired
+                helpers::is_valid_penalty_destination(
+                    &destination.to_bytes(),
+                    &ctx.accounts.owner.key().to_bytes(),
+                    &ctx.accounts.alarm.key().to_bytes(),
+                    &ctx.accounts.vault.key().to_bytes(),
+                    &crate::ID.to_bytes(),
+                ),
+                SolarmaError::InvalidPenaltyDestination
             );
         }
 

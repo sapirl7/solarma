@@ -8,6 +8,15 @@ use anchor_lang::prelude::*;
 
 declare_id!("F54LpWS97bCvkn5PGfUsFi8cU8HyYBZgyozkSkAbAjzP");
 
+#[cfg(not(feature = "no-entrypoint"))]
+solana_security_txt::security_txt! {
+    name: "Solarma Vault",
+    project_url: "https://github.com/sapirl7/solarma",
+    contacts: "link:https://github.com/sapirl7/solarma/security/advisories/new",
+    policy: "https://github.com/sapirl7/solarma/blob/main/SECURITY.md",
+    source_code: "https://github.com/sapirl7/solarma"
+}
+
 pub mod constants;
 pub mod error;
 pub mod events;

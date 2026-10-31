@@ -57,4 +57,7 @@ pub enum SolarmaError {
 
     #[msg("Deadline is too far in the future (exceeds the max alarm horizon)")]
     DeadlineTooFar,
+
+    #[msg("Penalty destination cannot be the owner, the alarm/vault accounts, or a program")]
+    InvalidPenaltyDestination,
 }
