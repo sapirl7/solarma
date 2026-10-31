@@ -150,6 +150,12 @@ class HistoryViewModelTest {
 
         override suspend fun incrementRetry(id: Long) {}
 
+        override suspend fun updateSent(
+            id: Long,
+            signature: String?,
+            blockHeight: Long?,
+        ) {}
+
         override suspend fun countActiveByTypeAndAlarm(
             type: String,
             alarmId: Long,
