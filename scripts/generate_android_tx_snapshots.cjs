@@ -66,6 +66,27 @@ function deriveAlarmPda(owner, alarmId) {
   return { pda, bump };
 }
 
+function deriveConfigPda() {
+  const [pda] = PublicKey.findProgramAddressSync([Buffer.from("config")], PROGRAM_ID);
+  return pda;
+}
+
+function buildAckAndClaimIx({ owner, signer, alarmId }) {
+  const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
+  const { pda: vaultPda } = deriveVaultPda(alarmPda);
+  const data = Buffer.from(discriminator("ack_and_claim"));
+
+  const accounts = [
+    meta(alarmPda, false, true),
+    meta(vaultPda, false, true),
+    meta(owner, false, true),
+    meta(signer, true, false),
+    meta(SYSTEM_PROGRAM_ID, false, false),
+  ];
+
+  return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
+}
+
 function deriveVaultPda(alarmPda) {
   const [pda, bump] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), alarmPda.toBuffer()],
@@ -206,6 +227,7 @@ function buildCreateAlarmIx({
   depositLamports,
   penaltyRoute,
   penaltyDestination,
+  ackAuthority = null,
 }) {
   const { pda: alarmPda } = deriveAlarmPda(owner, alarmId);
   const { pda: vaultPda } = deriveVaultPda(alarmPda);
@@ -218,6 +240,7 @@ function buildCreateAlarmIx({
     u64le(depositLamports),
     Buffer.from([penaltyRoute & 0xff]),
     optionPubkey(penaltyDestination),
+    optionPubkey(ackAuthority),
   ]);
 
   const accounts = [
@@ -225,6 +248,8 @@ function buildCreateAlarmIx({
     meta(vaultPda, false, true),
     meta(owner, true, true),
     meta(SYSTEM_PROGRAM_ID, false, false),
+    // Global config (pause switch, deposit cap), appended last
+    meta(deriveConfigPda(), false, false),
   ];
 
   return { alarmPda, vaultPda, instruction: instr(PROGRAM_ID, accounts, data) };
@@ -358,6 +383,7 @@ function main() {
   // Deterministic test keys (avoid collisions with well-known program ids).
   const owner = new PublicKey(Buffer.alloc(32, 9));
   const buddy = new PublicKey(Buffer.alloc(32, 7));
+  const device = new PublicKey(Buffer.alloc(32, 5));
 
   // Deterministic 32-byte blockhash (base58) used by Android snapshot tests.
   const blockhashBytes = Buffer.alloc(32, 2);
@@ -421,6 +447,49 @@ function main() {
           penaltyRoute: 2,
           penaltyDestination: buddy,
         })
+    )
+  );
+  cases.push(
+    toSnapshotCase(
+      "create_alarm_with_ack_authority",
+      owner,
+      blockhash,
+      {
+        op: "create_alarm",
+        owner: owner.toBase58(),
+        alarmId: alarmId + 2,
+        alarmTime,
+        deadline,
+        depositLamports,
+        penaltyRoute: 0,
+        penaltyDestination: null,
+        ackAuthority: device.toBase58(),
+      },
+      () =>
+        buildCreateAlarmIx({
+          owner,
+          alarmId: alarmId + 2,
+          alarmTime,
+          deadline,
+          depositLamports,
+          penaltyRoute: 0,
+          penaltyDestination: null,
+          ackAuthority: device,
+        })
+    )
+  );
+  cases.push(
+    toSnapshotCase(
+      "ack_and_claim_by_device",
+      device,
+      blockhash,
+      {
+        op: "ack_and_claim",
+        owner: owner.toBase58(),
+        signer: device.toBase58(),
+        alarmId: alarmId + 2,
+      },
+      () => buildAckAndClaimIx({ owner, signer: device, alarmId: alarmId + 2 })
     )
   );
   cases.push(
@@ -539,6 +608,7 @@ function main() {
         emergency_refund: hex(discriminator("emergency_refund")),
         ack_awake: hex(discriminator("ack_awake")),
         sweep_acknowledged: hex(discriminator("sweep_acknowledged")),
+        ack_and_claim: hex(discriminator("ack_and_claim")),
       },
     },
     cases,

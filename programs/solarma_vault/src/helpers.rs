@@ -5,8 +5,8 @@
 //! coverage reflects actual domain-level correctness.
 
 use crate::constants::{
-    BUDDY_ONLY_SECONDS, CLAIM_GRACE_SECONDS, DEFAULT_SNOOZE_PERCENT,
-    EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
+    CLAIM_GRACE_SECONDS, DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT,
+    MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
 };
 use crate::state::PenaltyRoute;
 
@@ -125,19 +125,6 @@ pub fn is_sweep_window(deadline: i64, current_time: i64) -> bool {
 /// Check whether a slash is valid (after deadline).
 pub fn is_slash_window(deadline: i64, current_time: i64) -> bool {
     current_time >= deadline
-}
-
-/// Check whether current time falls into buddy-only slash subwindow.
-///
-/// Valid for `deadline <= current_time < deadline + BUDDY_ONLY_SECONDS`.
-pub fn is_buddy_only_window(deadline: i64, current_time: i64) -> bool {
-    if current_time < deadline {
-        return false;
-    }
-    let Some(buddy_only_end) = deadline.checked_add(BUDDY_ONLY_SECONDS) else {
-        return false;
-    };
-    current_time < buddy_only_end
 }
 
 /// Check whether an emergency refund is valid (before alarm time).
@@ -299,5 +286,43 @@ mod penalty_destination_tests {
         assert!(!check(VAULT));
         assert!(!check(PROGRAM));
         assert!(!check([0u8; 32]));
+    }
+}
+
+// =========================================================================
+// Ack authority
+// =========================================================================
+
+/// Whether `signer` may acknowledge (and claim) an alarm: the owner, or the
+/// alarm's ack authority if one is set (all-zero = none).
+pub fn is_ack_signer(signer: &[u8; 32], owner: &[u8; 32], ack_authority: &[u8; 32]) -> bool {
+    signer == owner || (*ack_authority != [0u8; 32] && signer == ack_authority)
+}
+
+#[cfg(test)]
+mod ack_signer_tests {
+    use super::is_ack_signer;
+
+    const OWNER: [u8; 32] = [1u8; 32];
+    const DEVICE: [u8; 32] = [2u8; 32];
+    const OTHER: [u8; 32] = [3u8; 32];
+    const NONE: [u8; 32] = [0u8; 32];
+
+    #[test]
+    fn owner_can_always_ack() {
+        assert!(is_ack_signer(&OWNER, &OWNER, &NONE));
+        assert!(is_ack_signer(&OWNER, &OWNER, &DEVICE));
+    }
+
+    #[test]
+    fn ack_authority_can_ack_when_set() {
+        assert!(is_ack_signer(&DEVICE, &OWNER, &DEVICE));
+    }
+
+    #[test]
+    fn others_and_unset_authority_cannot_ack() {
+        assert!(!is_ack_signer(&OTHER, &OWNER, &DEVICE));
+        // An all-zero signer never matches an unset authority
+        assert!(!is_ack_signer(&NONE, &OWNER, &NONE));
     }
 }

@@ -33,10 +33,8 @@ pub const DEFAULT_SNOOZE_EXTENSION_SECONDS: i64 = 300;
 /// Default: 120 seconds.
 pub const CLAIM_GRACE_SECONDS: i64 = 120;
 
-/// Buddy-only slash window after deadline (in seconds).
-/// For Buddy route, only buddy can slash during this window.
-/// Default: 120 seconds.
-pub const BUDDY_ONLY_SECONDS: i64 = 120;
+/// PDA seed of the global [`crate::state::Config`] account.
+pub const CONFIG_SEED: &[u8] = b"config";
 
 /// Maximum horizon for an alarm deadline, measured from creation (in seconds).
 /// Bounds `deadline` so that downstream `deadline + CLAIM_GRACE_SECONDS`

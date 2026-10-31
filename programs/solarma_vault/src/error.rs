@@ -52,6 +52,8 @@ pub enum SolarmaError {
     #[msg("Cannot request refund after alarm time has passed")]
     TooLateForRefund,
 
+    /// Unused since the buddy-only slash window was removed; kept so that the
+    /// codes of the variants below don't shift.
     #[msg("Only buddy can slash during buddy-only window")]
     BuddyOnlyWindow,
 
@@ -60,4 +62,13 @@ pub enum SolarmaError {
 
     #[msg("Penalty destination cannot be the owner, the alarm/vault accounts, or a program")]
     InvalidPenaltyDestination,
+
+    #[msg("Program is paused: new alarms can't be created right now")]
+    ProgramPaused,
+
+    #[msg("Deposit exceeds the current maximum")]
+    DepositTooLarge,
+
+    #[msg("Signer is not authorized for this operation")]
+    Unauthorized,
 }

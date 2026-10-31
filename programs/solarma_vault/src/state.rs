@@ -81,6 +81,10 @@ pub struct Alarm {
     pub bump: u8,
     /// Bump seed for vault PDA
     pub vault_bump: u8,
+    /// Optional key (typically generated on the owner's device) that may sign
+    /// `ack_and_claim` on the owner's behalf. `Pubkey::default()` = none.
+    /// It can only return the deposit to the owner, so a leaked key can't move funds elsewhere.
+    pub ack_authority: Pubkey,
 }
 
 impl Alarm {
@@ -97,7 +101,39 @@ impl Alarm {
         + 1   // status
         + 1   // bump
         + 1   // vault_bump
-        + 64; // padding for future fields (e.g. deposit_mint)
+        + 32  // ack_authority
+        + 32; // padding for future fields (e.g. deposit_mint)
+
+    /// Whether `signer` may acknowledge and claim this alarm.
+    pub fn can_ack(&self, signer: &Pubkey) -> bool {
+        crate::helpers::is_ack_signer(
+            &signer.to_bytes(),
+            &self.owner.to_bytes(),
+            &self.ack_authority.to_bytes(),
+        )
+    }
+}
+
+/// Global configuration (single PDA at `[CONFIG_SEED]`).
+#[account]
+pub struct Config {
+    /// May pause the program and change limits (intended: a multisig)
+    pub admin: Pubkey,
+    /// When true, no new alarms can be created. Existing alarms can always be resolved.
+    pub paused: bool,
+    /// Maximum deposit per alarm in lamports
+    pub max_deposit_lamports: u64,
+    /// Bump seed for PDA
+    pub bump: u8,
+}
+
+impl Config {
+    pub const SIZE: usize = 8  // discriminator
+        + 32  // admin
+        + 1   // paused
+        + 8   // max_deposit_lamports
+        + 1   // bump
+        + 32; // padding
 }
 
 /// Vault PDA - holds deposited SOL for an alarm

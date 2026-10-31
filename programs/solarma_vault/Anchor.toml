@@ -27,3 +27,6 @@ test = "npm run test:fast"
 
 [test]
 startup_wait = 30000
+# Load the program as upgradeable with the test wallet as upgrade authority, so
+# initialize_config (upgrade-authority only) can run in tests.
+upgradeable = true

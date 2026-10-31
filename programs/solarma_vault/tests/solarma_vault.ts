@@ -58,6 +58,13 @@ describe("solarma_vault", () => {
         return timestamp || Math.floor(Date.now() / 1000);
     }
 
+    const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], program.programId);
+    const [programDataPda] = PublicKey.findProgramAddressSync(
+        [program.programId.toBuffer()],
+        new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
+    );
+    const DEFAULT_MAX_DEPOSIT = new anchor.BN(100 * LAMPORTS_PER_SOL);
+
     // Helper to fund a keypair via SOL transfer (avoids airdrop rate limits)
     async function fundKeypair(kp: Keypair, lamports: number = 0.01 * LAMPORTS_PER_SOL): Promise<void> {
         const tx = new Transaction().add(
@@ -82,6 +89,17 @@ describe("solarma_vault", () => {
             const sig = await provider.connection.requestAirdrop(owner.publicKey, 10 * LAMPORTS_PER_SOL);
             await provider.connection.confirmTransaction(sig);
             console.log("Airdrop successful");
+        }
+
+        // Global config (pause switch + deposit cap); only the upgrade authority may create it.
+        if ((await program.account.config.fetchNullable(configPda)) === null) {
+            await program.methods
+                .initializeConfig(owner.publicKey, new anchor.BN(100 * LAMPORTS_PER_SOL))
+                .accountsPartial({
+                    authority: owner.publicKey,
+                    programData: programDataPda,
+                })
+                .rpc();
         }
     });
 
@@ -138,7 +156,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(0), // no deposit
                     0, // Burn route
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -170,7 +189,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0, // Burn route
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -203,7 +223,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     2, // Buddy route
-                    buddy
+                    buddy,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -235,7 +256,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(DEPOSIT_AMOUNT),
                         2, // Buddy route
-                        null // Missing buddy address!
+                        null, // Missing buddy address!
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -267,7 +289,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(MIN_DEPOSIT - 1), // Below minimum
                         0,
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -299,7 +322,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(0),
                         0,
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -331,7 +355,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(0),
                         0,
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -369,7 +394,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -428,7 +454,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -475,7 +502,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -525,7 +553,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -572,7 +601,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -620,7 +650,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -673,7 +704,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -737,7 +769,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -805,7 +838,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -852,7 +886,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0, // Burn route
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -898,7 +933,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -943,7 +979,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0, // Burn route
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -999,7 +1036,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     2, // Buddy route
-                    buddy.publicKey
+                    buddy.publicKey,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1034,7 +1072,7 @@ describe("solarma_vault", () => {
             expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
 
-        it("FAILS: Buddy route slash by non-buddy during buddy-only window", async () => {
+        it("Non-buddy can slash a Buddy alarm right after the deadline; the deposit still goes to the buddy", async () => {
             const alarmId = uniqueAlarmId();
             const now = await getCurrentTimestamp();
             const alarmTime = now + 2;
@@ -1053,7 +1091,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     2, // Buddy route
-                    buddy.publicKey
+                    buddy.publicKey,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1063,25 +1102,25 @@ describe("solarma_vault", () => {
                 })
                 .rpc();
 
-            // Inside buddy-only window (deadline passed, but < deadline + 120s)
+            // Just after the deadline (the former buddy-only window)
             await new Promise(resolve => setTimeout(resolve, 7000));
+            const buddyBefore = await provider.connection.getBalance(buddy.publicKey);
 
-            try {
-                await program.methods
-                    .slash()
-                    .accounts({
-                        owner: owner.publicKey,
-                        alarm,
-                        vault,
-                        penaltyRecipient: buddy.publicKey,
-                        caller: owner.publicKey, // non-buddy caller
-                        systemProgram: SystemProgram.programId,
-                    })
-                    .rpc();
-                expect.fail("Should have thrown BuddyOnlyWindow");
-            } catch (err: any) {
-                expect(err.message).to.include("BuddyOnlyWindow");
-            }
+            await program.methods
+                .slash()
+                .accounts({
+                    owner: owner.publicKey,
+                    alarm,
+                    vault,
+                    penaltyRecipient: buddy.publicKey,
+                    caller: owner.publicKey, // non-buddy caller
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            const buddyAfter = await provider.connection.getBalance(buddy.publicKey);
+            expect(buddyAfter - buddyBefore).to.be.at.least(DEPOSIT_AMOUNT);
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
         });
     });
 
@@ -1105,7 +1144,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1146,7 +1186,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1186,7 +1227,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1239,7 +1281,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1295,7 +1338,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1376,7 +1420,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1426,7 +1471,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1503,7 +1549,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1614,7 +1661,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1679,7 +1727,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1735,7 +1784,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1796,7 +1846,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1863,7 +1914,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(0), // Zero deposit
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1915,7 +1967,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -1961,7 +2014,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(0), // Zero deposit
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2008,7 +2062,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2063,7 +2118,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2131,7 +2187,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2177,7 +2234,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2225,7 +2283,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2277,7 +2336,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(DEPOSIT_AMOUNT),
                         99, // Invalid route!
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -2309,7 +2369,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(DEPOSIT_AMOUNT),
                         1, // Donate route
-                        null // No destination!
+                        null, // No destination!
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -2345,7 +2406,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2411,7 +2473,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2463,7 +2526,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2526,7 +2590,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2589,7 +2654,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2647,7 +2713,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2700,7 +2767,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2745,7 +2813,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(MIN_DEPOSIT), // Exact minimum
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2776,7 +2845,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline),
                         new anchor.BN(MIN_DEPOSIT - 1), // 1 lamport below minimum
                         0,
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -2808,7 +2878,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2827,7 +2898,8 @@ describe("solarma_vault", () => {
                         new anchor.BN(deadline + 100),
                         new anchor.BN(DEPOSIT_AMOUNT),
                         0,
-                        null
+                        null,
+                        null // ack_authority
                     )
                     .accounts({
                         alarm,
@@ -2861,7 +2933,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(now + 2100),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm: alarm1,
@@ -2878,7 +2951,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(now + 2400),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm: alarm2,
@@ -2916,7 +2990,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(now + 2100),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     1, // Donate route
-                    donateAddr
+                    donateAddr,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -2947,7 +3022,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3031,7 +3107,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3089,7 +3166,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3144,7 +3222,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3210,7 +3289,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     1, // Donate route
-                    donationWallet.publicKey
+                    donationWallet.publicKey,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3262,7 +3342,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3315,7 +3396,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3365,7 +3447,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     2, // Buddy route
-                    buddyWallet.publicKey
+                    buddyWallet.publicKey,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3417,7 +3500,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0, // Burn route
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3479,7 +3563,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(0), // Zero deposit
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3535,7 +3620,8 @@ describe("solarma_vault", () => {
                     new anchor.BN(deadline),
                     new anchor.BN(DEPOSIT_AMOUNT),
                     0,
-                    null
+                    null,
+                    null // ack_authority
                 )
                 .accounts({
                     alarm,
@@ -3580,5 +3666,208 @@ describe("solarma_vault", () => {
                 "Owner should not receive more than expected");
         });
 
+    });
+    // =========================================================================
+    // CONFIG (pause switch, deposit cap)
+    // =========================================================================
+    describe("Config", () => {
+        async function setConfig(paused: boolean, max: anchor.BN) {
+            await program.methods
+                .updateConfig(paused, max, null)
+                .accountsPartial({ config: configPda, admin: owner.publicKey })
+                .rpc();
+        }
+
+        async function createBurnAlarm(deposit: number) {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(now + 600),
+                    new anchor.BN(now + 2400),
+                    new anchor.BN(deposit),
+                    0,
+                    null,
+                    null
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+        }
+
+        it("FAILS: update_config by a non-admin (Unauthorized)", async () => {
+            const stranger = Keypair.generate();
+            await fundKeypair(stranger);
+            try {
+                await program.methods
+                    .updateConfig(true, DEFAULT_MAX_DEPOSIT, null)
+                    .accountsPartial({ config: configPda, admin: stranger.publicKey })
+                    .signers([stranger])
+                    .rpc();
+                expect.fail("Should have thrown Unauthorized");
+            } catch (err: any) {
+                expect(err.message).to.include("Unauthorized");
+            }
+        });
+
+        it("Paused config blocks create_alarm; unpausing restores it", async () => {
+            await setConfig(true, DEFAULT_MAX_DEPOSIT);
+            try {
+                await createBurnAlarm(DEPOSIT_AMOUNT);
+                expect.fail("Should have thrown ProgramPaused");
+            } catch (err: any) {
+                expect(err.message).to.include("ProgramPaused");
+            } finally {
+                await setConfig(false, DEFAULT_MAX_DEPOSIT);
+            }
+            await createBurnAlarm(DEPOSIT_AMOUNT);
+        });
+
+        it("FAILS: deposit above the cap (DepositTooLarge)", async () => {
+            await setConfig(false, new anchor.BN(MIN_DEPOSIT));
+            try {
+                await createBurnAlarm(MIN_DEPOSIT + 1);
+                expect.fail("Should have thrown DepositTooLarge");
+            } catch (err: any) {
+                expect(err.message).to.include("DepositTooLarge");
+            } finally {
+                await setConfig(false, DEFAULT_MAX_DEPOSIT);
+            }
+        });
+    });
+
+    // =========================================================================
+    // ACK AND CLAIM (device key)
+    // =========================================================================
+    describe("Ack and Claim (device key)", () => {
+        async function createAlarmWithAckAuthority(ackAuthority: PublicKey | null, secondsUntilAlarm: number) {
+            const alarmId = uniqueAlarmId();
+            const now = await getCurrentTimestamp();
+            const alarmTime = now + secondsUntilAlarm;
+            const [alarm] = deriveAlarmPda(owner.publicKey, alarmId);
+            const [vault] = deriveVaultPda(alarm);
+            await program.methods
+                .createAlarm(
+                    alarmId,
+                    new anchor.BN(alarmTime),
+                    new anchor.BN(alarmTime + 1800),
+                    new anchor.BN(DEPOSIT_AMOUNT),
+                    0,
+                    null,
+                    ackAuthority
+                )
+                .accounts({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+            return { alarm, vault };
+        }
+
+        it("Device key acks and returns the deposit without the owner signing or paying", async () => {
+            const device = Keypair.generate();
+            await fundKeypair(device);
+            const { alarm, vault } = await createAlarmWithAckAuthority(device.publicKey, 2);
+            const stored = await program.account.alarm.fetch(alarm);
+            expect(stored.ackAuthority.toBase58()).to.equal(device.publicKey.toBase58());
+
+            await sleep(3000);
+            const ownerBefore = await provider.connection.getBalance(owner.publicKey);
+
+            // The device key is the only signer and pays the fee
+            const tx = await program.methods
+                .ackAndClaim()
+                .accountsPartial({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    signer: device.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .transaction();
+            tx.feePayer = device.publicKey;
+            await sendAndConfirmTransaction(provider.connection, tx, [device]);
+
+            const ownerAfter = await provider.connection.getBalance(owner.publicKey);
+            // Deposit plus both accounts' rent, no fee deducted from the owner
+            expect(ownerAfter - ownerBefore).to.be.greaterThan(DEPOSIT_AMOUNT);
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
+            expect(await provider.connection.getAccountInfo(vault)).to.be.null;
+        });
+
+        it("Owner can ack_and_claim an alarm without an ack authority", async () => {
+            const { alarm, vault } = await createAlarmWithAckAuthority(null, 2);
+            await sleep(3000);
+
+            await program.methods
+                .ackAndClaim()
+                .accountsPartial({
+                    alarm,
+                    vault,
+                    owner: owner.publicKey,
+                    signer: owner.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            expect(await program.account.alarm.fetchNullable(alarm)).to.be.null;
+        });
+
+        it("FAILS: a key that is neither owner nor ack authority (Unauthorized)", async () => {
+            const device = Keypair.generate();
+            const stranger = Keypair.generate();
+            await fundKeypair(stranger);
+            const { alarm, vault } = await createAlarmWithAckAuthority(device.publicKey, 2);
+            await sleep(3000);
+
+            try {
+                await program.methods
+                    .ackAndClaim()
+                    .accountsPartial({
+                        alarm,
+                        vault,
+                        owner: owner.publicKey,
+                        signer: stranger.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([stranger])
+                    .rpc();
+                expect.fail("Should have thrown Unauthorized");
+            } catch (err: any) {
+                expect(err.message).to.include("Unauthorized");
+            }
+        });
+
+        it("FAILS: ack_and_claim before alarm time (TooEarly)", async () => {
+            const device = Keypair.generate();
+            await fundKeypair(device);
+            const { alarm, vault } = await createAlarmWithAckAuthority(device.publicKey, 120);
+
+            try {
+                await program.methods
+                    .ackAndClaim()
+                    .accountsPartial({
+                        alarm,
+                        vault,
+                        owner: owner.publicKey,
+                        signer: device.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([device])
+                    .rpc();
+                expect.fail("Should have thrown TooEarly");
+            } catch (err: any) {
+                expect(err.message).to.include("TooEarly");
+            }
+        });
     });
 });

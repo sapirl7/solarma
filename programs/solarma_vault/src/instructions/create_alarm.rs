@@ -1,9 +1,9 @@
 //! Create alarm instruction - with deposit support
 
-use crate::constants::{MAX_ALARM_HORIZON_SECONDS, MIN_DEPOSIT_LAMPORTS};
+use crate::constants::{CONFIG_SEED, MAX_ALARM_HORIZON_SECONDS, MIN_DEPOSIT_LAMPORTS};
 use crate::error::SolarmaError;
 use crate::helpers;
-use crate::state::{Alarm, AlarmStatus, PenaltyRoute, Vault};
+use crate::state::{Alarm, AlarmStatus, Config, PenaltyRoute, Vault};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
@@ -35,6 +35,10 @@ pub struct CreateAlarm<'info> {
     pub owner: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// Global config: pause switch and deposit cap (appended last).
+    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
+    pub config: Account<'info, Config>,
 }
 
 pub fn process_create_alarm(
@@ -45,7 +49,14 @@ pub fn process_create_alarm(
     deposit_amount: u64,
     penalty_route: u8,
     penalty_destination: Option<Pubkey>,
+    ack_authority: Option<Pubkey>,
 ) -> Result<()> {
+    require!(!ctx.accounts.config.paused, SolarmaError::ProgramPaused);
+    require!(
+        deposit_amount <= ctx.accounts.config.max_deposit_lamports,
+        SolarmaError::DepositTooLarge
+    );
+
     // Validate penalty route
     let route =
         PenaltyRoute::try_from(penalty_route).map_err(|_| SolarmaError::InvalidPenaltyRoute)?;
@@ -117,6 +128,7 @@ pub fn process_create_alarm(
     alarm.status = AlarmStatus::Created;
     alarm.bump = ctx.bumps.alarm;
     alarm.vault_bump = ctx.bumps.vault;
+    alarm.ack_authority = ack_authority.unwrap_or_default();
 
     emit!(crate::events::AlarmCreated {
         owner: ctx.accounts.owner.key(),

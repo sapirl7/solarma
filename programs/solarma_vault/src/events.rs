@@ -77,3 +77,11 @@ pub struct WakeAcknowledged {
     pub alarm_id: u64,
     pub timestamp: i64,
 }
+
+/// Emitted when the global config is created or changed
+#[event]
+pub struct ConfigUpdated {
+    pub admin: Pubkey,
+    pub paused: bool,
+    pub max_deposit_lamports: u64,
+}

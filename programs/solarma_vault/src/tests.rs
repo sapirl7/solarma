@@ -4,9 +4,9 @@
 //! the pure business logic in `helpers.rs`, and all edge cases.
 
 use crate::constants::{
-    BUDDY_ONLY_SECONDS, CLAIM_GRACE_SECONDS, DEFAULT_GRACE_PERIOD,
-    DEFAULT_SNOOZE_EXTENSION_SECONDS, DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT,
-    MAX_SNOOZE_COUNT, MIN_DEPOSIT_LAMPORTS,
+    CLAIM_GRACE_SECONDS, DEFAULT_GRACE_PERIOD, DEFAULT_SNOOZE_EXTENSION_SECONDS,
+    DEFAULT_SNOOZE_PERCENT, EMERGENCY_REFUND_PENALTY_PERCENT, MAX_SNOOZE_COUNT,
+    MIN_DEPOSIT_LAMPORTS,
 };
 use crate::helpers;
 use crate::state::{Alarm, AlarmStatus, PenaltyRoute, UserProfile, Vault};
@@ -401,20 +401,6 @@ mod unit_tests {
         assert!(!helpers::is_sweep_window(deadline, deadline));
         assert!(!helpers::is_sweep_window(deadline, at_grace_end));
         assert!(helpers::is_sweep_window(deadline, after_grace));
-    }
-
-    #[test]
-    fn test_buddy_only_window_boundaries() {
-        let deadline = 1_000i64;
-        let buddy_window_end = deadline + BUDDY_ONLY_SECONDS;
-
-        assert!(!helpers::is_buddy_only_window(deadline, deadline - 1));
-        assert!(helpers::is_buddy_only_window(deadline, deadline));
-        assert!(helpers::is_buddy_only_window(
-            deadline,
-            buddy_window_end - 1
-        ));
-        assert!(!helpers::is_buddy_only_window(deadline, buddy_window_end));
     }
 
     // =========================================================================
@@ -1943,13 +1929,6 @@ mod constants_tests {
     fn test_claim_grace_is_positive() {
         assert!(CLAIM_GRACE_SECONDS > 0);
         assert_eq!(CLAIM_GRACE_SECONDS, 120);
-    }
-
-    #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn test_buddy_only_window_is_positive() {
-        assert!(BUDDY_ONLY_SECONDS > 0);
-        assert_eq!(BUDDY_ONLY_SECONDS, 120);
     }
 
     #[test]

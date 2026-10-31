@@ -117,22 +117,6 @@ proptest! {
         }
     }
 
-    #[test]
-    fn buddy_only_implies_slash(
-        deadline in prop::num::i64::ANY,
-        current_time in prop::num::i64::ANY
-    ) {
-        let buddy = is_buddy_only_window(deadline, current_time);
-        let slash = is_slash_window(deadline, current_time);
-
-        if buddy {
-            prop_assert!(
-                slash,
-                "buddy=true but slash=false at deadline={}, now={}",
-                deadline, current_time
-            );
-        }
-    }
 
     #[test]
     fn snooze_and_slash_mutually_exclusive(
@@ -180,7 +164,6 @@ proptest! {
         let _ = is_claim_window_with_grace(alarm_time, deadline, current_time);
         let _ = is_sweep_window(deadline, current_time);
         let _ = is_slash_window(deadline, current_time);
-        let _ = is_buddy_only_window(deadline, current_time);
         let _ = is_refund_window(alarm_time, current_time);
         let _ = is_snooze_window(alarm_time, deadline, current_time);
         let _ = claim_deadline_with_grace(deadline);
