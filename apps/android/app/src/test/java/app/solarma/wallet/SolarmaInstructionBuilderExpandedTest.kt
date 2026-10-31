@@ -214,14 +214,16 @@ class SolarmaInstructionBuilderExpandedTest {
     // =========================================================================
 
     @Test
-    fun `buildCreateAlarm accounts are alarm, vault, owner, system`() {
+    fun `buildCreateAlarm accounts are alarm, vault, owner, system, config`() {
         val ix =
             builder.buildCreateAlarm(
                 owner = owner, alarmId = 1L, alarmTime = 0L, deadline = 0L,
                 depositLamports = 0L, penaltyRoute = 0,
             )
 
-        assertEquals(4, ix.accounts.size)
+        assertEquals(5, ix.accounts.size)
+        assertEquals(builder.deriveConfigPda().address, ix.accounts[4].pubkey)
+        assertFalse(ix.accounts[4].isWritable)
         // Alarm PDA
         assertFalse(ix.accounts[0].isSigner)
         assertTrue(ix.accounts[0].isWritable)

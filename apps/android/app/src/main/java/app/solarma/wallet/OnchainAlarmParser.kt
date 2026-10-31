@@ -18,6 +18,8 @@ data class OnchainAlarmAccount(
     val penaltyDestination: String?,
     val snoozeCount: Int,
     val status: Int,
+    /** Key allowed to sign ack_and_claim besides the owner (e.g. a device key), or null. */
+    val ackAuthority: String? = null,
 )
 
 object OnchainAlarmParser {
@@ -79,6 +81,16 @@ object OnchainAlarmParser {
                 buffer.get()
             }
 
+            // ack_authority (all zeros = none)
+            val ackAuthority =
+                if (buffer.remaining() >= 32) {
+                    val bytes = ByteArray(32)
+                    buffer.get(bytes)
+                    if (bytes.all { it.toInt() == 0 }) null else PublicKey(bytes).toBase58()
+                } else {
+                    null
+                }
+
             OnchainAlarmAccount(
                 pubkey = pubkey,
                 owner = owner,
@@ -90,6 +102,7 @@ object OnchainAlarmParser {
                 penaltyDestination = penaltyDestination,
                 snoozeCount = snoozeCount,
                 status = status,
+                ackAuthority = ackAuthority,
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse alarm account $pubkey", e)

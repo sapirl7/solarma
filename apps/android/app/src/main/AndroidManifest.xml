@@ -74,6 +74,18 @@
             android:foregroundServiceType="specialUse"
             android:exported="false" />
         
+        <!-- WorkManager is initialized on demand with Hilt's worker factory (SolarmaApp) -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <!-- FileProvider for sharing logs -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -20,6 +20,7 @@ class TransactionProcessorDecideTest {
             rpcClient = mock(),
             alarmDao = mock(),
             statsDao = mock(),
+            deviceKeyStore = mock(),
         )
 
     private val owner = "11111111111111111111111111111111"
@@ -123,14 +124,10 @@ class TransactionProcessorDecideTest {
     }
 
     @Test
-    fun `buddy route slash by non-buddy waits out the buddy-only window`() {
+    fun `buddy route can be slashed by anyone at the deadline (deposit still goes to the buddy)`() {
         val buddyAlarm = account(penaltyRoute = 2, penaltyDestination = buddy)
-        assertTrue(decide("SLASH", buddyAlarm, deadline, caller = owner) is Action.Wait)
+        assertEquals(Action.Slash, decide("SLASH", buddyAlarm, deadline, caller = owner))
         assertEquals(Action.Slash, decide("SLASH", buddyAlarm, deadline, caller = buddy))
-        assertEquals(
-            Action.Slash,
-            decide("SLASH", buddyAlarm, deadline + OnchainParameters.BUDDY_ONLY_SECONDS, caller = owner),
-        )
     }
 
     @Test

@@ -49,4 +49,26 @@ object ClaimReminderNotifier {
 
         manager.notify(NOTIFICATION_ID_OFFSET + alarmId.toInt(), notification)
     }
+
+    /** Confirms that the deposit is back (replaces the reminder for this alarm, if shown). */
+    fun showReturned(
+        context: Context,
+        alarmId: Long,
+    ) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Deposit claims", NotificationManager.IMPORTANCE_HIGH),
+            )
+        }
+        val notification =
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Deposit returned")
+                .setContentText("Your deposit is back in your wallet. Good morning!")
+                .setAutoCancel(true)
+                .build()
+
+        manager.notify(NOTIFICATION_ID_OFFSET + alarmId.toInt(), notification)
+    }
 }

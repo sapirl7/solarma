@@ -377,8 +377,8 @@ class TransactionBuilderTest {
                 penaltyDestination = treasury,
             )
 
-        // Data includes Option<Pubkey> = Some(treasury) → 1 + 32 bytes extra
-        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 32, ix.data.size)
+        // Data includes Option<Pubkey> = Some(treasury) → 1 + 32 bytes extra, then ack_authority None
+        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 32 + 1, ix.data.size)
     }
 
     @Test
@@ -394,8 +394,8 @@ class TransactionBuilderTest {
                 penaltyDestination = null,
             )
 
-        // No destination: Option<Pubkey> = None → 1 byte only
-        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1, ix.data.size)
+        // No destination and no ack authority: two Option<Pubkey> = None → 1 byte each
+        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 1, ix.data.size)
     }
 
     // =========================================================================

@@ -124,16 +124,11 @@ class AlarmActivity : ComponentActivity() {
                 if (isComplete) {
                     Log.i(TAG, "Wake proof completed, processing completion")
                     alarmRepository.markCompleted(alarmId, success = true)
-                    // Queue the on-chain ack + claim (one atomic transaction) before leaving:
-                    // this coroutine is cancelled once the activity finishes.
+                    // Return the deposit with the device key in the background (no wallet,
+                    // works from the lock screen); the worker falls back to the wallet if needed.
                     val alarm = currentAlarm
                     if (alarm != null && alarm.hasDeposit && alarm.onchainPubkey != null) {
-                        try {
-                            alarmRepository.queueAckAndClaim(alarm.id)
-                            openAppToConfirm(alarm.id)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to queue ack_awake+claim", e)
-                        }
+                        AckClaimWorker.enqueue(this@AlarmActivity, alarm.id)
                     }
                     dismissAlarm()
                 }
@@ -359,19 +354,6 @@ class AlarmActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to queue snooze transaction", e)
         }
-    }
-
-    /**
-     * Bring the user into the app to approve the queued ack + claim in their wallet
-     * (unlocking the phone first if needed), with a notification as fallback.
-     */
-    private fun openAppToConfirm(alarmId: Long) {
-        ClaimReminderNotifier.show(this, alarmId)
-        startActivity(
-            Intent(this, app.solarma.MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-        )
     }
 
     override fun onDestroy() {

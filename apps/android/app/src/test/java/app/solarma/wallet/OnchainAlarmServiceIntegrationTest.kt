@@ -29,6 +29,7 @@ class OnchainAlarmServiceIntegrationTest {
                 walletManager = walletManager,
                 transactionBuilder = transactionBuilder,
                 rpcClient = rpcClient,
+                deviceKeyStore = mock(),
             )
     }
 

@@ -41,6 +41,9 @@ object ErrorClassifier {
             "BuddyOnlyWindow",
             "DeadlineTooFar",
             "InvalidPenaltyDestination",
+            "ProgramPaused",
+            "DepositTooLarge",
+            "Unauthorized",
         )
 
     private const val ANCHOR_CUSTOM_ERROR_OFFSET = 6000
@@ -65,6 +68,19 @@ object ErrorClassifier {
 
     /** Name of a SolarmaError code, or null for non-Solarma codes. */
     fun solarmaErrorName(code: Int): String? = SOLARMA_ERRORS.getOrNull(code - ANCHOR_CUSTOM_ERROR_OFFSET)
+
+    /** A user-facing explanation for errors the user can act on, or null. */
+    fun userMessage(error: String?): String? {
+        val name = programErrorCode(error)?.let { solarmaErrorName(it) } ?: SOLARMA_ERRORS.firstOrNull { error?.contains(it) == true }
+        return when (name) {
+            "DepositTooLarge" -> "This deposit is above the current maximum. Try a smaller amount."
+            "ProgramPaused" -> "Solarma is temporarily not accepting new deposits. Try again later."
+            "AlarmTimeInPast" -> "The alarm time has already passed. Pick a later time."
+            "DeadlineTooFar" -> "Alarms with a deposit can be set at most 30 days ahead."
+            "InvalidPenaltyDestination" -> "The buddy address can't be your own wallet."
+            else -> null
+        }
+    }
 
     /**
      * Classify an error message from a failed transaction.
@@ -94,6 +110,9 @@ object ErrorClassifier {
             error.contains("DeadlineTooFar") -> Category.NON_RETRYABLE
             error.contains("PenaltyDestinationRequired") -> Category.NON_RETRYABLE
             error.contains("InvalidPenaltyDestination") -> Category.NON_RETRYABLE
+            error.contains("ProgramPaused") -> Category.NON_RETRYABLE
+            error.contains("DepositTooLarge") -> Category.NON_RETRYABLE
+            error.contains("Unauthorized") -> Category.NON_RETRYABLE
             error.contains("InvalidPenaltyRecipient") -> Category.NON_RETRYABLE
             error.contains("MaxSnoozesReached") -> Category.NON_RETRYABLE
             error.contains("InsufficientDeposit") -> Category.NON_RETRYABLE

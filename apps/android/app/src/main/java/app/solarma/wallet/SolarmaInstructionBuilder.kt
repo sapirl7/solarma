@@ -57,6 +57,13 @@ class SolarmaInstructionBuilder
                     0x0f.toByte(), 0xb7.toByte(), 0xce.toByte(), 0x40.toByte(),
                 )
 
+            // sha256("global:ack_and_claim")[0..8]
+            private val DISCRIMINATOR_ACK_AND_CLAIM =
+                byteArrayOf(
+                    0xc4.toByte(), 0x14.toByte(), 0xb3.toByte(), 0xa6.toByte(),
+                    0x8d.toByte(), 0xfe.toByte(), 0x3d.toByte(), 0xe7.toByte(),
+                )
+
             // sha256("global:sweep_acknowledged")[0..8]
             private val DISCRIMINATOR_SWEEP_ACKNOWLEDGED =
                 byteArrayOf(
@@ -76,6 +83,7 @@ class SolarmaInstructionBuilder
             depositLamports: Long,
             penaltyRoute: Byte,
             penaltyDestination: PublicKey? = null,
+            ackAuthority: PublicKey? = null,
         ): SolarmaInstruction {
             // Derive PDAs
             val alarmPda = deriveAlarmPda(owner, alarmId)
@@ -92,7 +100,10 @@ class SolarmaInstructionBuilder
             Log.d(TAG, "  vault PDA=${vaultPda.address.toBase58()}")
 
             // Serialize instruction data
-            val dataSize = 8 + 8 + 8 + 8 + 8 + 1 + 1 + (if (penaltyDestination != null) 32 else 0)
+            val dataSize =
+                8 + 8 + 8 + 8 + 8 + 1 +
+                    1 + (if (penaltyDestination != null) 32 else 0) +
+                    1 + (if (ackAuthority != null) 32 else 0)
             val buffer = ByteBuffer.allocate(dataSize).order(ByteOrder.LITTLE_ENDIAN)
             buffer.put(DISCRIMINATOR_CREATE_ALARM)
             buffer.putLong(alarmId)
@@ -103,6 +114,13 @@ class SolarmaInstructionBuilder
             if (penaltyDestination != null) {
                 buffer.put(1.toByte()) // Some
                 buffer.put(penaltyDestination.bytes())
+            } else {
+                buffer.put(0.toByte()) // None
+            }
+            // ack_authority: key allowed to sign ack_and_claim (e.g. this device's key)
+            if (ackAuthority != null) {
+                buffer.put(1.toByte()) // Some
+                buffer.put(ackAuthority.bytes())
             } else {
                 buffer.put(0.toByte()) // None
             }
@@ -118,9 +136,35 @@ class SolarmaInstructionBuilder
                     AccountMeta(vaultPda.address, isSigner = false, isWritable = true),
                     AccountMeta(owner, isSigner = true, isWritable = true),
                     AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false),
+                    // Global config (pause switch, deposit cap), appended last
+                    AccountMeta(deriveConfigPda().address, isSigner = false, isWritable = false),
                 )
 
             return SolarmaInstruction(PROGRAM_ID, keys, buffer.array())
+        }
+
+        /**
+         * Build ack_and_claim: acknowledge the wake-up and return the deposit in one
+         * instruction. [signer] is the owner or the alarm's ack authority (device key);
+         * the deposit and rent always go to [owner].
+         */
+        fun buildAckAndClaim(
+            signer: PublicKey,
+            alarmPda: PublicKey,
+            owner: PublicKey,
+        ): SolarmaInstruction {
+            val vaultPda = deriveVaultPda(alarmPda)
+
+            val keys =
+                listOf(
+                    AccountMeta(alarmPda, isSigner = false, isWritable = true),
+                    AccountMeta(vaultPda.address, isSigner = false, isWritable = true),
+                    AccountMeta(owner, isSigner = false, isWritable = true),
+                    AccountMeta(signer, isSigner = true, isWritable = false),
+                    AccountMeta(SYSTEM_PROGRAM_ID, isSigner = false, isWritable = false),
+                )
+
+            return SolarmaInstruction(PROGRAM_ID, keys, DISCRIMINATOR_ACK_AND_CLAIM)
         }
 
         /**
@@ -285,6 +329,27 @@ class SolarmaInstructionBuilder
         }
 
         /**
+         * Build a System Program transfer (instruction index 2: u32 LE 2, u64 LE lamports).
+         */
+        fun buildSystemTransfer(
+            from: PublicKey,
+            to: PublicKey,
+            lamports: Long,
+        ): SolarmaInstruction {
+            val data =
+                ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(2)
+                    .putLong(lamports)
+                    .array()
+            val keys =
+                listOf(
+                    AccountMeta(from, isSigner = true, isWritable = true),
+                    AccountMeta(to, isSigner = false, isWritable = true),
+                )
+            return SolarmaInstruction(SYSTEM_PROGRAM_ID, keys, data)
+        }
+
+        /**
          * Derive alarm PDA from owner and alarm_id.
          * Uses proper on-curve check for Solana PDA derivation.
          */
@@ -304,6 +369,11 @@ class SolarmaInstructionBuilder
             val seeds = listOf("vault".toByteArray(), alarmPda.bytes())
             return findProgramDerivedAddress(seeds, PROGRAM_ID)
         }
+
+        /**
+         * Derive the global config PDA (seeds = ["config"]).
+         */
+        fun deriveConfigPda(): PdaResult = findProgramDerivedAddress(listOf("config".toByteArray()), PROGRAM_ID)
 
         /**
          * Find program derived address with proper on-curve check.

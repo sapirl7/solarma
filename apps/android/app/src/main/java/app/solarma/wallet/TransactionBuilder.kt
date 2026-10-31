@@ -4,6 +4,7 @@ import android.util.Log
 import app.solarma.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.sol4k.Keypair
 import org.sol4k.PublicKey
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -32,6 +33,9 @@ class TransactionBuilder
 
             /** Max compute units per transaction (default Solana is 200k) */
             const val COMPUTE_UNIT_LIMIT = 200_000
+
+            /** Compute units requested for a device-signed ack_and_claim (closes two accounts). */
+            const val DEVICE_COMPUTE_UNIT_LIMIT = 100_000
 
             /** Fallback priority fee in micro-lamports per compute unit, used when the
              *  RPC can't report recent fees. 50_000 μL/CU × 200k CU = 10_000 lamports. */
@@ -94,6 +98,8 @@ class TransactionBuilder
             depositLamports: Long,
             penaltyRoute: PenaltyRoute,
             buddyAddress: PublicKey? = null,
+            ackAuthority: PublicKey? = null,
+            ackAuthorityTopUpLamports: Long = 0,
         ): ByteArray =
             withContext(Dispatchers.IO) {
                 Log.i(TAG, "Building create_alarm tx: alarmId=$alarmId, deposit=$depositLamports")
@@ -112,9 +118,17 @@ class TransactionBuilder
                                 PenaltyRoute.DONATE -> PublicKey(SolarmaTreasury.ADDRESS)
                                 else -> null
                             },
+                        ackAuthority = ackAuthority,
                     )
 
-                buildTransaction(owner, instruction)
+                // Fund the device key's fees in the same transaction when it runs low
+                val topUp =
+                    if (ackAuthority != null && ackAuthorityTopUpLamports > 0) {
+                        listOf(instructionBuilder.buildSystemTransfer(owner, ackAuthority, ackAuthorityTopUpLamports))
+                    } else {
+                        emptyList()
+                    }
+                buildTransaction(owner, listOf(instruction) + topUp)
             }
 
         /**
@@ -162,14 +176,26 @@ class TransactionBuilder
             alarmPda: PublicKey,
         ): ByteArray =
             withContext(Dispatchers.IO) {
-                Log.i(TAG, "Building ack_awake+claim tx: alarmPda=${alarmPda.toBase58()}")
+                Log.i(TAG, "Building ack_and_claim tx: alarmPda=${alarmPda.toBase58()}")
                 buildTransaction(
                     owner,
-                    listOf(
-                        instructionBuilder.buildAckAwake(owner = owner, alarmPda = alarmPda),
-                        instructionBuilder.buildClaim(owner = owner, alarmPda = alarmPda),
-                    ),
+                    instructionBuilder.buildAckAndClaim(signer = owner, alarmPda = alarmPda, owner = owner),
                 )
+            }
+
+        /**
+         * Build ack_and_claim signed by this device's key, which is the only signer and
+         * pays the fee — no wallet involved. Returns the signed transaction.
+         */
+        suspend fun buildDeviceSignedAckAndClaim(
+            device: Keypair,
+            alarmPda: PublicKey,
+            owner: PublicKey,
+        ): ByteArray =
+            withContext(Dispatchers.IO) {
+                val instruction = instructionBuilder.buildAckAndClaim(signer = device.publicKey, alarmPda = alarmPda, owner = owner)
+                val unsigned = buildTransaction(device.publicKey, listOf(instruction), DEVICE_COMPUTE_UNIT_LIMIT)
+                signAsOnlySigner(unsigned, device)
             }
 
         /**
@@ -341,6 +367,7 @@ class TransactionBuilder
         private suspend fun buildTransaction(
             feePayer: PublicKey,
             programInstructions: List<SolarmaInstruction>,
+            computeUnitLimit: Int = COMPUTE_UNIT_LIMIT,
         ): ByteArray {
             // Priority fee from recent fees on the accounts this tx write-locks
             val writable =
@@ -361,7 +388,7 @@ class TransactionBuilder
             // Prepend compute budget instructions
             val allInstructions =
                 listOf(
-                    buildSetComputeUnitLimitIx(COMPUTE_UNIT_LIMIT),
+                    buildSetComputeUnitLimitIx(computeUnitLimit),
                     buildSetComputeUnitPriceIx(unitPrice),
                 ) + programInstructions
             val instruction = programInstructions.last()
@@ -391,6 +418,19 @@ class TransactionBuilder
             Log.i(TAG, "Final TX size: ${tx.size} bytes (${allInstructions.size} instructions)")
             Log.d(TAG, "Final TX hex: ${tx.joinToString("") { "%02x".format(it) }}")
             return tx
+        }
+
+        /**
+         * Fill the single signature slot of an unsigned transaction
+         * (`[1][64 zero bytes][message]`) with [signer]'s signature over the message.
+         */
+        internal fun signAsOnlySigner(
+            unsignedTransaction: ByteArray,
+            signer: Keypair,
+        ): ByteArray {
+            require(unsignedTransaction[0].toInt() == 1) { "Expected exactly one signature slot" }
+            val message = unsignedTransaction.copyOfRange(65, unsignedTransaction.size)
+            return byteArrayOf(1) + signer.sign(message) + message
         }
 
         /**

@@ -190,7 +190,18 @@ class ErrorClassifierTest {
     fun `newest error codes map to the right names`() {
         assertEquals("DeadlineTooFar", ErrorClassifier.solarmaErrorName(6017))
         assertEquals("InvalidPenaltyDestination", ErrorClassifier.solarmaErrorName(6018))
-        assertNull(ErrorClassifier.solarmaErrorName(6019))
+        assertEquals("ProgramPaused", ErrorClassifier.solarmaErrorName(6019))
+        assertEquals("DepositTooLarge", ErrorClassifier.solarmaErrorName(6020))
+        assertEquals("Unauthorized", ErrorClassifier.solarmaErrorName(6021))
+        assertNull(ErrorClassifier.solarmaErrorName(6022))
+    }
+
+    @Test
+    fun `actionable program errors get a user message`() {
+        // 6020 = DepositTooLarge
+        assertTrue(ErrorClassifier.userMessage("custom program error: 0x1784")!!.contains("maximum"))
+        assertTrue(ErrorClassifier.userMessage("ProgramPaused")!!.contains("not accepting"))
+        assertNull(ErrorClassifier.userMessage("timeout after 30000ms"))
     }
 
     @Test

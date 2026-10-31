@@ -37,6 +37,7 @@ class TransactionProcessor
         private val rpcClient: SolanaRpcClient,
         private val alarmDao: AlarmDao,
         private val statsDao: StatsDao,
+        private val deviceKeyStore: DeviceKeyStore,
     ) {
         companion object {
             private const val TAG = "Solarma.TxProcessor"
@@ -307,10 +308,6 @@ class TransactionProcessor
                         // The owner acknowledged after all: the deposit goes back, not to the penalty.
                         !created -> claimOrSweep()
                         nowSec < onchain.deadlineUnix -> Action.Wait("Deadline not passed")
-                        onchain.penaltyRoute == PenaltyRoute.BUDDY.code.toInt() &&
-                            callerAddress != onchain.penaltyDestination &&
-                            nowSec < onchain.deadlineUnix + OnchainParameters.BUDDY_ONLY_SECONDS ->
-                            Action.Wait("Buddy-only slash window")
                         else -> Action.Slash
                     }
                 TYPE_EMERGENCY_REFUND ->
@@ -352,6 +349,8 @@ class TransactionProcessor
                 depositLamports = alarm.depositLamports,
                 penaltyRoute = route,
                 buddyAddress = buddyAddress?.let { PublicKey(it) },
+                // Reuse an existing device key; funding it is left to the interactive create flow
+                ackAuthority = deviceKeyStore.existing()?.publicKey,
             )
         }
 
@@ -470,28 +469,7 @@ class TransactionProcessor
             Log.i(TAG, "Transaction ${tx.id} (${tx.type}) confirmed")
         }
 
-        /**
-         * Local bookkeeping once the on-chain alarm is resolved. One-time alarms are
-         * removed (they are already disabled after ringing); repeating alarms keep
-         * ringing but lose their (now settled) deposit.
-         */
-        private suspend fun resolveLocalAlarm(alarm: AlarmEntity) {
-            if (alarm.repeatDays == 0) {
-                alarmDao.deleteById(alarm.id)
-            } else {
-                alarmDao.update(
-                    alarm.copy(
-                        hasDeposit = false,
-                        depositAmount = 0.0,
-                        depositLamports = 0,
-                        onchainPubkey = null,
-                        onchainAlarmId = null,
-                        onchainDeadline = null,
-                        snoozeCount = 0,
-                    ),
-                )
-            }
-        }
+        private suspend fun resolveLocalAlarm(alarm: AlarmEntity) = alarmDao.resolveDeposit(alarm)
 
         private suspend fun handleError(
             tx: PendingTransaction,

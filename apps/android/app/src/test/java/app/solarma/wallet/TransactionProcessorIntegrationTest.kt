@@ -125,6 +125,7 @@ class TransactionProcessorIntegrationTest {
                 rpcClient = rpcClient,
                 alarmDao = alarmDao,
                 statsDao = statsDao,
+                deviceKeyStore = mock(),
             )
     }
 

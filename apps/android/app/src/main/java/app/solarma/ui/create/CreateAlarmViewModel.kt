@@ -10,6 +10,7 @@ import app.solarma.alarm.AlarmRepository
 import app.solarma.alarm.AlarmTimeCalculator
 import app.solarma.data.local.AlarmEntity
 import app.solarma.ui.settings.dataStore
+import app.solarma.wallet.ErrorClassifier
 import app.solarma.wallet.OnchainAlarmService
 import app.solarma.wallet.PenaltyRoute
 import app.solarma.wallet.PendingTransaction
@@ -271,7 +272,8 @@ class CreateAlarmViewModel
                             } else {
                                 // Reset deposit status since transaction wasn't sent
                                 alarmRepository.updateDepositStatus(alarm.id, hasDeposit = false)
-                                _saveState.value = SaveState.SigningFailed(alarm.id, e.message ?: "Transaction failed")
+                                val message = ErrorClassifier.userMessage(e.message) ?: e.message ?: "Transaction failed"
+                                _saveState.value = SaveState.SigningFailed(alarm.id, message)
                             }
                         },
                     )

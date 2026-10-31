@@ -123,6 +123,10 @@ Keypair программы нужен только для первого деп�
 | Дедлайны (A-3, A-7) | Локально хранится on-chain дедлайн (БД v7). Snooze не будит позже чем за 5 минут до дедлайна, а у самого дедлайна snooze запрещён. После перезагрузки в окне grace будильник звонит, а не считается проваленным. Slash-воркер и экран деталей считают от on-chain дедлайна. |
 | Депозиты-«сироты» (A-5) | Если подписанная транзакция могла уйти, создание никогда не считается неудачным: оно встаёт в очередь на подтверждение. Синхронизация идёт через импорт репозитория: правильный остаток, адрес штрафа, планирование будильника. Депозиты, закрытые на другом устройстве, снимаются локально. |
 | Кошелёк и комиссия (A-9) | Транзакция собирается внутри сессии кошелька (свежий blockhash). Подпись отклоняется, если кошелёк авторизовал другой аккаунт. Priority fee берётся из `getRecentPrioritizationFees` в пределах 10 000…2 000 000 µL/CU. |
+| Ключ устройства для подтверждения | При создании будильника приложение назначает ключ этого устройства `ack_authority`. После wake proof фоновая задача сама подписывает новую инструкцию `ack_and_claim` и платит комиссию, без кошелька и прямо с экрана блокировки. Деньги и рента могут уйти только владельцу, поэтому утечка ключа ничего не даёт. Ключ хранится зашифрованным ключом Android Keystore и пополняется на комиссии вместе с созданием будильника (0,002 SOL, когда баланс мал). Если ключ не может (старый будильник, нет баланса), открывается обычный путь через кошелёк. |
+| Пауза и лимит в контракте | `Config` PDA: `paused` и `max_deposit_lamports`, admin (Squads). Создать его может только upgrade authority, поэтому перехватить его первым вызовом нельзя. Скрипт `scripts/solarma_config.cjs`. |
+| Окно buddy-only убрано | Деньги и так всегда уходят buddy, окно только задерживало slash. |
+| WorkManager + Hilt | Приложение не настраивало `HiltWorkerFactory`, поэтому все фоновые задачи (восстановление после перезагрузки, отложенный slash, напоминания) не могли создаться. Исправлено. |
 | Тесты | Матрица решений процессора, интеграционные сценарии процессора, коды ошибок, дедлайны и snooze, разбор полной транзакции с compute budget (поймал бы A-1). |
 
 **Как проверено:** CI на этой ветке (`workflow_dispatch`, run 41173036466, коммит `759efa2`) — все
@@ -206,6 +210,11 @@ solana program deploy <путь к verifiable .so> -u <приватный RPC> \
   -k ~/solarma-keys/deployer-mainnet.json \
   --program-id ~/solarma-keys/solarma_vault-mainnet.json \
   --with-compute-unit-price 50000 --max-sign-attempts 50
+# Пока upgrade authority ещё deployer: создать Config (admin = Squads, лимит депозита на бету).
+# Без этого шага create_alarm не работает.
+(cd programs/solarma_vault && npm ci)
+node scripts/solarma_config.cjs init --rpc <приватный RPC> \
+  --keypair ~/solarma-keys/deployer-mainnet.json --admin <SQUADS_VAULT> --max-sol 0.5
 solana program set-upgrade-authority <MAINNET_ID> \
   --new-upgrade-authority <SQUADS_VAULT> --skip-new-upgrade-authority-signer-check
 solana program show <MAINNET_ID>          # authority = Squads
@@ -213,6 +222,11 @@ solana-verify verify-from-repo -u mainnet-beta --program-id <MAINNET_ID> \
   https://github.com/sapirl7/solarma --library-name solarma_vault --mount-path programs
 ```
 Путь к `.so` бери из вывода `anchor build --verifiable`. Флаги CLI сверь со своей версией Agave.
+
+**Пауза и лимит после запуска.** `node scripts/solarma_config.cjs print-update --rpc <RPC> --admin <SQUADS_VAULT>
+--paused true --max-sol 0.5` печатает инструкцию `update_config`. Её подписывают участники multisig
+в конструкторе транзакций Squads. Пауза останавливает только создание новых будильников: уже созданные
+можно вернуть, отменить или slash-нуть. Текущее состояние: `solarma_config.cjs show --rpc <RPC>`.
 
 ### Этап 6. Релиз приложения
 ```bash

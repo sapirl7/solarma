@@ -23,6 +23,7 @@ class OnchainAlarmService
         private val walletManager: WalletManager,
         private val transactionBuilder: TransactionBuilder,
         private val rpcClient: SolanaRpcClient,
+        private val deviceKeyStore: DeviceKeyStore,
     ) {
         companion object {
             private const val TAG = "Solarma.OnchainService"
@@ -106,6 +107,22 @@ class OnchainAlarmService
                     val alarmPda = transactionBuilder.instructionBuilder.deriveAlarmPda(ownerPubkey, alarmId).address.toBase58()
                     pda = alarmPda
 
+                    // This device's key may then return the deposit without the wallet; top it
+                    // up for fees in the same transaction when it runs low.
+                    val device =
+                        try {
+                            deviceKeyStore.getOrCreate()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Device key unavailable; alarm will need the wallet to claim", e)
+                            null
+                        }
+                    val topUp =
+                        device?.let { key ->
+                            rpcClient.getBalance(key.publicKey.toBase58()).getOrNull()?.let { balance ->
+                                if (DeviceKeyStore.needsTopUp(balance)) DeviceKeyStore.TOP_UP_LAMPORTS else 0L
+                            }
+                        } ?: 0L
+
                     // Build inside the wallet session (fresh blockhash), then sign
                     val signedTx =
                         walletManager.signTransaction(activityResultSender, ownerAddress) {
@@ -117,6 +134,8 @@ class OnchainAlarmService
                                 depositLamports = depositLamports,
                                 penaltyRoute = penaltyRoute,
                                 buddyAddress = buddyPubkey,
+                                ackAuthority = device?.publicKey,
+                                ackAuthorityTopUpLamports = topUp,
                             )
                         }.getOrElse { e ->
                             // Not signed: nothing was sent

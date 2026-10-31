@@ -79,8 +79,9 @@ class SolarmaInstructionBuilderTest {
             )
 
         // Data should be longer when destination is included
-        // 8 (discriminator) + 8 (alarmId) + 8 (time) + 8 (deadline) + 8 (deposit) + 1 (route) + 1 (Some) + 32 (pubkey)
-        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 32, instruction.data.size)
+        // 8 (discriminator) + 8 (alarmId) + 8 (time) + 8 (deadline) + 8 (deposit) + 1 (route)
+        // + 1 (Some) + 32 (destination) + 1 (ack_authority None)
+        assertEquals(8 + 8 + 8 + 8 + 8 + 1 + 1 + 32 + 1, instruction.data.size)
     }
 
     @Test

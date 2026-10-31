@@ -48,6 +48,12 @@ class TransactionSnapshotTest {
                             } else {
                                 PublicKey(inputs.getString("penaltyDestination"))
                             }
+                        val ackAuthority =
+                            if (!inputs.has("ackAuthority") || inputs.isNull("ackAuthority")) {
+                                null
+                            } else {
+                                PublicKey(inputs.getString("ackAuthority"))
+                            }
 
                         val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
                         val vault = instructionBuilder.deriveVaultPda(pda.address)
@@ -61,8 +67,21 @@ class TransactionSnapshotTest {
                                 depositLamports = depositLamports,
                                 penaltyRoute = penaltyRoute,
                                 penaltyDestination = penaltyDestination,
+                                ackAuthority = ackAuthority,
                             )
                         Quad(owner, ix, pda.address, vault.address)
+                    }
+
+                    "ack_and_claim" -> {
+                        val owner = PublicKey(inputs.getString("owner"))
+                        val signer = PublicKey(inputs.getString("signer"))
+                        val alarmId = inputs.getLong("alarmId")
+
+                        val pda = instructionBuilder.deriveAlarmPda(owner, alarmId)
+                        val vault = instructionBuilder.deriveVaultPda(pda.address)
+
+                        val ix = instructionBuilder.buildAckAndClaim(signer = signer, alarmPda = pda.address, owner = owner)
+                        Quad(signer, ix, pda.address, vault.address)
                     }
 
                     "ack_awake" -> {

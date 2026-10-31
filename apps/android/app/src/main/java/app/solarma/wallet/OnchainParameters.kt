@@ -12,9 +12,6 @@ object OnchainParameters {
     /** Seconds after the deadline during which an acknowledged alarm can still be claimed (CLAIM_GRACE_SECONDS). */
     const val CLAIM_GRACE_SECONDS = 120L
 
-    /** Seconds after the deadline during which only the buddy may slash a Buddy-route alarm (BUDDY_ONLY_SECONDS). */
-    const val BUDDY_ONLY_SECONDS = 120L
-
     /** Seconds each snooze adds to alarm_time and deadline (DEFAULT_SNOOZE_EXTENSION_SECONDS). */
     const val SNOOZE_EXTENSION_SECONDS = 300L
 
